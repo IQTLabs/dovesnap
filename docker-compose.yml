@@ -1,16 +1,22 @@
-plugin:
-  image: gophernet/ovs-plugin
-  volumes:
-    - /run/docker/plugins:/run/docker/plugins
-    - /var/run/docker.sock:/var/run/docker.sock
-  net: host
-  stdin_open: true
-  tty: true
-  privileged: true
-  command: -d
+version: '3.7'
+services:
+  plugin:
+    image: cglewis/dovesnap
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - /run/docker/plugins:/run/docker/plugins
+      - /var/run/docker.sock:/var/run/docker.sock
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    command: -d
 
-ovs:
-  image: socketplane/openvswitch:2.3.2
-  cap_add: 
-    - NET_ADMIN
-  net: host
+  ovs:
+    image: openvswitch:2.12.0
+    privileged: true
+    network_mode: host
+    cap_add:
+      - NET_ADMIN

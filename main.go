@@ -6,11 +6,11 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/docker/go-plugins-helpers/network"
-	"github.com/gopher-net/docker-ovs-plugin/ovs"
+	"github.com/cglewis/dovesnap/ovs"
 )
 
 const (
-	version = "0.3"
+	version = "0.1.0"
 )
 
 func main() {
@@ -20,8 +20,8 @@ func main() {
 		Usage: "enable debugging",
 	}
 	app := cli.NewApp()
-	app.Name = "don"
-	app.Usage = "Docker Open vSwitch Networking"
+	app.Name = "dovesnap"
+	app.Usage = "Docker Open vSwitch Network Plugin"
 	app.Version = version
 	app.Flags = []cli.Flag{
 		flagDebug,

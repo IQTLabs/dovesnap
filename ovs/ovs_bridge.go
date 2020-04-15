@@ -141,7 +141,7 @@ func (ovsdber *ovsdber) createOvsdbBridge(bridgeName string) error {
 	reply, _ := ovsdber.ovsdb.Transact("Open_vSwitch", operations...)
 
 	if len(reply) < len(operations) {
-		return errors.New("Number of Replies should be atleast equal to number of Operations")
+		return errors.New("Number of Replies should be at least equal to number of Operations")
 	}
 	for i, o := range reply {
 		if o.Error != "" && i < len(operations) {

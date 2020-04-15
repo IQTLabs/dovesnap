@@ -119,9 +119,9 @@ func (d *Driver) CreateEndpoint(r *networkplugin.CreateEndpointRequest) (*networ
 	log.Debugf("Create endpoint request: %+v", r)
 	localVethPair := vethPair(truncateID(r.EndpointID))
 	log.Debugf("Create vethPair")
-    	res := &networkplugin.CreateEndpointResponse{Interface: &networkplugin.EndpointInterface{MacAddress: localVethPair.Attrs().HardwareAddr.String()}}
-    	log.Debugf("Attached veth5 %+v," ,r.Interface)
-    	return res,nil
+	res := &networkplugin.CreateEndpointResponse{Interface: &networkplugin.EndpointInterface{MacAddress: localVethPair.Attrs().HardwareAddr.String()}}
+	log.Debugf("Attached veth5 %+v," ,r.Interface)
+	return res,nil
 }
 func (d *Driver) GetCapabilities () (*networkplugin.CapabilitiesResponse,error) {
         log.Debugf("Get capabilities request")
@@ -232,12 +232,12 @@ func NewDriver() (*Driver, error) {
 	var ovsdb *libovsdb.OvsdbClient
 	retries := 3
 	for i := 0; i < retries; i++ {
-		//ovsdb, err = libovsdb.Connect(localhost, ovsdbPort)
-		ovsdb, err = libovsdb.ConnectWithUnixSocket("/var/run/openvswitch/db.sock")
+		ovsdb, err = libovsdb.Connect(localhost, ovsdbPort)
+		//ovsdb, err = libovsdb.ConnectWithUnixSocket("/var/run/openvswitch/db.sock")
 		if err == nil {
 			break
 		}
-		log.Errorf("could not connect to openvswitch : %s. Retrying in 5 seconds", err)
+		log.Errorf("could not connect to openvswitch on port [ %d ]: %s. Retrying in 5 seconds", ovsdbPort, err)
 		time.Sleep(5 * time.Second)
 	}
 
@@ -384,10 +384,10 @@ func getBindInterface(r *networkplugin.CreateNetworkRequest) (string, error) {
 }
 func getBridgeNamefromresource(r *dockerclient.NetworkResource) (string, error) {
 	bridgeName := bridgePrefix + truncateID(r.ID)
-	if r.Options != nil {
-		if name, ok := r.Options[bridgeNameOption]; ok {
-			bridgeName = name
-		}
-	}
+	//if r.Options != nil {
+	//	if name, ok := r.Options[bridgeNameOption]; ok {
+	//		bridgeName = name
+	//	}
+	//}
 	return bridgeName, nil
 }
