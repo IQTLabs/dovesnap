@@ -10,39 +10,18 @@ The quickstart instructions describe how to start the plugin in **nat mode**. Fl
 **2.** You need to `modprobe openvswitch` on the machine where the Docker Daemon is located
 
 ```
-$ docker-machine ssh default "sudo modprobe openvswitch"
+$ sudo modprobe openvswitch
 ```
 
-**3.** Create the following `docker-compose.yml` file
+**3.** `docker-compose up -d`
 
-```yaml
-plugin:
-  image: gophernet/ovs-plugin
-  volumes:
-    - /run/docker/plugins:/run/docker/plugins
-    - /var/run/docker.sock:/var/run/docker.sock
-  net: host
-  stdin_open: true
-  tty: true
-  privileged: true
-  command: -d
-
-ovs:
-  image: socketplane/openvswitch:2.3.2
-  cap_add:
-    - NET_ADMIN
-  net: host
-```
-
-**4.** `docker-compose up -d`
-
-**5.** Now you are ready to create a new network
+**4.** Now you are ready to create a new network
 
 ```
 $ docker network create -d ovs mynet
 ```
 
-**6.** Test it out!
+**5.** Test it out!
 
 ```
 $ docker run -itd --net=mynet --name=web nginx
