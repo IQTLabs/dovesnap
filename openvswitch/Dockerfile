@@ -1,5 +1,5 @@
 FROM debian:buster-slim
-ENV OVS_VERSION 2.12.0
+ENV OVS_VERSION 2.13.0
 ENV SUPERVISOR_STDOUT_VERSION 0.1.1
 RUN apt-get update && apt-get install -y python3-pip python3 python python-setuptools make autoconf wget gcc supervisor
 # Configure supervisord
