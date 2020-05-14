@@ -28,7 +28,7 @@ const (
 	modeFlat = "flat"
 
 	defaultMTU  = 1500
-	defaultMode = modeNAT
+	defaultMode = modeFlat
 )
 
 var (
