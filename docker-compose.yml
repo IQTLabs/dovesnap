@@ -1,7 +1,6 @@
 version: '3.7'
 services:
   plugin:
-    container_name: dovesnap
     image: cglewis/dovesnap
     build:
       context: .
@@ -16,7 +15,6 @@ services:
     command: -d
 
   ovs:
-    container_name: ovs
     image: openvswitch:2.13.0
     build:
       context: openvswitch
