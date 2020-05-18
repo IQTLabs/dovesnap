@@ -3,6 +3,7 @@ package ovs
 import (
 	"errors"
 	"fmt"
+	"os/exec"
 	"reflect"
 	"time"
 
@@ -24,6 +25,19 @@ var (
 	ovsdbCache   map[string]map[string]libovsdb.Row
 	contextCache map[string]string
 )
+
+func VsCtl(args ...string) (error) {
+        ovsvsctlPath := "/usr/local/bin/ovs-vsctl"
+        dbStr := fmt.Sprintf("--db=tcp:%s:%d", localhost, ovsdbPort)
+        all := append([]string{dbStr}, args...)
+        output, err := exec.Command(ovsvsctlPath, all...).CombinedOutput()
+        if err != nil {
+                log.Debugf("FAILED: %s, %v, %s", ovsvsctlPath, all, output)
+        } else {
+                log.Debugf("OK: %s, %v", ovsvsctlPath, all)
+        }
+        return err
+}
 
 type ovsdber struct {
 	ovsdb *libovsdb.OvsdbClient
@@ -128,7 +142,7 @@ func (ovsdber *ovsdber) monitorBridges() {
 							oldRow := row.Old
 							if _, ok := oldRow.Fields["name"]; ok {
 								name := oldRow.Fields["name"].(string)
-								ovsdber.createOvsdbBridge(name)
+								ovsdber.addBridge(name)
 							}
 						}
 					}
