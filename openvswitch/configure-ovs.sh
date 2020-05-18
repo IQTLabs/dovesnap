@@ -2,8 +2,13 @@
 ovs_version=$(ovs-vsctl -V | grep ovs-vsctl | awk '{print $4}')
 ovs_db_version=$(ovsdb-tool schema-version /usr/local/share/openvswitch/vswitch.ovsschema)
 
+while ! ovs-vsctl show ; do
+	echo waiting for OVS
+	sleep 1
+done
+
 # begin configuring
-ovs-vsctl -- init
+ovs-vsctl --no-wait -- init
 ovs-vsctl --no-wait -- set Open_vSwitch . db-version="${ovs_db_version}"
 ovs-vsctl --no-wait -- set Open_vSwitch . ovs-version="${ovs_version}"
 ovs-vsctl --no-wait -- set Open_vSwitch . system-type="docker-ovs"
