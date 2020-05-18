@@ -1,6 +1,6 @@
 #!/bin/bash
 
 # TODO handle when more than one?
-BR_NAME=$(ovs-vsctl list-br)
+BR_NAME=$(ovs-vsctl --db=tcp:127.0.0.1:6640 list-br)
 
-ovs-vsctl add-port $BR_NAME $1
+ovs-vsctl --db=tcp:127.0.0.1:6640 add-port $BR_NAME $1
