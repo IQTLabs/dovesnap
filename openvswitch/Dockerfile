@@ -21,7 +21,7 @@ RUN wget https://www.openvswitch.org/releases/openvswitch-$OVS_VERSION.tar.gz --
 	cp -r openvswitch/* / &&\
 	rm -r openvswitch &&\
 	rm openvswitch-$OVS_VERSION.tar.gz
-RUN mkdir -p /usr/local/var/run/openvswitch
+ADD configure-ovs.sh /usr/local/share/openvswitch/
 # Create the database
 RUN ovsdb-tool create /etc/openvswitch/conf.db /usr/local/share/openvswitch/vswitch.ovsschema
 ADD scripts /scripts
