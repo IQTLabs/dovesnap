@@ -1,10 +1,10 @@
 version: '3.7'
 services:
   plugin:
+    restart: always
     image: cyberreboot/dovesnap
     build:
       context: .
-      dockerfile: Dockerfile
     volumes:
       - /run/docker/plugins:/run/docker/plugins
       - /var/run/docker.sock:/var/run/docker.sock
@@ -15,6 +15,7 @@ services:
     command: -d
 
   ovs:
+    restart: always
     image: openvswitch:2.13.0
     build:
       context: openvswitch
