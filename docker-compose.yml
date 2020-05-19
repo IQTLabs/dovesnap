@@ -1,7 +1,7 @@
 version: '3.7'
 services:
   plugin:
-    image: cglewis/dovesnap
+    image: cyberreboot/dovesnap
     build:
       context: .
       dockerfile: Dockerfile
