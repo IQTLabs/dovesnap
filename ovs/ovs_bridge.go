@@ -2,7 +2,6 @@ package ovs
 
 import (
 	"fmt"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/libnetwork/iptables"
@@ -19,25 +18,25 @@ func (ovsdber *ovsdber) deleteBridge(bridgeName string) error {
 }
 
 //  setupBridge If bridge does not exist create it.
-func (d *Driver) initBridge(id string) error {
+func (d *Driver) initBridge(id string, controller string, dpid string) error {
 	bridgeName := d.networks[id].BridgeName
 	if err := d.ovsdber.addBridge(bridgeName); err != nil {
 		log.Errorf("error creating ovs bridge [ %s ] : [ %s ]", bridgeName, err)
 		return err
 	}
 
-	retries := 3
-	found := false
-	for i := 0; i < retries; i++ {
-		if found = validateIface(bridgeName); found {
-			break
+	if dpid != "" {
+		err := VsCtl("set", "bridge", bridgeName, fmt.Sprintf("other-config:datapath-id=%s", dpid))
+		if err != nil {
+			return err
 		}
-		log.Debugf("A link for the OVS bridge named [ %s ] not found, retrying in 2 seconds", bridgeName)
-		time.Sleep(2 * time.Second)
 	}
-	if found == false {
-		return fmt.Errorf("Could not find a link for the OVS bridge named %s", bridgeName)
 
+	if controller != "" {
+		err := VsCtl("set-controller", bridgeName, controller)
+		if err != nil {
+                        return err
+                }
 	}
 
 	bridgeMode := d.networks[id].Mode
@@ -99,5 +98,6 @@ func natOut(cidr string) error {
 			}
 		}
 	}
-	return nil
+	_, err := iptables.Raw("-P", "FORWARD", "ACCEPT")
+	return err
 }
