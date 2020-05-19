@@ -1,9 +1,9 @@
-docker-ovs-plugin
+dovesnap
 =================
 
 ### QuickStart Instructions
 
-The quickstart instructions describe how to start the plugin in **nat mode**. Flat mode is described in the `flat` mode section.
+The quickstart instructions describe how to start the plugin. There are two modes, **nat** and **flat** described in the following section. At the moment, flat mode is the default.
 
 **1.** Make sure you are using Docker 1.9 or later
 
@@ -13,7 +13,7 @@ The quickstart instructions describe how to start the plugin in **nat mode**. Fl
 $ sudo modprobe openvswitch
 ```
 
-**3.** `docker-compose up -d`
+**3.** `docker-compose up -d --build`
 
 **4.** Now you are ready to create a new network
 
@@ -29,7 +29,7 @@ $ docker run -itd --net=mynet --name=web nginx
 $ docker run -it --rm --net=mynet busybox wget -qO- http://web
 ```
 
-### Flat Mode
+### Modes
 
 There are two generic modes, `flat` and `nat`. The default mode is `flat`.
 
@@ -71,53 +71,6 @@ e0de2079-66f0-4279-a1c8-46ba0672426e
 
 **Flat Mode Note:** Hosts will only be able to ping one another unless you add an ethernet interface to the `docker-ovsbr0` bridge with something like `ovs-vsctl add-port <bridge_name> <port_name>`. NAT mode will masquerade around that issue. It is an inherent hastle of bridges that is unavoidable. This is a reason bridgeless implementation [gopher-net/ipvlan-docker-plugin](https://github.com/gopher-net/ipvlan-docker-plugin) and [gopher-net/macvlan-docker-plugin](https://github.com/gopher-net/macvlan-docker-plugin) can be attractive.
 
-### Additional Notes:
-
- - Add other flags as desired such as `--dns=8.8.8.8` for DNS etc.
- - To view the Open vSwitch configuration, use `ovs-vsctl show`.
- - To view the OVSDB tables, run `ovsdb-client dump`. All of the mentioned OVS utils are part of the standard binary installations with very well documented [man pages](http://openvswitch.org/support/dist-docs/).
- - The containers are brought up on a flat bridge. This means there is no NATing occurring. A layer 2 adjacency such as a VLAN or overlay tunnel is required for multi-host communications. If the traffic needs to be routed an external process to act as a gateway (on the TODO list so dig in if interested in multi-host or overlays).
- - Download a quick video demo [here](https://dl.dropboxusercontent.com/u/51927367/Docker-OVS-Plugin.mp4).
-
-### Hacking and Contributing
-
-Yes!! Please see issues for todos or add todos into [issues](https://github.com/gopher-net/docker-ovs-plugin/issues)! Only rule here is no jerks.
-
-Since this plugin uses netlink for L3 IP assignments, a Linux host that can build [vishvananda/netlink](https://github.com/vishvananda/netlink) library is required.
-
-1. Install [Go](https://golang.org/doc/install). OVS as listed above and a kernel >= 3.19.
-
-2. Install [godeps](https://github.com/tools/godep) by running `go get github.com/tools/godep`.
-
-3. Clone and start the OVS plugin:
-
-    ```
-    git clone https://github.com/gopher-net/docker-ovs-plugin.git
-    cd docker-ovs-plugin/plugin
-    # using godep restore will pull down the appropriate go dependencies
-    godep restore
-    go run main.go
-    # or using explicit configuration flags:
-    go run main.go -d --gateway=172.18.40.1 --bridge-subnet=172.18.40.0/24 -mode=nat
-    ```
-
-3. The rest is the same as the Quickstart Section.
-
- **Note:** If you are new to Go.
-
- - Go compile times are very fast due to linking being done statically. In order to link the libraries, Go looks for source code in the `~/go/src/` directory.
- - Typically you would clone the project to a directory like so `go/src/github.com/gopher-net/docker-ovs-plugin/`. Go knows where to look for the root of the go code, binaries and pkgs based on the `$GOPATH` shell ENV.
- - For example, you would clone to the path `/home/<username>/go/src/github.com/gopher-net/docker-ovs-plugin/` and put `export GOPATH=/home/<username>/go` in wherever you store your persistent ENVs in places like `~/.bashrc`, `~/.profile` or `~/.bash_profile` depending on the OS and system configuration.
-
-
-#### Trying it out
-
-If you want to try out some of your changes with your local docker install
-
-- `docker-compose -f dev.yml up -d`
-
-This will start Open vSwitch and the plugin running inside a container!
-
 ### Thanks
 
-Thanks to the guys at [Weave](http://weave.works) for writing their awesome [plugin](https://github.com/weaveworks/docker-plugin). We borrowed a lot of code from here to make this happen!
+Thanks to the folks who wrote the orginal [docker-ovs-plugin](https://github.com/gopher-net/docker-ovs-plugin) which is what this project was forked from.
