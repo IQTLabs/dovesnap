@@ -2,6 +2,7 @@ package ovs
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,15 +20,15 @@ const (
 	bridgePrefix     = "ovsbr-"
 	containerEthName = "eth"
 
-	mtuOption           = "net.gopher.ovs.bridge.mtu"
-	modeOption          = "net.gopher.ovs.bridge.mode"
-	bridgeNameOption    = "net.gopher.ovs.bridge.name"
-	bindInterfaceOption = "net.gopher.ovs.bridge.bind_interface"
+	mtuOption           = "ovs.bridge.mtu"
+	defaultMTU          = 1500
 
+	bridgeNameOption    = "ovs.bridge.name"
+	bindInterfaceOption = "ovs.bridge.bind_interface"
+
+	modeOption          = "ovs.bridge.mode"
 	modeNAT  = "nat"
 	modeFlat = "flat"
-
-	defaultMTU  = 1500
 	defaultMode = modeFlat
 )
 
@@ -54,6 +55,21 @@ type NetworkState struct {
 	Gateway           string
 	GatewayMask       string
 	FlatBindInterface string
+}
+
+func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) (string) {
+        if r.Options == nil {
+                return ""
+        }
+        optionsMap, have_options := r.Options["com.docker.network.generic"].(map[string]interface{})
+        if ! have_options {
+                return ""
+        }
+        optionValue, have_option := optionsMap[optionName].(string)
+        if ! have_option {
+                return ""
+        }
+        return optionValue
 }
 
 func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
@@ -185,7 +201,7 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 		return nil, err
 	}
 	bridgeName := d.networks[r.NetworkID].BridgeName
-	err = d.addOvsVethPort(bridgeName, localVethPair.Name, 0)
+	err = d.addInternalPort(bridgeName, localVethPair.Name, 0)
 	if err != nil {
 		log.Errorf("error attaching veth [ %s ] to bridge [ %s ]", localVethPair.Name, bridgeName)
 		return nil, err
@@ -305,9 +321,11 @@ func truncateID(id string) string {
 
 func getBridgeMTU(r *networkplugin.CreateNetworkRequest) (int, error) {
 	bridgeMTU := defaultMTU
-	if r.Options != nil {
-		if mtu, ok := r.Options[mtuOption].(int); ok {
-			bridgeMTU = mtu
+	mtu := getGenericOption(r, mtuOption)
+	if mtu != "" {
+		mtu_int, err := strconv.Atoi(mtu)
+		if err != nil {
+			bridgeMTU = mtu_int
 		}
 	}
 	return bridgeMTU, nil
@@ -315,23 +333,21 @@ func getBridgeMTU(r *networkplugin.CreateNetworkRequest) (int, error) {
 
 func getBridgeName(r *networkplugin.CreateNetworkRequest) (string, error) {
 	bridgeName := bridgePrefix + truncateID(r.NetworkID)
-	if r.Options != nil {
-		if name, ok := r.Options[bridgeNameOption].(string); ok {
-			bridgeName = name
-		}
+	name := getGenericOption(r, bridgeNameOption)
+	if name != "" {
+		bridgeName = name
 	}
 	return bridgeName, nil
 }
 
 func getBridgeMode(r *networkplugin.CreateNetworkRequest) (string, error) {
 	bridgeMode := defaultMode
-	if r.Options != nil {
-		if mode, ok := r.Options[modeOption].(string); ok {
-			if _, isValid := validModes[mode]; !isValid {
-				return "", fmt.Errorf("%s is not a valid mode", mode)
-			}
-			bridgeMode = mode
+	mode := getGenericOption(r, modeOption)
+	if mode != "" {
+		if _, isValid := validModes[mode]; !isValid {
+			return "", fmt.Errorf("%s is not a valid mode", mode)
 		}
+		bridgeMode = mode
 	}
 	return bridgeMode, nil
 }
