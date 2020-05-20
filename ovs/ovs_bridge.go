@@ -19,7 +19,7 @@ func (ovsdber *ovsdber) deleteBridge(bridgeName string) error {
 }
 
 //  setupBridge If bridge does not exist create it.
-func (d *Driver) initBridge(id string, controller string, dpid string) error {
+func (d *Driver) initBridge(id string, controller string, dpid string, add_ports string) error {
 	bridgeName := d.networks[id].BridgeName
 	if err := d.ovsdber.addBridge(bridgeName); err != nil {
 		log.Errorf("error creating ovs bridge [ %s ] : [ %s ]", bridgeName, err)
@@ -35,6 +35,19 @@ func (d *Driver) initBridge(id string, controller string, dpid string) error {
 		ovsConfigCmds = append(ovsConfigCmds, []string{"set", "bridge",  bridgeName, "fail-mode=secure"})
 		controllers := append([]string{"set-controller", bridgeName}, strings.Split(controller, ",")...)
 		ovsConfigCmds = append(ovsConfigCmds, controllers)
+	}
+
+	if add_ports != "" {
+		for _, add_port_number_str := range strings.Split(add_ports, ",") {
+			add_port_number := strings.Split(add_port_number_str, "/")
+			add_port := add_port_number[0]
+			if len(add_port_number) == 2 {
+				number := add_port_number[1]
+				ovsConfigCmds = append(ovsConfigCmds, []string{"add-port", bridgeName, add_port, "--", "set", "Interface", add_port, fmt.Sprintf("ofport_request=%s", number)})
+			} else {
+				ovsConfigCmds = append(ovsConfigCmds, []string{"add-port", bridgeName, add_port})
+			}
+		}
 	}
 
 	for _, cmd := range ovsConfigCmds {
