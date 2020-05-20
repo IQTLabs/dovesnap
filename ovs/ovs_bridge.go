@@ -53,6 +53,8 @@ func (d *Driver) initBridge(id string, controller string, dpid string, add_ports
 	for _, cmd := range ovsConfigCmds {
 		err := VsCtl(cmd...)
 		if err != nil {
+			// At least one bridge config failed, so delete the bridge.
+			VsCtl("del-br", bridgeName)
 			return err
 		}
 	}
