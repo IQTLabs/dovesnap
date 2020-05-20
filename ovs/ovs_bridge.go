@@ -24,19 +24,22 @@ func (d *Driver) initBridge(id string, controller string, dpid string) error {
 		log.Errorf("error creating ovs bridge [ %s ] : [ %s ]", bridgeName, err)
 		return err
 	}
+        var ovsConfigCmds [][]string
 
 	if dpid != "" {
-		err := VsCtl("set", "bridge", bridgeName, fmt.Sprintf("other-config:datapath-id=%s", dpid))
-		if err != nil {
-			return err
-		}
+		ovsConfigCmds = append(ovsConfigCmds, []string{"set", "bridge", bridgeName, fmt.Sprintf("other-config:datapath-id=%s", dpid)})
 	}
 
 	if controller != "" {
-		err := VsCtl("set-controller", bridgeName, controller)
+		ovsConfigCmds = append(ovsConfigCmds, []string{"set", "bridge",  bridgeName, "fail-mode=secure"})
+		ovsConfigCmds = append(ovsConfigCmds, []string{"set-controller", bridgeName, controller})
+	}
+
+	for _, cmd := range ovsConfigCmds {
+		err := VsCtl(cmd...)
 		if err != nil {
-                        return err
-                }
+			return err
+		}
 	}
 
 	bridgeMode := d.networks[id].Mode
