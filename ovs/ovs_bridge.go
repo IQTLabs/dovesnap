@@ -2,6 +2,7 @@ package ovs
 
 import (
 	"fmt"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/libnetwork/iptables"
@@ -32,7 +33,8 @@ func (d *Driver) initBridge(id string, controller string, dpid string) error {
 
 	if controller != "" {
 		ovsConfigCmds = append(ovsConfigCmds, []string{"set", "bridge",  bridgeName, "fail-mode=secure"})
-		ovsConfigCmds = append(ovsConfigCmds, []string{"set-controller", bridgeName, controller})
+		controllers := append([]string{"set-controller", bridgeName}, strings.Split(controller, ",")...)
+		ovsConfigCmds = append(ovsConfigCmds, controllers)
 	}
 
 	for _, cmd := range ovsConfigCmds {
