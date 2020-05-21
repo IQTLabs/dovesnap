@@ -38,7 +38,7 @@ There are two generic modes, `flat` and `nat`. The default mode is `flat`.
 - flat is simply an OVS bridge with the container link attached to it. An example would be a Docker host is plugged into a data center port that has a subnet of `192.168.1.0/24`. You would start the plugin like so:
 
 ```
-$ docker network create --gateway=192.168.1.1 --bridge-subnet=192.168.1.0/24 -d ovs mynet
+$ docker network create --gateway=192.168.1.1 --subnet=192.168.1.0/24 -d ovs mynet
 ```
 
 - Containers now start attached to an OVS bridge. It could be tagged or untagged but either way it is isolated and unable to communicate to anything outside of its bridge domain. In this case, you either add VXLAN tunnels to other bridges of the same bridge domain or add an `eth` interface to the bridge to allow access to the underlying network when traffic leaves the Docker host. To do so, you simply add the `eth` interface to the ovs bridge. Neither the bridge nor the eth interface need to have an IP address since traffic from the container is strictly L2. **Warning** if you are remoted into the physical host make sure you are not using an ethernet interface to attach to the bridge that is also your management interface since the eth interface no longer uses the IP address it had. The IP would need to be migrated to ovsbr-docker0 in this case. Allowing underlying network access to an OVS bridge can be done like so:
