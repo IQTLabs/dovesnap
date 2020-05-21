@@ -26,3 +26,4 @@ ADD configure-ovs.sh /usr/local/share/openvswitch/
 RUN ovsdb-tool create /etc/openvswitch/conf.db /usr/local/share/openvswitch/vswitch.ovsschema
 ADD scripts /scripts
 CMD ["/usr/bin/supervisord"]
+HEALTHCHECK --interval=30s --timeout=5s CMD ovs-vsctl show

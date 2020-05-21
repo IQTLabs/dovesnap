@@ -13,6 +13,8 @@ services:
     tty: true
     privileged: true
     command: -d
+    depends_on:
+      - ovs
 
   ovs:
     restart: always
