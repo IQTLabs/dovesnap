@@ -20,6 +20,8 @@ const (
 	bridgePrefix     = "ovsbr-"
 	containerEthName = "eth"
 
+	bridgeAddPorts      = "ovs.bridge.add_ports"
+
 	bridgeDpid          = "ovs.bridge.dpid"
 	bridgeController    = "ovs.bridge.controller"
 
@@ -113,6 +115,11 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
                 return err
         }
 
+	add_ports, err := getBridgeAddPorts(r)
+	if err != nil {
+		return err
+	}
+
 	ns := &NetworkState{
 		BridgeName:        bridgeName,
 		MTU:               mtu,
@@ -124,7 +131,7 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
 	d.networks[r.NetworkID] = ns
 
 	log.Debugf("Initializing bridge for network %s", r.NetworkID)
-	if err := d.initBridge(r.NetworkID, controller, dpid); err != nil {
+	if err := d.initBridge(r.NetworkID, controller, dpid, add_ports); err != nil {
 		delete(d.networks, r.NetworkID)
 		return err
 	}
@@ -371,6 +378,10 @@ func getBridgeController(r *networkplugin.CreateNetworkRequest) (string, error) 
 
 func getBridgeDpid(r *networkplugin.CreateNetworkRequest) (string, error) {
         return getGenericOption(r, bridgeDpid), nil
+}
+
+func getBridgeAddPorts(r *networkplugin.CreateNetworkRequest) (string, error) {
+        return getGenericOption(r, bridgeAddPorts), nil
 }
 
 func getGatewayIP(r *networkplugin.CreateNetworkRequest) (string, string, error) {
