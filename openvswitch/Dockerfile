@@ -27,3 +27,4 @@ RUN ovsdb-tool create /etc/openvswitch/conf.db /usr/local/share/openvswitch/vswi
 EXPOSE 6640
 ADD scripts /scripts
 CMD ["/usr/bin/supervisord"]
+HEALTHCHECK --interval=30s --timeout=5s CMD ovs-vsctl show
