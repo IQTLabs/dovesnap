@@ -24,6 +24,7 @@ RUN wget https://www.openvswitch.org/releases/openvswitch-$OVS_VERSION.tar.gz --
 ADD configure-ovs.sh /usr/local/share/openvswitch/
 # Create the database
 RUN ovsdb-tool create /etc/openvswitch/conf.db /usr/local/share/openvswitch/vswitch.ovsschema
+EXPOSE 6640
 ADD scripts /scripts
 CMD ["/usr/bin/supervisord"]
 HEALTHCHECK --interval=30s --timeout=5s CMD ovs-vsctl show
