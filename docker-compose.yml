@@ -8,6 +8,7 @@ services:
     volumes:
       - /run/docker/plugins:/run/docker/plugins
       - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/local/var/run/openvswitch:/usr/local/var/run/openvswitch
     network_mode: host
     stdin_open: true
     tty: true
@@ -21,6 +22,8 @@ services:
     image: openvswitch:2.13.0
     build:
       context: openvswitch
+    volumes:
+      - /usr/local/var/run/openvswitch:/usr/local/var/run/openvswitch
     privileged: true
     network_mode: host
     ports:
