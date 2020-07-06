@@ -13,6 +13,8 @@ services:
     tty: true
     privileged: true
     command: -d
+    depends_on:
+      - ovs
 
   ovs:
     restart: always
@@ -21,5 +23,7 @@ services:
       context: openvswitch
     privileged: true
     network_mode: host
+    ports:
+      - '6640:6640'
     cap_add:
       - NET_ADMIN
