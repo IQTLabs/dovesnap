@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -49,6 +50,8 @@ type Driver struct {
 	ovsdber
 	networks map[string]*NetworkState
 	OvsdbNotifier
+	updates uint
+	mutex sync.Mutex
 }
 
 // NetworkState is filled in at network creation time
@@ -60,6 +63,7 @@ type NetworkState struct {
 	Gateway           string
 	GatewayMask       string
 	FlatBindInterface string
+	OfPorts           map[string]uint
 }
 
 func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) (string) {
@@ -127,8 +131,12 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
 		Gateway:           gateway,
 		GatewayMask:       mask,
 		FlatBindInterface: bindInterface,
+		OfPorts:           make(map[string]uint),
 	}
+	d.mutex.Lock()
 	d.networks[r.NetworkID] = ns
+	d.updates++
+	d.mutex.Unlock()
 
 	log.Debugf("Initializing bridge for network %s", r.NetworkID)
 	if err := d.initBridge(r.NetworkID, controller, dpid, add_ports); err != nil {
@@ -147,7 +155,10 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 		log.Errorf("Deleting bridge %s failed: %s", bridgeName, err)
 		return err
 	}
+	d.mutex.Lock()
+	d.updates++
 	delete(d.networks, r.NetworkID)
+	d.mutex.Unlock()
 	return nil
 }
 
@@ -159,6 +170,7 @@ func (d *Driver) CreateEndpoint(r *networkplugin.CreateEndpointRequest) (*networ
 	log.Debugf("Attached veth5 %+v," ,r.Interface)
 	return res,nil
 }
+
 func (d *Driver) GetCapabilities () (*networkplugin.CapabilitiesResponse,error) {
         log.Debugf("Get capabilities request")
         res := &networkplugin.CapabilitiesResponse{
@@ -166,8 +178,9 @@ func (d *Driver) GetCapabilities () (*networkplugin.CapabilitiesResponse,error) 
         }
         return res,nil
 }
+
 func (d *Driver) ProgramExternalConnectivity (r *networkplugin.ProgramExternalConnectivityRequest) error {
-        log.Debugf("Program External Connectivity  request: %+v", r)
+        log.Debugf("Program external connectivity request: %+v", r)
 	return nil
 }
 
@@ -175,18 +188,22 @@ func (d *Driver) RevokeExternalConnectivity (r *networkplugin.RevokeExternalConn
         log.Debugf("Revoke external connectivity request: %+v", r)
         return nil
 }
+
 func (d *Driver) FreeNetwork (r *networkplugin.FreeNetworkRequest) error {
         log.Debugf("Free network request: %+v", r)
         return nil
 }
+
 func (d *Driver) DiscoverNew (r *networkplugin.DiscoveryNotification) error {
         log.Debugf("Discover new request: %+v", r)
         return nil
 }
+
 func (d *Driver) DiscoverDelete (r *networkplugin.DiscoveryNotification) error {
         log.Debugf("Discover delete request: %+v", r)
         return nil
 }
+
 func (d *Driver) DeleteEndpoint(r *networkplugin.DeleteEndpointRequest) error {
 	log.Debugf("Delete endpoint request: %+v", r)
 	return nil
@@ -199,6 +216,7 @@ func (d *Driver) AllocateNetwork(r *networkplugin.AllocateNetworkRequest) (*netw
         }
         return res,nil
 }
+
 func (d *Driver) EndpointInfo(r *networkplugin.InfoRequest) (*networkplugin.InfoResponse, error) {
 	res := &networkplugin.InfoResponse{
 		Value: make(map[string]string),
@@ -207,7 +225,6 @@ func (d *Driver) EndpointInfo(r *networkplugin.InfoRequest) (*networkplugin.Info
 }
 
 func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse, error) {
-	// create and attach local name to the bridge
 	log.Debugf("Join request: %+v", r)
 	localVethPair := vethPair(truncateID(r.EndpointID))
 	if err := netlink.LinkAdd(localVethPair); err != nil {
@@ -217,16 +234,20 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 	// Bring the veth pair up
 	err := netlink.LinkSetUp(localVethPair)
 	if err != nil {
-		log.Warnf("Error enabling  Veth local iface: [ %v ]", localVethPair)
+		log.Warnf("Error enabling veth local iface: [ %v ]", localVethPair)
 		return nil, err
 	}
 	bridgeName := d.networks[r.NetworkID].BridgeName
-	err = d.addInternalPort(bridgeName, localVethPair.Name, 0)
+	ofport, err := d.addInternalPort(bridgeName, localVethPair.Name, 0)
 	if err != nil {
 		log.Errorf("error attaching veth [ %s ] to bridge [ %s ]", localVethPair.Name, bridgeName)
 		return nil, err
 	}
-	log.Infof("Attached veth [ %s ] to bridge [ %s ]", localVethPair.Name, bridgeName)
+	d.mutex.Lock()
+	d.networks[r.NetworkID].OfPorts[r.EndpointID] = ofport
+	d.updates++
+	d.mutex.Unlock()
+	log.Infof("Attached veth [ %s ] to bridge [ %s ] ofport %d", localVethPair.Name, bridgeName, ofport)
 
 	// SrcName gets renamed to DstPrefix + ID on the container iface
 	res := &networkplugin.JoinResponse{
@@ -253,9 +274,41 @@ func (d *Driver) Leave(r *networkplugin.LeaveRequest) error {
 		log.Errorf("OVS port [ %s ] delete transaction failed on bridge [ %s ] due to: %s", portID, bridgeName, err)
 		return err
 	}
+	d.mutex.Lock()
+	delete(d.networks[r.NetworkID].OfPorts, r.EndpointID)
+	d.updates++
+	d.mutex.Unlock()
 	log.Infof("Deleted OVS port [ %s ] from bridge [ %s ]", portID, bridgeName)
 	log.Debugf("Leave %s:%s", r.NetworkID, r.EndpointID)
 	return nil
+}
+
+func consolidateDockerInfo(d *Driver) () {
+	var consolidated_updates uint = 0
+	for {
+		d.mutex.Lock()
+		updated := d.updates != consolidated_updates
+		consolidated_updates = d.updates
+		d.mutex.Unlock()
+                if (updated) {
+			netlist, _ := d.dockerer.client.ListNetworks("")
+			for _, net := range netlist {
+				if net.Driver != DriverName {
+					continue
+				}
+				netInspect, _ := d.dockerer.client.InspectNetwork(net.ID)
+				bridgeName, _ := getBridgeNamefromresource(netInspect)
+				for containerId, containerInfo := range netInspect.Containers {
+					containerInspect, _ := d.dockerer.client.InspectContainer(containerId)
+					d.mutex.Lock()
+					ofport := d.networks[net.ID].OfPorts[containerInfo.EndpointID]
+					d.mutex.Unlock()
+					log.Infof("%s (%s) is on %s ofport %d", containerId, containerInspect.Name, bridgeName, ofport)
+				}
+			}
+		}
+		time.Sleep(5 * time.Second)
+	}
 }
 
 func NewDriver() (*Driver, error) {
@@ -289,11 +342,14 @@ func NewDriver() (*Driver, error) {
 			ovsdb: ovsdb,
 		},
 		networks: make(map[string]*NetworkState),
+		updates: 0,
+		mutex: sync.Mutex{},
 	}
+	go consolidateDockerInfo(d)
 	//recover networks
 	netlist,err :=d.dockerer.client.ListNetworks("")
 	if err != nil {
-		return nil, fmt.Errorf("could not get  docker networks: %s", err)
+		return nil, fmt.Errorf("could not getdocker networks: %s", err)
 	}
 	for _, net := range  netlist{
 		if net.Driver  == DriverName{
@@ -307,6 +363,7 @@ func NewDriver() (*Driver, error) {
 			}
 			ns := &NetworkState{
 				BridgeName:        bridgeName,
+				OfPorts:	make(map[string]uint),
 			}
 			d.networks[net.ID] = ns
 			log.Debugf("exist network create by this driver:%v",netInspect.Name)
@@ -430,6 +487,7 @@ func getBindInterface(r *networkplugin.CreateNetworkRequest) (string, error) {
 	// As bind interface is optional and has no default, don't return an error
 	return "", nil
 }
+
 func getBridgeNamefromresource(r *dockerclient.NetworkResource) (string, error) {
 	bridgeName := bridgePrefix + truncateID(r.ID)
 	//if r.Options != nil {

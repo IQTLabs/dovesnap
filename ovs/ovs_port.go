@@ -1,7 +1,6 @@
 package ovs
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -34,34 +33,22 @@ func (ovsdber *ovsdber) lowestFreePortOnBridge(bridgeName string) (lowestFreePor
         return uint(intLowestFreePort), nil
 }
 
-func (ovsdber *ovsdber) createOvsInternalPort(prefix string, bridge string, tag uint) (port string, err error) {
-	// if you desire a longer hash add using generateRandomName(prefix, 5)
-	port = prefix
-	if ovsdber.ovsdb == nil {
-		err = errors.New("OVS not connected")
-		return
-	}
-
-	ovsdber.addInternalPort(bridge, port, tag)
-	return
-}
-
-func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag uint) error {
+func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag uint) (ofport uint, err error) {
 	lowestFreePort, err := ovsdber.lowestFreePortOnBridge(bridgeName)
 	if (err != nil) {
-		return err
+		return lowestFreePort, err
 	}
 	if (tag != 0) {
-		return VsCtl("add-port", bridgeName, portName, fmt.Sprintf("tag=%u", tag), "--", "set", "Interface", portName, fmt.Sprintf("ofport_request=%d", lowestFreePort))
+		return lowestFreePort, VsCtl("add-port", bridgeName, portName, fmt.Sprintf("tag=%u", tag), "--", "set", "Interface", portName, fmt.Sprintf("ofport_request=%d", lowestFreePort))
 	}
-	return VsCtl("add-port", bridgeName, portName, "--", "set", "Interface", portName, fmt.Sprintf("ofport_request=%d", lowestFreePort))
+	return lowestFreePort, VsCtl("add-port", bridgeName, portName, "--", "set", "Interface", portName, fmt.Sprintf("ofport_request=%d", lowestFreePort))
 }
 
 func (ovsdber *ovsdber) deletePort(bridgeName string, portName string) error {
 	return VsCtl("del-port", bridgeName, portName)
 }
 
-func (ovsdber *ovsdber) addVxlanPort(bridgeName string, portName string, peerAddress string) error {
+func (ovsdber *ovsdber) addVxlanPort(bridgeName string, portName string, peerAddress string) (err error) {
 	// http://docs.openvswitch.org/en/latest/faq/vxlan/
 	return VsCtl("add-port", bridgeName, portName, "--", "set", "interface", portName, "type=vxlan", fmt.Sprintf("options:remote_ip=%s", peerAddress))
 }
