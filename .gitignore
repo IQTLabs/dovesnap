@@ -26,3 +26,5 @@ _testmain.go
 *.prof
 .idea
 plugin
+
+.DS_Store

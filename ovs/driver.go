@@ -349,7 +349,7 @@ func NewDriver() (*Driver, error) {
 	//recover networks
 	netlist,err :=d.dockerer.client.ListNetworks("")
 	if err != nil {
-		return nil, fmt.Errorf("could not getdocker networks: %s", err)
+		return nil, fmt.Errorf("could not get docker networks: %s", err)
 	}
 	for _, net := range  netlist{
 		if net.Driver  == DriverName{
