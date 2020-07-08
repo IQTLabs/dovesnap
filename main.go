@@ -6,7 +6,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/docker/go-plugins-helpers/network"
-	"github.com/cyberreboot/dovesnap/ovs"
+	"ovs"
 )
 
 const (
