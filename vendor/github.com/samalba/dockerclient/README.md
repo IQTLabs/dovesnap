@@ -2,7 +2,8 @@ Docker client library in Go
 ===========================
 [![GoDoc](http://godoc.org/github.com/samalba/dockerclient?status.png)](http://godoc.org/github.com/samalba/dockerclient)
 
-Well maintained docker client library.
+No longer well-maintained docker client library. Docker's supported engine
+API client for go is [docker/engine-api](http://github.com/docker/engine-api).
 
 # How to use it?
 
@@ -63,7 +64,7 @@ func main() {
 		Cmd:   []string{"bash"},
 		AttachStdin: true,
 		Tty:   true}
-	containerId, err := docker.CreateContainer(containerConfig, "foobar")
+	containerId, err := docker.CreateContainer(containerConfig, "foobar", nil)
 	if err != nil {
 		log.Fatal(err)
 	}

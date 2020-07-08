@@ -88,8 +88,6 @@ type NotificationHandler interface {
 
 	// RFC 7047 section 4.1.11 Echo Notification
 	Echo([]interface{})
-
-	Disconnected(*OvsdbClient)
 }
 
 // RFC 7047 : Section 4.1.6 : Echo
@@ -176,9 +174,9 @@ func (ovs OvsdbClient) Transact(database string, operation ...Operation) ([]Oper
 	args := NewTransactArgs(database, operation...)
 	err := ovs.rpcClient.Call("transact", args, &reply)
 	if err != nil {
-		return nil, err
+		log.Fatal("transact failure", err)
 	}
-	return reply, nil
+	return reply, err
 }
 
 // Convenience method to monitor every table/column
@@ -233,14 +231,7 @@ func getTableUpdatesFromRawUnmarshal(raw map[string]map[string]RowUpdate) TableU
 }
 
 func clearConnection(c *rpc2.Client) {
-	if _, ok := connections[c]; ok {
-		for _, handler := range connections[c].handlers {
-			if handler != nil {
-				handler.Disconnected(connections[c])
-			}
-		}
-	}
-	delete(connections, c)
+	connections[c] = nil
 }
 
 func handleDisconnectNotification(c *rpc2.Client) {
