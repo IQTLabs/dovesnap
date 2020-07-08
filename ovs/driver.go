@@ -12,7 +12,6 @@ import (
 	networkplugin "github.com/docker/go-plugins-helpers/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/api/types"
-	"github.com/socketplane/libovsdb"
 	"github.com/vishvananda/netlink"
 )
 
@@ -319,28 +318,9 @@ func NewDriver() (*Driver, error) {
 		return nil, fmt.Errorf("could not connect to docker: %s", err)
 	}
 
-	// initiate the ovsdb manager port binding
-	var ovsdb *libovsdb.OvsdbClient
-	retries := 3
-	for i := 0; i < retries; i++ {
-		ovsdb, err = libovsdb.Connect(localhost, ovsdbPort)
-		//ovsdb, err = libovsdb.ConnectWithUnixSocket("/var/run/openvswitch/db.sock")
-		if err == nil {
-			break
-		}
-		log.Errorf("could not connect to openvswitch on port [ %d ]: %s. Retrying in 5 seconds", ovsdbPort, err)
-		time.Sleep(5 * time.Second)
-	}
-
-	if ovsdb == nil {
-		return nil, fmt.Errorf("could not connect to open vswitch")
-	}
-
 	d := &Driver{
 		dockerclient: docker,
-		ovsdber: ovsdber {
-			ovsdb: ovsdb,
-		},
+		ovsdber: ovsdber{},
 		networks: make(map[string]*NetworkState),
 		updates: 0,
 		mutex: sync.Mutex{},
