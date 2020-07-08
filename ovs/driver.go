@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -38,6 +37,7 @@ const (
 	modeFlat = "flat"
 	defaultMode = modeFlat
 	ovsStartupRetries   = 5
+	dockerRetries       = 3
 )
 
 var (
@@ -47,12 +47,23 @@ var (
 	}
 )
 
+type OFPortMap struct {
+	OFPort uint
+	NetworkID string
+	EndpointID string
+	Operation string
+}
+
+type OFPortContainer struct {
+	OFPort uint
+	ContainerInfo types.ContainerJSON
+}
+
 type Driver struct {
      dockerclient *client.Client
      ovsdber
      networks map[string]*NetworkState
-     updates uint
-     mutex sync.Mutex
+     ofportmapChan chan OFPortMap
 }
 
 // NetworkState is filled in at network creation time
@@ -64,7 +75,6 @@ type NetworkState struct {
 	Gateway           string
 	GatewayMask       string
 	FlatBindInterface string
-	OfPorts           map[string]uint
 }
 
 func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) (string) {
@@ -132,12 +142,8 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
 		Gateway:           gateway,
 		GatewayMask:       mask,
 		FlatBindInterface: bindInterface,
-		OfPorts:           make(map[string]uint),
 	}
-	d.mutex.Lock()
 	d.networks[r.NetworkID] = ns
-	d.updates++
-	d.mutex.Unlock()
 
 	log.Debugf("Initializing bridge for network %s", r.NetworkID)
 	if err := d.initBridge(r.NetworkID, controller, dpid, add_ports); err != nil {
@@ -156,10 +162,7 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 		log.Errorf("Deleting bridge %s failed: %s", bridgeName, err)
 		return err
 	}
-	d.mutex.Lock()
-	d.updates++
 	delete(d.networks, r.NetworkID)
-	d.mutex.Unlock()
 	return nil
 }
 
@@ -244,10 +247,6 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 		log.Errorf("error attaching veth [ %s ] to bridge [ %s ]", localVethPair.Name, bridgeName)
 		return nil, err
 	}
-	d.mutex.Lock()
-	d.networks[r.NetworkID].OfPorts[r.EndpointID] = ofport
-	d.updates++
-	d.mutex.Unlock()
 	log.Infof("Attached veth [ %s ] to bridge [ %s ] ofport %d", localVethPair.Name, bridgeName, ofport)
 
 	// SrcName gets renamed to DstPrefix + ID on the container iface
@@ -259,6 +258,13 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 		Gateway: d.networks[r.NetworkID].Gateway,
 	}
 	log.Debugf("Join endpoint %s:%s to %s", r.NetworkID, r.EndpointID, r.SandboxKey)
+	addmap := OFPortMap{
+		OFPort: ofport,
+		NetworkID: r.NetworkID,
+		EndpointID: r.EndpointID,
+		Operation: "add",
+	}
+	d.ofportmapChan <-addmap
 	return res, nil
 }
 
@@ -275,41 +281,69 @@ func (d *Driver) Leave(r *networkplugin.LeaveRequest) error {
 		log.Errorf("OVS port [ %s ] delete transaction failed on bridge [ %s ] due to: %s", portID, bridgeName, err)
 		return err
 	}
-	d.mutex.Lock()
-	delete(d.networks[r.NetworkID].OfPorts, r.EndpointID)
-	d.updates++
-	d.mutex.Unlock()
 	log.Infof("Deleted OVS port [ %s ] from bridge [ %s ]", portID, bridgeName)
 	log.Debugf("Leave %s:%s", r.NetworkID, r.EndpointID)
+	rmmap := OFPortMap{
+		OFPort: 0,
+		NetworkID: r.NetworkID,
+		EndpointID: r.EndpointID,
+		Operation: "rm",
+	}
+	d.ofportmapChan <-rmmap
 	return nil
 }
 
-func consolidateDockerInfo(d *Driver) () {
-	var consolidated_updates uint = 0
-	for {
-		d.mutex.Lock()
-		updated := d.updates != consolidated_updates
-		consolidated_updates = d.updates
-		d.mutex.Unlock()
-                if (updated) {
-			netlist, _ := d.dockerclient.NetworkList(context.Background(), types.NetworkListOptions{})
-			for _, net := range netlist {
-				if net.Driver != DriverName {
-					continue
-				}
-				netInspect, _ := d.dockerclient.NetworkInspect(context.Background(), net.ID, types.NetworkInspectOptions{})
-				bridgeName, _ := getBridgeNamefromresource(&netInspect)
-				for containerId, containerInfo := range netInspect.Containers {
-					containerInspect, _ := d.dockerclient.ContainerInspect(
-						context.Background(), containerId)
-					d.mutex.Lock()
-					ofport := d.networks[net.ID].OfPorts[containerInfo.EndpointID]
-					d.mutex.Unlock()
-					log.Infof("%s (%s) is on %s ofport %d", containerId, containerInspect.Name, bridgeName, ofport)
+func getContainerFromEndpoint(dockerclient *client.Client, EndpointID string) (types.ContainerJSON, types.NetworkResource, error) {
+	for i := 0; i < dockerRetries; i++ {
+		netlist, _ := dockerclient.NetworkList(context.Background(), types.NetworkListOptions{})
+		for _, net := range netlist {
+			if net.Driver != DriverName {
+				continue
+			}
+			netInspect, err := dockerclient.NetworkInspect(context.Background(), net.ID, types.NetworkInspectOptions{})
+			if (err != nil) {
+				continue
+			}
+			for containerID, containerInfo := range netInspect.Containers {
+				if containerInfo.EndpointID == EndpointID {
+					containerInspect, err := dockerclient.ContainerInspect(context.Background(), containerID)
+					if (err != nil) {
+						continue
+					}
+					return containerInspect, netInspect, nil
 				}
 			}
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(1 * time.Second)
+	}
+	return types.ContainerJSON{}, types.NetworkResource{}, fmt.Errorf("Endpoint %s not found", EndpointID)
+}
+
+func consolidateDockerInfo(d *Driver) () {
+	OFPorts := make(map[string]OFPortContainer)
+
+	for {
+		mapMsg := <-d.ofportmapChan
+		switch mapMsg.Operation {
+			case "add": {
+				containerInfo, netInspect, err := getContainerFromEndpoint(d.dockerclient, mapMsg.EndpointID)
+				if err == nil {
+					bridgeName, _ := getBridgeNamefromresource(&netInspect)
+					OFPorts[mapMsg.EndpointID] = OFPortContainer{
+						OFPort: mapMsg.OFPort,
+						ContainerInfo: containerInfo,
+					}
+					log.Infof("%s now on %s ofport %d", containerInfo.Name, bridgeName, mapMsg.OFPort)
+					// TODO: Add hook here to command ACL
+				}
+			}
+			case "rm": {
+				// The container will be gone by the time we query docker.
+				delete (OFPorts, mapMsg.EndpointID)
+			}
+			default:
+				log.Errorf("unknown consolidation message: %s", mapMsg)
+		}
 	}
 }
 
@@ -323,8 +357,7 @@ func NewDriver() (*Driver, error) {
 		dockerclient: docker,
 		ovsdber: ovsdber{},
 		networks: make(map[string]*NetworkState),
-		updates: 0,
-		mutex: sync.Mutex{},
+		ofportmapChan: make(chan OFPortMap, 2),
 	}
 
 	for i := 0; i < ovsStartupRetries; i++ {
@@ -358,7 +391,6 @@ func NewDriver() (*Driver, error) {
 			}
 			ns := &NetworkState{
 				BridgeName:        bridgeName,
-				OfPorts:	make(map[string]uint),
 			}
 			d.networks[net.ID] = ns
 			log.Debugf("exist network create by this driver:%v",netInspect.Name)
