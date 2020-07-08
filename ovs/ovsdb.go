@@ -5,7 +5,6 @@ import (
 	"os/exec"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/socketplane/libovsdb"
 )
 
 const (
@@ -39,5 +38,4 @@ func OfCtl(args ...string) ([]byte, error) {
 }
 
 type ovsdber struct {
-	ovsdb *libovsdb.OvsdbClient
 }
