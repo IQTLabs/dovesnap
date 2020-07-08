@@ -11,8 +11,8 @@ RUN wget https://www.openvswitch.org/releases/openvswitch-$OVS_VERSION.tar.gz --
         cp -r openvswitch/* / &&\
         rm -r openvswitch &&\
         rm openvswitch-$OVS_VERSION.tar.gz
-COPY . /go/src/github.com/cyberreboot/dovesnap
-WORKDIR /go/src/github.com/cyberreboot/dovesnap
+COPY . /go/src/dovesnap
+WORKDIR /go/src/dovesnap
 RUN dep ensure
 RUN go install -v
 ENTRYPOINT ["dovesnap"]
