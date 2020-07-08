@@ -1,6 +1,7 @@
 package ovs
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -9,7 +10,8 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	networkplugin "github.com/docker/go-plugins-helpers/network"
-	"github.com/samalba/dockerclient"
+	"github.com/docker/docker/client"
+	"github.com/docker/docker/api/types"
 	"github.com/socketplane/libovsdb"
 	"github.com/vishvananda/netlink"
 )
@@ -46,12 +48,11 @@ var (
 )
 
 type Driver struct {
-	dockerer
-	ovsdber
-	networks map[string]*NetworkState
-	OvsdbNotifier
-	updates uint
-	mutex sync.Mutex
+     dockerclient *client.Client
+     ovsdber
+     networks map[string]*NetworkState
+     updates uint
+     mutex sync.Mutex
 }
 
 // NetworkState is filled in at network creation time
@@ -174,7 +175,7 @@ func (d *Driver) CreateEndpoint(r *networkplugin.CreateEndpointRequest) (*networ
 func (d *Driver) GetCapabilities () (*networkplugin.CapabilitiesResponse,error) {
         log.Debugf("Get capabilities request")
         res := &networkplugin.CapabilitiesResponse{
-                Scope:"local",
+                Scope: "local",
         }
         return res,nil
 }
@@ -291,15 +292,16 @@ func consolidateDockerInfo(d *Driver) () {
 		consolidated_updates = d.updates
 		d.mutex.Unlock()
                 if (updated) {
-			netlist, _ := d.dockerer.client.ListNetworks("")
+			netlist, _ := d.dockerclient.NetworkList(context.Background(), types.NetworkListOptions{})
 			for _, net := range netlist {
 				if net.Driver != DriverName {
 					continue
 				}
-				netInspect, _ := d.dockerer.client.InspectNetwork(net.ID)
-				bridgeName, _ := getBridgeNamefromresource(netInspect)
+				netInspect, _ := d.dockerclient.NetworkInspect(context.Background(), net.ID, types.NetworkInspectOptions{})
+				bridgeName, _ := getBridgeNamefromresource(&netInspect)
 				for containerId, containerInfo := range netInspect.Containers {
-					containerInspect, _ := d.dockerer.client.InspectContainer(containerId)
+					containerInspect, _ := d.dockerclient.ContainerInspect(
+						context.Background(), containerId)
 					d.mutex.Lock()
 					ofport := d.networks[net.ID].OfPorts[containerInfo.EndpointID]
 					d.mutex.Unlock()
@@ -312,7 +314,7 @@ func consolidateDockerInfo(d *Driver) () {
 }
 
 func NewDriver() (*Driver, error) {
-	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
+	docker, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to docker: %s", err)
 	}
@@ -335,10 +337,8 @@ func NewDriver() (*Driver, error) {
 	}
 
 	d := &Driver{
-		dockerer: dockerer{
-			client: docker,
-		},
-		ovsdber: ovsdber{
+		dockerclient: docker,
+		ovsdber: ovsdber {
 			ovsdb: ovsdb,
 		},
 		networks: make(map[string]*NetworkState),
@@ -347,17 +347,17 @@ func NewDriver() (*Driver, error) {
 	}
 	go consolidateDockerInfo(d)
 	//recover networks
-	netlist,err :=d.dockerer.client.ListNetworks("")
+	netlist, err := d.dockerclient.NetworkList(context.Background(), types.NetworkListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not get docker networks: %s", err)
 	}
-	for _, net := range  netlist{
+	for _, net := range netlist{
 		if net.Driver  == DriverName{
-			netInspect,err:=d.dockerer.client.InspectNetwork(net.ID)
+			netInspect, err := d.dockerclient.NetworkInspect(context.Background(), net.ID, types.NetworkInspectOptions{})
 			if err != nil {
 				return nil, fmt.Errorf("could not inpect docker networks inpect: %s", err)
 			}
-			bridgeName, err := getBridgeNamefromresource(netInspect)
+			bridgeName, err := getBridgeNamefromresource(&netInspect)
 			if err != nil {
 				return nil,err
 			}
@@ -369,8 +369,6 @@ func NewDriver() (*Driver, error) {
 			log.Debugf("exist network create by this driver:%v",netInspect.Name)
 		}
 	}
-	// Initialize ovsdb cache at rpc connection setup
-	d.ovsdber.initDBCache()
 	return d, nil
 }
 
@@ -488,7 +486,7 @@ func getBindInterface(r *networkplugin.CreateNetworkRequest) (string, error) {
 	return "", nil
 }
 
-func getBridgeNamefromresource(r *dockerclient.NetworkResource) (string, error) {
+func getBridgeNamefromresource(r *types.NetworkResource) (string, error) {
 	bridgeName := bridgePrefix + truncateID(r.ID)
 	//if r.Options != nil {
 	//	if name, ok := r.Options[bridgeNameOption]; ok {
