@@ -37,6 +37,7 @@ const (
 	modeNAT  = "nat"
 	modeFlat = "flat"
 	defaultMode = modeFlat
+	ovsStartupRetries   = 5
 )
 
 var (
@@ -325,6 +326,20 @@ func NewDriver() (*Driver, error) {
 		updates: 0,
 		mutex: sync.Mutex{},
 	}
+
+	for i := 0; i < ovsStartupRetries; i++ {
+		err = d.ovsdber.show()
+		if err == nil {
+			break
+		}
+		log.Errorf("Waiting for openvswitch")
+		time.Sleep(5 * time.Second)
+	}
+
+	if d.ovsdber.show() != nil {
+		return nil, fmt.Errorf("Could not connect to open vswitch")
+	}
+
 	go consolidateDockerInfo(d)
 	//recover networks
 	netlist, err := d.dockerclient.NetworkList(context.Background(), types.NetworkListOptions{})

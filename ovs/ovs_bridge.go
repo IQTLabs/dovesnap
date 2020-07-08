@@ -8,6 +8,11 @@ import (
 	"github.com/docker/libnetwork/iptables"
 )
 
+
+func (ovsdber *ovsdber) show() error {
+	return VsCtl("show")
+}
+
 // addBridge adds the OVS bridge
 func (ovsdber *ovsdber) addBridge(bridgeName string) error {
         return VsCtl("add-br", bridgeName, "--", "set", "Bridge", bridgeName, "stp_enable=false")
