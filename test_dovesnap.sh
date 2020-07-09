@@ -14,7 +14,7 @@ acls:
       actions:
         allow: 0
 dps:
-  ovs:
+  testnet:
     dp_id: 0x1
     hardware: Open vSwitch
     interfaces:
