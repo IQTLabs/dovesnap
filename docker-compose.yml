@@ -9,6 +9,7 @@ services:
       - /run/docker/plugins:/run/docker/plugins
       - /var/run/docker.sock:/var/run/docker.sock
       - /usr/local/var/run/openvswitch:/usr/local/var/run/openvswitch
+      - /opt/dovesnap/faucetconfrpc:/faucetconfrpc
     network_mode: host
     stdin_open: true
     tty: true
@@ -16,6 +17,10 @@ services:
     command: -d
     depends_on:
       - ovs
+    command:
+      - --faucetconfrpc_addr=localhost
+      - --faucetconfrpc_port=59999
+      - --faucetconfrpc_keydir=/faucetconfrpc
   ovs:
     restart: always
     image: openvswitch:2.13.0

@@ -2,6 +2,9 @@ package ovs
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
 	"fmt"
 	"strconv"
 	"strings"
@@ -12,6 +15,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/api/types"
 	"github.com/vishvananda/netlink"
+	"google.golang.org/grpc/credentials"
 )
 
 const (
@@ -347,7 +351,27 @@ func consolidateDockerInfo(d *Driver) () {
 	}
 }
 
-func NewDriver() (*Driver, error) {
+func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string) (*Driver, error) {
+	crt_file := flagFaucetconfrpcKeydir + "/client.crt"
+	key_file := flagFaucetconfrpcKeydir + "/client.key"
+	ca_file := flagFaucetconfrpcKeydir + "/" + flagFaucetconfrpcServerName + "-ca.crt"
+	certificate, err := tls.LoadX509KeyPair(crt_file, key_file)
+	if err != nil {
+		log.Fatalf("could not load client key pair %s, %s: %s", crt_file, key_file, err)
+	}
+	certPool := x509.NewCertPool()
+	ca, err := ioutil.ReadFile(ca_file)
+	if err != nil {
+		log.Fatalf("could not read ca certificate %s: %s", ca_file, err)
+	}
+	if ok := certPool.AppendCertsFromPEM(ca); !ok {
+		log.Fatalf("failed to append ca certs")
+	}
+	credentials.NewTLS(&tls.Config{
+		ServerName: flagFaucetconfrpcServerName,
+		Certificates: []tls.Certificate{certificate},
+		RootCAs: certPool,
+	})
 	docker, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to docker: %s", err)
@@ -365,10 +389,9 @@ func NewDriver() (*Driver, error) {
 		if err == nil {
 			break
 		}
-		log.Errorf("Waiting for openvswitch")
+		log.Infof("Waiting for open vswitch")
 		time.Sleep(5 * time.Second)
 	}
-
 	if d.ovsdber.show() != nil {
 		return nil, fmt.Errorf("Could not connect to open vswitch")
 	}
