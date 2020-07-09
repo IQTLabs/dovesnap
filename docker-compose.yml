@@ -16,7 +16,6 @@ services:
     command: -d
     depends_on:
       - ovs
-
   ovs:
     restart: always
     image: openvswitch:2.13.0
