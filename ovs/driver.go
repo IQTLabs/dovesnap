@@ -339,9 +339,9 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 						OFPort: mapMsg.OFPort,
 						ContainerInfo: containerInfo,
 					}
-					log.Infof("%s now on %s ofport %d", containerInfo.Name, bridgeName, mapMsg.OFPort)
+					log.Infof("%s now on %s ofport %d (%s)", containerInfo.Name, bridgeName, mapMsg.OFPort, containerInfo)
 					req := &faucetconfserver.AddPortAclRequest{
-						DpName: "ovs",
+						DpName: netInspect.Name,
 						PortNo: int32(mapMsg.OFPort),
 						Acl: "allowall",
 					}
