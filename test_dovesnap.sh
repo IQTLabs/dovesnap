@@ -9,6 +9,10 @@ acls:
   - rule:
       actions:
         allow: 1
+  denyall:
+  - rule:
+      actions:
+        allow: 0
 dps:
   ovs:
     dp_id: 0x1
@@ -20,6 +24,7 @@ dps:
     interface_ranges:
         1-10:
             native_vlan: 100
+            acls_in: [denyall]
 EOC
 
 mkdir -p /opt/dovesnap || exit 1
@@ -30,9 +35,8 @@ DPSTATUS=""
 while [ "$DPSTATUS" == "" ] ; do
 	sleep 1
 	DPSTATUS=$(wget -q -O- localhost:9302|grep -E "^dp_status"|grep -E "1.0$")
-	echo $DPSTATUS
 done
 # github test runner can't use ping.
-docker run -t --net=testnet --rm busybox wget -q -O- bing.com || exit 1
+docker run -t --label="dovesnap.faucet.portacl=allowall" --net=testnet --rm busybox wget -q -O- bing.com || exit 1
 docker network rm testnet || exit 1
 FAUCET_CONFIG_DIR=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml stop
