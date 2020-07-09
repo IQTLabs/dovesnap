@@ -4,6 +4,11 @@ export TMPDIR=/tmp
 export FAUCET_CONFIG=$TMPDIR/faucet.yaml
 
 cat >$FAUCET_CONFIG <<EOC
+acls:
+  allowall:
+  - rule:
+      actions:
+        allow: 1
 dps:
   ovs:
     dp_id: 0x1
