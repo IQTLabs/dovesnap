@@ -24,7 +24,6 @@ dps:
     interface_ranges:
         1-10:
             native_vlan: 100
-            acls_in: [denyall]
 EOC
 
 mkdir -p /opt/dovesnap || exit 1
