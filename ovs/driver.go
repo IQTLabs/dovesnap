@@ -2,6 +2,9 @@ package ovs
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
 	"fmt"
 	"strconv"
 	"strings"
@@ -12,6 +15,9 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/api/types"
 	"github.com/vishvananda/netlink"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"github.com/cyberreboot/faucetconfrpc/faucetconfrpc"
 )
 
 const (
@@ -56,7 +62,7 @@ type OFPortMap struct {
 
 type OFPortContainer struct {
 	OFPort uint
-	ContainerInfo types.ContainerJSON
+	containerInspect types.ContainerJSON
 }
 
 type Driver struct {
@@ -232,7 +238,7 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 	log.Debugf("Join request: %+v", r)
 	localVethPair := vethPair(truncateID(r.EndpointID))
 	if err := netlink.LinkAdd(localVethPair); err != nil {
-		log.Errorf("failed to create the veth pair named: [ %v ] error: [ %s ] ", localVethPair, err)
+		log.Errorf("failed to create the veth pair named: [ %v ] error: [ %s ]", localVethPair, err)
 		return nil, err
 	}
 	// Bring the veth pair up
@@ -319,22 +325,34 @@ func getContainerFromEndpoint(dockerclient *client.Client, EndpointID string) (t
 	return types.ContainerJSON{}, types.NetworkResource{}, fmt.Errorf("Endpoint %s not found", EndpointID)
 }
 
-func consolidateDockerInfo(d *Driver) () {
+func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServerClient) () {
 	OFPorts := make(map[string]OFPortContainer)
 
 	for {
 		mapMsg := <-d.ofportmapChan
 		switch mapMsg.Operation {
 			case "add": {
-				containerInfo, netInspect, err := getContainerFromEndpoint(d.dockerclient, mapMsg.EndpointID)
+				containerInspect, netInspect, err := getContainerFromEndpoint(d.dockerclient, mapMsg.EndpointID)
 				if err == nil {
 					bridgeName, _ := getBridgeNamefromresource(&netInspect)
 					OFPorts[mapMsg.EndpointID] = OFPortContainer{
 						OFPort: mapMsg.OFPort,
-						ContainerInfo: containerInfo,
+						containerInspect: containerInspect,
 					}
-					log.Infof("%s now on %s ofport %d", containerInfo.Name, bridgeName, mapMsg.OFPort)
-					// TODO: Add hook here to command ACL
+					log.Infof("%s now on %s ofport %d (%s)", containerInspect.Name, bridgeName, mapMsg.OFPort)
+					portacl, ok := containerInspect.Config.Labels["dovesnap.faucet.portacl"]
+					if (ok) {
+						log.Infof("add portacl %s", portacl)
+						req := &faucetconfserver.AddPortAclRequest{
+							DpName: netInspect.Name,
+							PortNo: int32(mapMsg.OFPort),
+							Acl: portacl,
+						}
+						_, err := confclient.AddPortAcl(context.Background(), req)
+						if err != nil {
+							log.Errorf("error while calling AddPortAcl RPC %s: %v", req, err)
+						}
+					}
 				}
 			}
 			case "rm": {
@@ -347,7 +365,36 @@ func consolidateDockerInfo(d *Driver) () {
 	}
 }
 
-func NewDriver() (*Driver, error) {
+func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string) (*Driver, error) {
+	// Read faucetconfrpc credentials.
+	crt_file := flagFaucetconfrpcKeydir + "/client.crt"
+	key_file := flagFaucetconfrpcKeydir + "/client.key"
+	ca_file := flagFaucetconfrpcKeydir + "/" + flagFaucetconfrpcServerName + "-ca.crt"
+	certificate, err := tls.LoadX509KeyPair(crt_file, key_file)
+	if err != nil {
+		log.Fatalf("could not load client key pair %s, %s: %s", crt_file, key_file, err)
+	}
+	certPool := x509.NewCertPool()
+	ca, err := ioutil.ReadFile(ca_file)
+	if err != nil {
+		log.Fatalf("could not read ca certificate %s: %s", ca_file, err)
+	}
+	if ok := certPool.AppendCertsFromPEM(ca); !ok {
+		log.Fatalf("failed to append ca certs")
+	}
+	creds := credentials.NewTLS(&tls.Config{
+		ServerName: flagFaucetconfrpcServerName,
+		Certificates: []tls.Certificate{certificate},
+		RootCAs: certPool,
+	})
+	// Connect to faucetconfrpc server.
+	addr := flagFaucetconfrpcServerName + ":" + strconv.Itoa(flagFaucetconfrpcServerPort)
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(creds), grpc.WithBlock())
+	if err != nil {
+		log.Fatalf("could not dial %s: %s", addr, err)
+	}
+	confclient := faucetconfserver.NewFaucetConfServerClient(conn)
+
 	docker, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to docker: %s", err)
@@ -365,16 +412,15 @@ func NewDriver() (*Driver, error) {
 		if err == nil {
 			break
 		}
-		log.Errorf("Waiting for openvswitch")
+		log.Infof("Waiting for open vswitch")
 		time.Sleep(5 * time.Second)
 	}
-
 	if d.ovsdber.show() != nil {
 		return nil, fmt.Errorf("Could not connect to open vswitch")
 	}
 
-	go consolidateDockerInfo(d)
-	//recover networks
+	go consolidateDockerInfo(d, confclient)
+
 	netlist, err := d.dockerclient.NetworkList(context.Background(), types.NetworkListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not get docker networks: %s", err)
@@ -393,7 +439,7 @@ func NewDriver() (*Driver, error) {
 				BridgeName:        bridgeName,
 			}
 			d.networks[net.ID] = ns
-			log.Debugf("exist network create by this driver:%v",netInspect.Name)
+			log.Debugf("exist network create by this driver: %v",netInspect.Name)
 		}
 	}
 	return d, nil
@@ -403,7 +449,7 @@ func NewDriver() (*Driver, error) {
 func vethPair(suffix string) *netlink.Veth {
 	return &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{Name: ovsPortPrefix + suffix},
-		PeerName:  "ethc" + suffix,
+		PeerName: "ethc" + suffix,
 	}
 }
 
