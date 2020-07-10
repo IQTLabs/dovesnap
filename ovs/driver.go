@@ -346,7 +346,7 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 						req := &faucetconfserver.AddPortAclRequest{
 							DpName: netInspect.Name,
 							PortNo: int32(mapMsg.OFPort),
-							Acl: "allowall",
+							Acl: portacl,
 						}
 						_, err := confclient.AddPortAcl(context.Background(), req)
 						if err != nil {
