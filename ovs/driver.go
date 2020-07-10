@@ -339,15 +339,19 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 						OFPort: mapMsg.OFPort,
 						containerInspect: containerInspect,
 					}
-					log.Infof("%s now on %s ofport %d (%s)", containerInspect.Name, bridgeName, mapMsg.OFPort, containerInspect)
-					req := &faucetconfserver.AddPortAclRequest{
-						DpName: netInspect.Name,
-						PortNo: int32(mapMsg.OFPort),
-						Acl: "allowall",
-					}
-					_, err := confclient.AddPortAcl(context.Background(), req)
-					if err != nil {
-						log.Errorf("error while calling AddPortAcl RPC %s: %v", req, err)
+					log.Infof("%s now on %s ofport %d (%s)", containerInspect.Name, bridgeName, mapMsg.OFPort)
+					portacl, ok := containerInspect.Config.Labels["dovesnap.faucet.portacl"]
+					if (ok) {
+						log.Infof("add portacl %s", portacl)
+						req := &faucetconfserver.AddPortAclRequest{
+							DpName: netInspect.Name,
+							PortNo: int32(mapMsg.OFPort),
+							Acl: "allowall",
+						}
+						_, err := confclient.AddPortAcl(context.Background(), req)
+						if err != nil {
+							log.Errorf("error while calling AddPortAcl RPC %s: %v", req, err)
+						}
 					}
 				}
 			}
