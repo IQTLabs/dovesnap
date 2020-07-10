@@ -62,7 +62,7 @@ type OFPortMap struct {
 
 type OFPortContainer struct {
 	OFPort uint
-	ContainerInfo types.ContainerJSON
+	containerInspect types.ContainerJSON
 }
 
 type Driver struct {
@@ -332,14 +332,14 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 		mapMsg := <-d.ofportmapChan
 		switch mapMsg.Operation {
 			case "add": {
-				containerInfo, netInspect, err := getContainerFromEndpoint(d.dockerclient, mapMsg.EndpointID)
+				containerInspect, netInspect, err := getContainerFromEndpoint(d.dockerclient, mapMsg.EndpointID)
 				if err == nil {
 					bridgeName, _ := getBridgeNamefromresource(&netInspect)
 					OFPorts[mapMsg.EndpointID] = OFPortContainer{
 						OFPort: mapMsg.OFPort,
-						ContainerInfo: containerInfo,
+						containerInspect: containerInspect,
 					}
-					log.Infof("%s now on %s ofport %d (%s)", containerInfo.Name, bridgeName, mapMsg.OFPort, containerInfo)
+					log.Infof("%s now on %s ofport %d (%s)", containerInspect.Name, bridgeName, mapMsg.OFPort, containerInspect)
 					req := &faucetconfserver.AddPortAclRequest{
 						DpName: netInspect.Name,
 						PortNo: int32(mapMsg.OFPort),
