@@ -37,6 +37,14 @@
   version = "v22.0.0"
 
 [[projects]]
+  digest = "1:a0ce2f786f58b09d3866ecab3596f30d37366bf9b2bd8708260b034e7cac861f"
+  name = "github.com/cyberreboot/faucetconfrpc"
+  packages = ["faucetconfrpc"]
+  pruneopts = "UT"
+  revision = "f35991efe7264148eed2c8fa834667168508284e"
+  version = "v0.7"
+
+[[projects]]
   digest = "1:4ddc17aeaa82cb18c5f0a25d7c253a10682f518f4b2558a82869506eec223d76"
   name = "github.com/docker/distribution"
   packages = [
@@ -128,6 +136,20 @@
   version = "v1.3.1"
 
 [[projects]]
+  digest = "1:4a32eb57407190eced21a21abee9ce4d4ab6f0bf113ca61cb1cb2d549a65c985"
+  name = "github.com/golang/protobuf"
+  packages = [
+    "proto",
+    "ptypes",
+    "ptypes/any",
+    "ptypes/duration",
+    "ptypes/timestamp",
+  ]
+  pruneopts = "UT"
+  revision = "d04d7b157bb510b1e0c10132224b616ac0e26b17"
+  version = "v1.4.2"
+
+[[projects]]
   digest = "1:52891c539dfacbcaf8f204ad46c201c702d7210eab162085ee3676914bf3b269"
   name = "github.com/opencontainers/go-digest"
   packages = ["."]
@@ -166,23 +188,152 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:081604e98d8aa3c3576bf78566ba71e9d7ab484721461e14e38ff9a7b00acca7"
+  digest = "1:72a1fda19c701d91e6e6608626926cfb916f36a2b3ed2920e782317e23b3f43a"
   name = "golang.org/x/net"
   packages = [
     "context/ctxhttp",
+    "http/httpguts",
+    "http2",
+    "http2/hpack",
+    "idna",
     "internal/socks",
+    "internal/timeseries",
     "proxy",
+    "trace",
   ]
   pruneopts = "UT"
   revision = "d3edc9973b7eb1fb302b0ff2c62357091cea9a30"
 
 [[projects]]
   branch = "master"
-  digest = "1:181b0f31060ef04339c16e7bba946726dc4801a547f06edbd26d2b72a09df98c"
+  digest = "1:968aac203feaa75d5e4c758550abcd9523dd736e5e3c2892e94feb9006e4fb36"
   name = "golang.org/x/sys"
-  packages = ["windows"]
+  packages = [
+    "unix",
+    "windows",
+  ]
   pruneopts = "UT"
   revision = "669c56c373c468cbe0f0c12b7939832b26088d33"
+
+[[projects]]
+  digest = "1:fa940333c48808b0d86ef21f412ffcfd0e5084a82f13905c028a404803b1908f"
+  name = "golang.org/x/text"
+  packages = [
+    "collate",
+    "collate/build",
+    "internal/colltab",
+    "internal/gen",
+    "internal/language",
+    "internal/language/compact",
+    "internal/tag",
+    "internal/triegen",
+    "internal/ucd",
+    "language",
+    "secure/bidirule",
+    "transform",
+    "unicode/bidi",
+    "unicode/cldr",
+    "unicode/norm",
+    "unicode/rangetable",
+  ]
+  pruneopts = "UT"
+  revision = "23ae387dee1f90d29a23c0e87ee0b46038fbed0e"
+  version = "v0.3.3"
+
+[[projects]]
+  branch = "master"
+  digest = "1:38a535c0a08f69883a9b411d8a3407ec2a0edf0e7dfb12e5f7000f41197d8441"
+  name = "google.golang.org/genproto"
+  packages = ["googleapis/rpc/status"]
+  pruneopts = "UT"
+  revision = "7a2ca40e9dc324f00c1e7ea8786ddf6366d9e803"
+
+[[projects]]
+  digest = "1:bb13817ff92653da1e69c2a031ab43da3a09e4e3512301c99358565855489782"
+  name = "google.golang.org/grpc"
+  packages = [
+    ".",
+    "attributes",
+    "backoff",
+    "balancer",
+    "balancer/base",
+    "balancer/grpclb/state",
+    "balancer/roundrobin",
+    "binarylog/grpc_binarylog_v1",
+    "codes",
+    "connectivity",
+    "credentials",
+    "credentials/internal",
+    "encoding",
+    "encoding/proto",
+    "grpclog",
+    "internal",
+    "internal/backoff",
+    "internal/balancerload",
+    "internal/binarylog",
+    "internal/buffer",
+    "internal/channelz",
+    "internal/envconfig",
+    "internal/grpclog",
+    "internal/grpcrand",
+    "internal/grpcsync",
+    "internal/grpcutil",
+    "internal/resolver/dns",
+    "internal/resolver/passthrough",
+    "internal/serviceconfig",
+    "internal/status",
+    "internal/syscall",
+    "internal/transport",
+    "keepalive",
+    "metadata",
+    "peer",
+    "resolver",
+    "serviceconfig",
+    "stats",
+    "status",
+    "tap",
+  ]
+  pruneopts = "UT"
+  revision = "1f47ba4663831f2a9c28a62a7de3ff8bc45078f0"
+  version = "v1.30.0"
+
+[[projects]]
+  digest = "1:fd328c5b52e433ea3ffc891bcc4f94469a82bf478558208db2b386aad8a304a1"
+  name = "google.golang.org/protobuf"
+  packages = [
+    "encoding/prototext",
+    "encoding/protowire",
+    "internal/descfmt",
+    "internal/descopts",
+    "internal/detrand",
+    "internal/encoding/defval",
+    "internal/encoding/messageset",
+    "internal/encoding/tag",
+    "internal/encoding/text",
+    "internal/errors",
+    "internal/fieldsort",
+    "internal/filedesc",
+    "internal/filetype",
+    "internal/flags",
+    "internal/genid",
+    "internal/impl",
+    "internal/mapsort",
+    "internal/pragma",
+    "internal/set",
+    "internal/strs",
+    "internal/version",
+    "proto",
+    "reflect/protoreflect",
+    "reflect/protoregistry",
+    "runtime/protoiface",
+    "runtime/protoimpl",
+    "types/known/anypb",
+    "types/known/durationpb",
+    "types/known/timestamppb",
+  ]
+  pruneopts = "UT"
+  revision = "3f7a61f89bb6813f89d981d1870ed68da0b3c3f1"
+  version = "v1.25.0"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -190,11 +341,14 @@
   input-imports = [
     "github.com/Sirupsen/logrus",
     "github.com/codegangsta/cli",
+    "github.com/cyberreboot/faucetconfrpc/faucetconfrpc",
     "github.com/docker/docker/api/types",
     "github.com/docker/docker/client",
     "github.com/docker/go-plugins-helpers/network",
     "github.com/docker/libnetwork/iptables",
     "github.com/vishvananda/netlink",
+    "google.golang.org/grpc",
+    "google.golang.org/grpc/credentials",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
