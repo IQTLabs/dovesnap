@@ -339,19 +339,28 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 						OFPort: mapMsg.OFPort,
 						containerInspect: containerInspect,
 					}
-					log.Infof("%s now on %s ofport %d (%s)", containerInspect.Name, bridgeName, mapMsg.OFPort)
+					log.Infof("%s now on %s ofport %d", containerInspect.Name, bridgeName, mapMsg.OFPort)
 					portacl, ok := containerInspect.Config.Labels["dovesnap.faucet.portacl"]
 					if (ok) {
-						log.Infof("add portacl %s", portacl)
-						req := &faucetconfserver.AddPortAclRequest{
+						log.Infof("Set portacl %s", portacl)
+						req := &faucetconfserver.SetPortAclRequest{
 							DpName: netInspect.Name,
 							PortNo: int32(mapMsg.OFPort),
-							Acl: portacl,
+							Acls: portacl,
 						}
-						_, err := confclient.AddPortAcl(context.Background(), req)
+						_, err := confclient.SetPortAcl(context.Background(), req)
 						if err != nil {
-							log.Errorf("error while calling AddPortAcl RPC %s: %v", req, err)
+							log.Errorf("error while calling SetPortAcl RPC %s: %v", req, err)
 						}
+					}
+					req := &faucetconfserver.SetConfigFileRequest{
+						ConfigYaml: fmt.Sprintf("{dps: {%s: {interfaces: {%d: {description: %s}}}}}",
+							netInspect.Name, mapMsg.OFPort, containerInspect.Name),
+						Merge: true,
+					}
+					_, err = confclient.SetConfigFile(context.Background(), req)
+					if err != nil {
+						log.Errorf("error while calling SetConfigFileRequest %s: %v", req, err)
 					}
 				}
 			}

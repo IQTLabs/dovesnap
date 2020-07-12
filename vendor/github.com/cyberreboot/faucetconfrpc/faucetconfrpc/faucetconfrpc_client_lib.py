@@ -69,7 +69,15 @@ class FaucetConfRpcClient:
         return self._call(self.stub.AddPortAcl, faucetconfrpc_pb2.AddPortAclRequest(
             dp_name=dp_name, port_no=port_no, acl=acl))
 
-    def remove_port_acl(self, dp_name, port_no, acl):
+    def set_port_acls(self, dp_name, port_no, acls):
+        """Set port ACL."""
+        return self._call(self.stub.SetPortAcl, faucetconfrpc_pb2.SetPortAclRequest(
+            dp_name=dp_name, port_no=port_no, acls=acls))
+
+    def remove_port_acl(self, dp_name, port_no, acl=None):
         """Remove port ACL."""
+        if acl:
+            return self._call(self.stub.RemovePortAcl, faucetconfrpc_pb2.RemovePortAclRequest(
+                dp_name=dp_name, port_no=port_no, acl=acl))
         return self._call(self.stub.RemovePortAcl, faucetconfrpc_pb2.RemovePortAclRequest(
             dp_name=dp_name, port_no=port_no, acl=acl))

@@ -48,6 +48,11 @@ class FaucetConfServerStub(object):
                 request_serializer=faucetconfrpc_dot_faucetconfrpc__pb2.RemovePortAclRequest.SerializeToString,
                 response_deserializer=faucetconfrpc_dot_faucetconfrpc__pb2.RemovePortAclReply.FromString,
                 )
+        self.SetPortAcl = channel.unary_unary(
+                '/faucetconfserver.FaucetConfServer/SetPortAcl',
+                request_serializer=faucetconfrpc_dot_faucetconfrpc__pb2.SetPortAclRequest.SerializeToString,
+                response_deserializer=faucetconfrpc_dot_faucetconfrpc__pb2.SetPortAclReply.FromString,
+                )
 
 
 class FaucetConfServerServicer(object):
@@ -95,6 +100,12 @@ class FaucetConfServerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetPortAcl(self, request, context):
+        """Missing associated documentation comment in .proto file"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_FaucetConfServerServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -132,6 +143,11 @@ def add_FaucetConfServerServicer_to_server(servicer, server):
                     servicer.RemovePortAcl,
                     request_deserializer=faucetconfrpc_dot_faucetconfrpc__pb2.RemovePortAclRequest.FromString,
                     response_serializer=faucetconfrpc_dot_faucetconfrpc__pb2.RemovePortAclReply.SerializeToString,
+            ),
+            'SetPortAcl': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetPortAcl,
+                    request_deserializer=faucetconfrpc_dot_faucetconfrpc__pb2.SetPortAclRequest.FromString,
+                    response_serializer=faucetconfrpc_dot_faucetconfrpc__pb2.SetPortAclReply.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -252,5 +268,21 @@ class FaucetConfServer(object):
         return grpc.experimental.unary_unary(request, target, '/faucetconfserver.FaucetConfServer/RemovePortAcl',
             faucetconfrpc_dot_faucetconfrpc__pb2.RemovePortAclRequest.SerializeToString,
             faucetconfrpc_dot_faucetconfrpc__pb2.RemovePortAclReply.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SetPortAcl(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/faucetconfserver.FaucetConfServer/SetPortAcl',
+            faucetconfrpc_dot_faucetconfrpc__pb2.SetPortAclRequest.SerializeToString,
+            faucetconfrpc_dot_faucetconfrpc__pb2.SetPortAclReply.FromString,
             options, channel_credentials,
             call_credentials, compression, wait_for_ready, timeout, metadata)

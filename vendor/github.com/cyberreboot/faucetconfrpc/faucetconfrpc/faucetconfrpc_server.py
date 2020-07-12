@@ -231,6 +231,15 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
         self._set_config_file(
             config_filename, config_yaml, merge=True)
 
+    def SetPortAcl(self, request, context):  # pylint: disable=invalid-name
+        with self.lock:
+            try:
+                config_filename = self.default_config
+                self._set_port_acls(config_filename, request, request.acls.split(','))
+            except _ServerError as err:
+                self._log_error(context, request, err)
+        return faucetconfrpc_pb2.SetPortAclReply()
+
     def AddPortAcl(self, request, context):  # pylint: disable=invalid-name
         with self.lock:
             try:
@@ -247,9 +256,12 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
         with self.lock:
             try:
                 config_filename = self.default_config
-                acls_in = self._get_port_acls(request)
-                if request.acl in acls_in:
-                    acls_in.remove(request.acl)
+                acls_in = []
+                # If no acls specified, remove all ACLs.
+                if request.acl:
+                    acls_in = self._get_port_acls(request)
+                    if request.acl in acls_in:
+                        acls_in.remove(request.acl)
                 self._set_port_acls(config_filename, request, acls_in)
             except _ServerError as err:
                 self._log_error(context, request, err)
