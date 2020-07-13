@@ -27,12 +27,12 @@ func main() {
 		Name: "faucetconfrpc_port",
 		Usage: "port for faucetconfrpc server",
 		Value: 59999,
-        }
+	}
 	flagFaucetconfrpcKeydir := cli.StringFlag{
 		Name: "faucetconfrpc_keydir",
 		Usage: "directory with keys for faucetconfrpc server",
 		Value: "/faucetconfrpc",
-        }
+	}
 	app := cli.NewApp()
 	app.Name = "dovesnap"
 	app.Usage = "Docker Open vSwitch Network Plugin"

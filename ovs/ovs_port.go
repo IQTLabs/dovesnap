@@ -9,7 +9,7 @@ import (
 )
 
 func (ovsdber *ovsdber) lowestFreePortOnBridge(bridgeName string) (lowestFreePort uint, err error) {
-        output, err := OfCtl("dump-ports-desc", bridgeName)
+	output, err := OfCtl("dump-ports-desc", bridgeName)
 	if (err != nil) {
 		return 0, err
 	}
@@ -21,7 +21,7 @@ func (ovsdber *ovsdber) lowestFreePortOnBridge(bridgeName string) (lowestFreePor
 			ofport, _ := strconv.Atoi(match[0][1])
 			existingOfPorts = append(existingOfPorts, ofport)
 		}
-        }
+	}
 	sort.Ints(existingOfPorts)
 	intLowestFreePort := 1
 	for _, existingPort := range existingOfPorts {
@@ -30,7 +30,7 @@ func (ovsdber *ovsdber) lowestFreePortOnBridge(bridgeName string) (lowestFreePor
 		}
 		intLowestFreePort++
 	}
-        return uint(intLowestFreePort), nil
+	return uint(intLowestFreePort), nil
 }
 
 func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag uint) (ofport uint, err error) {
