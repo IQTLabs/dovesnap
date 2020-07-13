@@ -108,7 +108,7 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 
 	bridgeName := "dovesnap-stack"
 	if err := d.addBridge(bridgeName); err != nil {
-		log.Errorf("Error creating stacking ovs bridge [ %s ] : [ %s ]", bridgeName, err)
+		log.Debugf("Error creating stacking ovs bridge [ %s ] : [ %s ]", bridgeName, err)
 		return err
 	}
 
@@ -123,7 +123,7 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 		if err != nil {
 			// At least one bridge config failed, so delete the bridge.
 			if delerr := d.deleteBridge(bridgeName); delerr != nil {
-				log.Errorf("Error cleaning up and deleting bridge [ %s ] : [ %s ]", bridgeName, delerr)
+				log.Debugf("Error cleaning up and deleting bridge [ %s ] : [ %s ]", bridgeName, delerr)
 			}
 			return err
 		}
