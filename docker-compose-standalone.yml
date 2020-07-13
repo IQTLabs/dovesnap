@@ -1,0 +1,40 @@
+version: '3.7'
+services:
+  faucet:
+    restart: always
+    image: 'faucet/faucet:1.9.47'
+    network_mode: host
+    volumes:
+       - /var/log/faucet:/var/log/faucet
+       - "${FAUCET_CONFIG_DIR}:/etc/faucet"
+    ports:
+       - '6653:6653'
+       - '9302:9302'
+    environment:
+       FAUCET_CONFIG_STAT_RELOAD: '1'
+       FAUCET_CONFIG_AUTO_REVERT: '1'
+  faucet_certstrap:
+    restart: on-failure
+    image: 'cyberreboot/faucet-certstrap:v0.14.0'
+    network_mode: none
+    volumes:
+        - /opt/dovesnap:/opt/dovesnap
+    command:
+        - /opt/dovesnap/faucetconfrpc
+        - localhost
+  faucetconfrpc:
+    restart: always
+    image: 'cyberreboot/faucetconfrpc:v0.8'
+    network_mode: host
+    volumes:
+        - /opt/dovesnap/faucetconfrpc:/faucetconfrpc
+        - "${FAUCET_CONFIG_DIR}:/etc/faucet"
+    command:
+        - --key=/faucetconfrpc/localhost.key
+        - --cert=/faucetconfrpc/localhost.crt
+        - --cacert=/faucetconfrpc/localhost-ca.crt
+        - --host=localhost
+        - --config_dir=/etc/faucet
+    depends_on:
+      - faucet
+
