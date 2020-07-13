@@ -6,7 +6,7 @@ services:
     network_mode: host
     volumes:
        - /var/log/faucet:/var/log/faucet
-       - "${FAUCET_CONFIG_DIR}:/etc/faucet"
+       - '${FAUCET_PREFIX}/etc/faucet:/etc/faucet'
     ports:
        - '6653:6653'
        - '9302:9302'
@@ -28,7 +28,7 @@ services:
     network_mode: host
     volumes:
         - /opt/dovesnap/faucetconfrpc:/faucetconfrpc
-        - "${FAUCET_CONFIG_DIR}:/etc/faucet"
+        - '${FAUCET_PREFIX}/etc/faucet:/etc/faucet'
     command:
         - --key=/faucetconfrpc/localhost.key
         - --cert=/faucetconfrpc/localhost.crt
