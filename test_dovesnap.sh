@@ -1,10 +1,11 @@
 #!/bin/bash
 
 export TMPDIR=$(mktemp -d)
-export FAUCET_CONFIG=$TMPDIR/faucet.yaml
+export FAUCET_CONFIG=$TMPDIR/etc/faucet/faucet.yaml
 if [ ! -d "$TMPDIR" ] ; then
 	exit 1
 fi
+mkdir -p $TMPDIR/etc/faucet
 
 echo configuring faucet: $FAUCET_CONFIG
 
@@ -34,10 +35,10 @@ dps:
 EOC
 echo creating keys
 mkdir -p /opt/dovesnap/faucetconfrpc || exit 1
-FAUCET_CONFIG_DIR=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up faucet_certstrap || exit 1
+FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up faucet_certstrap || exit 1
 ls -al /opt/dovesnap/faucetconfrpc/client.key || exit 1
 echo starting dovesnap infrastructure
-docker-compose build && FAUCET_CONFIG_DIR=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
+docker-compose build && FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
 wget --retry-connrefused --tries=20 -q -O/dev/null localhost:9302 > /dev/null || exit 1
 echo creating testnet
 docker network create testnet -d ovs -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653 || exit 1
@@ -61,5 +62,5 @@ echo verifying networking
 docker exec -t testcon wget -q -O- bing.com || exit 1
 docker rm -f testcon || exit 1
 docker network rm testnet || exit 1
-FAUCET_CONFIG_DIR=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml stop
+FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml stop
 rm -rf $TMPDIR
