@@ -15,12 +15,12 @@ func (ovsdber *ovsdber) show() error {
 
 // addBridge adds the OVS bridge
 func (ovsdber *ovsdber) addBridge(bridgeName string) error {
-        return VsCtl("add-br", bridgeName, "--", "set", "Bridge", bridgeName, "stp_enable=false")
+	return VsCtl("add-br", bridgeName, "--", "set", "Bridge", bridgeName, "stp_enable=false")
 }
 
 // deleteBridge deletes the OVS bridge
 func (ovsdber *ovsdber) deleteBridge(bridgeName string) error {
-        return VsCtl("del-br", bridgeName)
+	return VsCtl("del-br", bridgeName)
 }
 
 //  setupBridge If bridge does not exist create it.
@@ -30,7 +30,7 @@ func (d *Driver) initBridge(id string, controller string, dpid string, add_ports
 		log.Errorf("error creating ovs bridge [ %s ] : [ %s ]", bridgeName, err)
 		return err
 	}
-        var ovsConfigCmds [][]string
+	var ovsConfigCmds [][]string
 
 	if dpid != "" {
 		ovsConfigCmds = append(ovsConfigCmds, []string{"set", "bridge", bridgeName, fmt.Sprintf("other-config:datapath-id=%s", dpid)})

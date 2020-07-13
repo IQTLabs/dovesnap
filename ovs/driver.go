@@ -21,27 +21,22 @@ import (
 )
 
 const (
-	DriverName       = "ovs"
-	defaultRoute     = "0.0.0.0/0"
-	ovsPortPrefix    = "ovs-veth0-"
-	bridgePrefix     = "ovsbr-"
-	containerEthName = "eth"
-
+	DriverName          = "ovs"
+	defaultRoute        = "0.0.0.0/0"
+	ovsPortPrefix       = "ovs-veth0-"
+	bridgePrefix        = "ovsbr-"
+	containerEthName    = "eth"
 	bridgeAddPorts      = "ovs.bridge.add_ports"
-
 	bridgeDpid          = "ovs.bridge.dpid"
 	bridgeController    = "ovs.bridge.controller"
-
 	mtuOption           = "ovs.bridge.mtu"
 	defaultMTU          = 1500
-
 	bridgeNameOption    = "ovs.bridge.name"
 	bindInterfaceOption = "ovs.bridge.bind_interface"
-
 	modeOption          = "ovs.bridge.mode"
-	modeNAT  = "nat"
-	modeFlat = "flat"
-	defaultMode = modeFlat
+	modeNAT             = "nat"
+	modeFlat            = "flat"
+	defaultMode         = modeFlat
 	ovsStartupRetries   = 5
 	dockerRetries       = 3
 )
@@ -66,10 +61,10 @@ type OFPortContainer struct {
 }
 
 type Driver struct {
-     dockerclient *client.Client
-     ovsdber
-     networks map[string]*NetworkState
-     ofportmapChan chan OFPortMap
+	dockerclient *client.Client
+	ovsdber
+	networks map[string]*NetworkState
+	ofportmapChan chan OFPortMap
 }
 
 // NetworkState is filled in at network creation time
@@ -84,18 +79,18 @@ type NetworkState struct {
 }
 
 func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) (string) {
-        if r.Options == nil {
-                return ""
-        }
-        optionsMap, have_options := r.Options["com.docker.network.generic"].(map[string]interface{})
-        if ! have_options {
-                return ""
-        }
-        optionValue, have_option := optionsMap[optionName].(string)
-        if ! have_option {
-                return ""
-        }
-        return optionValue
+	if r.Options == nil {
+		return ""
+	}
+	optionsMap, have_options := r.Options["com.docker.network.generic"].(map[string]interface{})
+	if ! have_options {
+		return ""
+	}
+	optionValue, have_option := optionsMap[optionName].(string)
+	if ! have_option {
+		return ""
+	}
+	return optionValue
 }
 
 func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
@@ -128,13 +123,13 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
 
 	controller, err := getBridgeController(r)
 	if err != nil {
-                return err
-        }
+		return err
+	}
 
 	dpid, err := getBridgeDpid(r)
 	if err != nil {
-                return err
-        }
+		return err
+	}
 
 	add_ports, err := getBridgeAddPorts(r)
 	if err != nil {
@@ -182,31 +177,31 @@ func (d *Driver) CreateEndpoint(r *networkplugin.CreateEndpointRequest) (*networ
 }
 
 func (d *Driver) GetCapabilities () (*networkplugin.CapabilitiesResponse,error) {
-        log.Debugf("Get capabilities request")
-        res := &networkplugin.CapabilitiesResponse{
-                Scope: "local",
-        }
-        return res,nil
+	log.Debugf("Get capabilities request")
+	res := &networkplugin.CapabilitiesResponse{
+		Scope: "local",
+	}
+	return res,nil
 }
 
 func (d *Driver) ProgramExternalConnectivity (r *networkplugin.ProgramExternalConnectivityRequest) error {
-        log.Debugf("Program external connectivity request: %+v", r)
+	log.Debugf("Program external connectivity request: %+v", r)
 	return nil
 }
 
 func (d *Driver) RevokeExternalConnectivity (r *networkplugin.RevokeExternalConnectivityRequest) error {
-        log.Debugf("Revoke external connectivity request: %+v", r)
-        return nil
+	log.Debugf("Revoke external connectivity request: %+v", r)
+	return nil
 }
 
 func (d *Driver) FreeNetwork (r *networkplugin.FreeNetworkRequest) error {
-        log.Debugf("Free network request: %+v", r)
-        return nil
+	log.Debugf("Free network request: %+v", r)
+	return nil
 }
 
 func (d *Driver) DiscoverNew (r *networkplugin.DiscoveryNotification) error {
-        log.Debugf("Discover new request: %+v", r)
-        return nil
+	log.Debugf("Discover new request: %+v", r)
+	return nil
 }
 
 func (d *Driver) DiscoverDelete (r *networkplugin.DiscoveryNotification) error {
@@ -220,11 +215,11 @@ func (d *Driver) DeleteEndpoint(r *networkplugin.DeleteEndpointRequest) error {
 }
 
 func (d *Driver) AllocateNetwork(r *networkplugin.AllocateNetworkRequest) (*networkplugin.AllocateNetworkResponse,error) {
-        log.Debugf("Allocate network request: %+v", r)
-        res := &networkplugin.AllocateNetworkResponse{
-                Options: make(map[string]string),
-        }
-        return res,nil
+	log.Debugf("Allocate network request: %+v", r)
+	res := &networkplugin.AllocateNetworkResponse{
+		Options: make(map[string]string),
+	}
+	return res,nil
 }
 
 func (d *Driver) EndpointInfo(r *networkplugin.InfoRequest) (*networkplugin.InfoResponse, error) {
@@ -510,15 +505,15 @@ func getBridgeMode(r *networkplugin.CreateNetworkRequest) (string, error) {
 }
 
 func getBridgeController(r *networkplugin.CreateNetworkRequest) (string, error) {
-        return getGenericOption(r, bridgeController), nil
+	return getGenericOption(r, bridgeController), nil
 }
 
 func getBridgeDpid(r *networkplugin.CreateNetworkRequest) (string, error) {
-        return getGenericOption(r, bridgeDpid), nil
+	return getGenericOption(r, bridgeDpid), nil
 }
 
 func getBridgeAddPorts(r *networkplugin.CreateNetworkRequest) (string, error) {
-        return getGenericOption(r, bridgeAddPorts), nil
+	return getGenericOption(r, bridgeAddPorts), nil
 }
 
 func getGatewayIP(r *networkplugin.CreateNetworkRequest) (string, string, error) {
@@ -570,10 +565,5 @@ func getBindInterface(r *networkplugin.CreateNetworkRequest) (string, error) {
 
 func getBridgeNamefromresource(r *types.NetworkResource) (string, error) {
 	bridgeName := bridgePrefix + truncateID(r.ID)
-	//if r.Options != nil {
-	//	if name, ok := r.Options[bridgeNameOption]; ok {
-	//		bridgeName = name
-	//	}
-	//}
 	return bridgeName, nil
 }
