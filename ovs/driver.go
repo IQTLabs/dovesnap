@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"io/ioutil"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -97,11 +96,6 @@ func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) 
 func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) error {
 	log.Debugf("Create stack bridge request")
 
-	name, err := os.Hostname()
-	if err != nil {
-		return err
-	}
-
 	controller, err := getBridgeController(r)
 	if err != nil {
 		return err
@@ -112,7 +106,7 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 		return err
 	}
 
-	bridgeName := "dovesnap-stack-" + name
+	bridgeName := "dovesnap-stack"
 	if err := d.addBridge(bridgeName); err != nil {
 		log.Errorf("Error creating stacking ovs bridge [ %s ] : [ %s ]", bridgeName, err)
 		return err
