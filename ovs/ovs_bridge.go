@@ -23,7 +23,7 @@ func (ovsdber *ovsdber) deleteBridge(bridgeName string) error {
 	return VsCtl("del-br", bridgeName)
 }
 
-//  setupBridge If bridge does not exist create it.
+//  setup bridge, if bridge does not exist create it.
 func (d *Driver) initBridge(id string, controller string, dpid string, add_ports string) error {
 	bridgeName := d.networks[id].BridgeName
 	if err := d.ovsdber.addBridge(bridgeName); err != nil {

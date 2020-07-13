@@ -399,11 +399,13 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 	}
 	confclient := faucetconfserver.NewFaucetConfServerClient(conn)
 
+	// Connect to Docker
 	docker, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to docker: %s", err)
 	}
 
+	// Create Docker driver
 	d := &Driver{
 		dockerclient: docker,
 		ovsdber: ovsdber{},
@@ -411,6 +413,7 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 		ofportmapChan: make(chan OFPortMap, 2),
 	}
 
+	// Connect to OVSDB
 	for i := 0; i < ovsStartupRetries; i++ {
 		err = d.ovsdber.show()
 		if err == nil {
@@ -427,23 +430,23 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 
 	netlist, err := d.dockerclient.NetworkList(context.Background(), types.NetworkListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("could not get docker networks: %s", err)
+		return nil, fmt.Errorf("Could not get docker networks: %s", err)
 	}
 	for _, net := range netlist{
-		if net.Driver  == DriverName{
+		if net.Driver == DriverName{
 			netInspect, err := d.dockerclient.NetworkInspect(context.Background(), net.ID, types.NetworkInspectOptions{})
 			if err != nil {
-				return nil, fmt.Errorf("could not inpect docker networks inpect: %s", err)
+				return nil, fmt.Errorf("Could not inpect docker networks inpect: %s", err)
 			}
 			bridgeName, err := getBridgeNamefromresource(&netInspect)
 			if err != nil {
 				return nil,err
 			}
 			ns := &NetworkState{
-				BridgeName:        bridgeName,
+				BridgeName: bridgeName,
 			}
 			d.networks[net.ID] = ns
-			log.Debugf("exist network create by this driver: %v",netInspect.Name)
+			log.Debugf("Existing networks created by this driver: %v", netInspect.Name)
 		}
 	}
 	return d, nil
