@@ -40,6 +40,7 @@ ls -al /opt/dovesnap/faucetconfrpc/client.key || exit 1
 echo starting dovesnap infrastructure
 docker-compose build && FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
 wget --retry-connrefused --tries=20 -q -O/dev/null localhost:9302 > /dev/null || exit 1
+docker ps -a
 echo creating testnet
 docker network create testnet -d ovs -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653 || exit 1
 DPSTATUS=""
