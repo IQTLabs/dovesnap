@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"io/ioutil"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -93,7 +94,56 @@ func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) 
 	return optionValue
 }
 
+func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) error {
+	log.Debugf("Create stack bridge request")
+
+	name, err := os.Hostname()
+	if err != nil {
+		return err
+	}
+
+	controller, err := getBridgeController(r)
+	if err != nil {
+		return err
+	}
+
+	dpid, err := getBridgeDpid(r)
+	if err != nil {
+		return err
+	}
+
+	bridgeName := "dovesnap-stack-" + name
+	if err := d.addBridge(bridgeName); err != nil {
+		log.Errorf("Error creating stacking ovs bridge [ %s ] : [ %s ]", bridgeName, err)
+		return err
+	}
+
+	var ovsConfigCmds [][]string
+	ovsConfigCmds = append(ovsConfigCmds, []string{"set", "bridge", bridgeName, fmt.Sprintf("other-config:datapath-id=%s", dpid)})
+	ovsConfigCmds = append(ovsConfigCmds, []string{"set", "bridge",  bridgeName, "fail-mode=secure"})
+	controllers := append([]string{"set-controller", bridgeName}, strings.Split(controller, ",")...)
+	ovsConfigCmds = append(ovsConfigCmds, controllers)
+
+	for _, cmd := range ovsConfigCmds {
+		err := VsCtl(cmd...)
+		if err != nil {
+			// At least one bridge config failed, so delete the bridge.
+			if delerr := d.deleteBridge(bridgeName); delerr != nil {
+				log.Errorf("Error cleaning up and deleting bridge [ %s ] : [ %s ]", bridgeName, delerr)
+			}
+			return err
+		}
+	}
+	return nil
+}
+
 func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
+	// Ensure stack bridge is created or exists
+	stackerr := d.createStackingBridge(r)
+	if stackerr != nil {
+		log.Debugf("Unable able to create stacking bridge because: [ %s ]", stackerr)
+	}
+
 	log.Debugf("Create network request: %+v", r)
 
 	bridgeName, err := getBridgeName(r)
