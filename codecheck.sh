@@ -1,7 +1,9 @@
 #!/bin/sh
 
-if [ "$(gofmt -l *go */*go)" != "" ] ; then
-	echo gofmt must return no diff
+GOFMTOUT=$(gofmt -l *go */*go)
+
+if [ "$GOFMTOUT" != "" ] ; then
+	echo gofmt reports files with formatting inconsistencies: $GOFMTOUT
 	exit 1
 fi
 
