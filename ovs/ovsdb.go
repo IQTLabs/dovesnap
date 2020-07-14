@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	ovsofctlPath   = "/usr/local/bin/ovs-ofctl"
-	ovsvsctlPath   = "/usr/local/bin/ovs-vsctl"
+	ovsofctlPath   = "/usr/bin/ovs-ofctl"
+	ovsvsctlPath   = "/usr/bin/ovs-vsctl"
 	ovsvsctlDBPath = "unix:/usr/local/var/run/openvswitch/db.sock"
 )
 
