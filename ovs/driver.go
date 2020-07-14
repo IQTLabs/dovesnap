@@ -4,20 +4,20 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
 	"fmt"
+	"io/ioutil"
 	"strconv"
 	"strings"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	networkplugin "github.com/docker/go-plugins-helpers/network"
-	"github.com/docker/docker/client"
+	"github.com/cyberreboot/faucetconfrpc/faucetconfrpc"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
+	networkplugin "github.com/docker/go-plugins-helpers/network"
 	"github.com/vishvananda/netlink"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"github.com/cyberreboot/faucetconfrpc/faucetconfrpc"
 )
 
 const (
@@ -49,21 +49,21 @@ var (
 )
 
 type OFPortMap struct {
-	OFPort uint
-	NetworkID string
+	OFPort     uint
+	NetworkID  string
 	EndpointID string
-	Operation string
+	Operation  string
 }
 
 type OFPortContainer struct {
-	OFPort uint
+	OFPort           uint
 	containerInspect types.ContainerJSON
 }
 
 type Driver struct {
 	dockerclient *client.Client
 	ovsdber
-	networks map[string]*NetworkState
+	networks      map[string]*NetworkState
 	ofportmapChan chan OFPortMap
 }
 
@@ -78,16 +78,16 @@ type NetworkState struct {
 	FlatBindInterface string
 }
 
-func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) (string) {
+func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) string {
 	if r.Options == nil {
 		return ""
 	}
 	optionsMap, have_options := r.Options["com.docker.network.generic"].(map[string]interface{})
-	if ! have_options {
+	if !have_options {
 		return ""
 	}
 	optionValue, have_option := optionsMap[optionName].(string)
-	if ! have_option {
+	if !have_option {
 		return ""
 	}
 	return optionValue
@@ -105,40 +105,16 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 	if err != nil {
 		return err
 	}
-
-	bridgeName := "dovesnap-stack"
-	if err := d.addBridge(bridgeName); err != nil {
-		log.Debugf("Error creating stacking ovs bridge [ %s ] : [ %s ]", bridgeName, err)
-		return err
-	}
-
-	var ovsConfigCmds [][]string
-	ovsConfigCmds = append(ovsConfigCmds, []string{"set", "bridge", bridgeName, fmt.Sprintf("other-config:datapath-id=%s", dpid)})
-	ovsConfigCmds = append(ovsConfigCmds, []string{"set", "bridge",  bridgeName, "fail-mode=secure"})
-	controllers := append([]string{"set-controller", bridgeName}, strings.Split(controller, ",")...)
-	ovsConfigCmds = append(ovsConfigCmds, controllers)
-
-	for _, cmd := range ovsConfigCmds {
-		err := VsCtl(cmd...)
-		if err != nil {
-			// At least one bridge config failed, so delete the bridge.
-			if delerr := d.deleteBridge(bridgeName); delerr != nil {
-				log.Debugf("Error cleaning up and deleting bridge [ %s ] : [ %s ]", bridgeName, delerr)
-			}
-			return err
-		}
-	}
-	return nil
+	return d.ovsdber.createBridge("dovesnap-stack", controller, dpid, "")
 }
 
 func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
-	// Ensure stack bridge is created or exists
+	log.Debugf("Create network request: %+v", r)
 	stackerr := d.createStackingBridge(r)
+
 	if stackerr != nil {
 		log.Debugf("Unable able to create stacking bridge because: [ %s ]", stackerr)
 	}
-
-	log.Debugf("Create network request: %+v", r)
 
 	bridgeName, err := getBridgeName(r)
 	if err != nil {
@@ -211,46 +187,46 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 	return nil
 }
 
-func (d *Driver) CreateEndpoint(r *networkplugin.CreateEndpointRequest) (*networkplugin.CreateEndpointResponse,error) {
+func (d *Driver) CreateEndpoint(r *networkplugin.CreateEndpointRequest) (*networkplugin.CreateEndpointResponse, error) {
 	log.Debugf("Create endpoint request: %+v", r)
 	localVethPair := vethPair(truncateID(r.EndpointID))
 	log.Debugf("Create vethPair")
 	res := &networkplugin.CreateEndpointResponse{Interface: &networkplugin.EndpointInterface{MacAddress: localVethPair.Attrs().HardwareAddr.String()}}
-	log.Debugf("Attached veth5 %+v," ,r.Interface)
-	return res,nil
+	log.Debugf("Attached veth5 %+v,", r.Interface)
+	return res, nil
 }
 
-func (d *Driver) GetCapabilities () (*networkplugin.CapabilitiesResponse,error) {
+func (d *Driver) GetCapabilities() (*networkplugin.CapabilitiesResponse, error) {
 	log.Debugf("Get capabilities request")
 	res := &networkplugin.CapabilitiesResponse{
 		Scope: "local",
 	}
-	return res,nil
+	return res, nil
 }
 
-func (d *Driver) ProgramExternalConnectivity (r *networkplugin.ProgramExternalConnectivityRequest) error {
+func (d *Driver) ProgramExternalConnectivity(r *networkplugin.ProgramExternalConnectivityRequest) error {
 	log.Debugf("Program external connectivity request: %+v", r)
 	return nil
 }
 
-func (d *Driver) RevokeExternalConnectivity (r *networkplugin.RevokeExternalConnectivityRequest) error {
+func (d *Driver) RevokeExternalConnectivity(r *networkplugin.RevokeExternalConnectivityRequest) error {
 	log.Debugf("Revoke external connectivity request: %+v", r)
 	return nil
 }
 
-func (d *Driver) FreeNetwork (r *networkplugin.FreeNetworkRequest) error {
+func (d *Driver) FreeNetwork(r *networkplugin.FreeNetworkRequest) error {
 	log.Debugf("Free network request: %+v", r)
 	return nil
 }
 
-func (d *Driver) DiscoverNew (r *networkplugin.DiscoveryNotification) error {
+func (d *Driver) DiscoverNew(r *networkplugin.DiscoveryNotification) error {
 	log.Debugf("Discover new request: %+v", r)
 	return nil
 }
 
-func (d *Driver) DiscoverDelete (r *networkplugin.DiscoveryNotification) error {
-        log.Debugf("Discover delete request: %+v", r)
-        return nil
+func (d *Driver) DiscoverDelete(r *networkplugin.DiscoveryNotification) error {
+	log.Debugf("Discover delete request: %+v", r)
+	return nil
 }
 
 func (d *Driver) DeleteEndpoint(r *networkplugin.DeleteEndpointRequest) error {
@@ -258,12 +234,12 @@ func (d *Driver) DeleteEndpoint(r *networkplugin.DeleteEndpointRequest) error {
 	return nil
 }
 
-func (d *Driver) AllocateNetwork(r *networkplugin.AllocateNetworkRequest) (*networkplugin.AllocateNetworkResponse,error) {
+func (d *Driver) AllocateNetwork(r *networkplugin.AllocateNetworkRequest) (*networkplugin.AllocateNetworkResponse, error) {
 	log.Debugf("Allocate network request: %+v", r)
 	res := &networkplugin.AllocateNetworkResponse{
 		Options: make(map[string]string),
 	}
-	return res,nil
+	return res, nil
 }
 
 func (d *Driver) EndpointInfo(r *networkplugin.InfoRequest) (*networkplugin.InfoResponse, error) {
@@ -304,12 +280,12 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 	}
 	log.Debugf("Join endpoint %s:%s to %s", r.NetworkID, r.EndpointID, r.SandboxKey)
 	addmap := OFPortMap{
-		OFPort: ofport,
-		NetworkID: r.NetworkID,
+		OFPort:     ofport,
+		NetworkID:  r.NetworkID,
 		EndpointID: r.EndpointID,
-		Operation: "add",
+		Operation:  "add",
 	}
-	d.ofportmapChan <-addmap
+	d.ofportmapChan <- addmap
 	return res, nil
 }
 
@@ -329,12 +305,12 @@ func (d *Driver) Leave(r *networkplugin.LeaveRequest) error {
 	log.Infof("Deleted OVS port [ %s ] from bridge [ %s ]", portID, bridgeName)
 	log.Debugf("Leave %s:%s", r.NetworkID, r.EndpointID)
 	rmmap := OFPortMap{
-		OFPort: 0,
-		NetworkID: r.NetworkID,
+		OFPort:     0,
+		NetworkID:  r.NetworkID,
 		EndpointID: r.EndpointID,
-		Operation: "rm",
+		Operation:  "rm",
 	}
-	d.ofportmapChan <-rmmap
+	d.ofportmapChan <- rmmap
 	return nil
 }
 
@@ -346,13 +322,13 @@ func getContainerFromEndpoint(dockerclient *client.Client, EndpointID string) (t
 				continue
 			}
 			netInspect, err := dockerclient.NetworkInspect(context.Background(), net.ID, types.NetworkInspectOptions{})
-			if (err != nil) {
+			if err != nil {
 				continue
 			}
 			for containerID, containerInfo := range netInspect.Containers {
 				if containerInfo.EndpointID == EndpointID {
 					containerInspect, err := dockerclient.ContainerInspect(context.Background(), containerID)
-					if (err != nil) {
+					if err != nil {
 						continue
 					}
 					return containerInspect, netInspect, nil
@@ -364,28 +340,29 @@ func getContainerFromEndpoint(dockerclient *client.Client, EndpointID string) (t
 	return types.ContainerJSON{}, types.NetworkResource{}, fmt.Errorf("Endpoint %s not found", EndpointID)
 }
 
-func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServerClient) () {
+func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServerClient) {
 	OFPorts := make(map[string]OFPortContainer)
 
 	for {
 		mapMsg := <-d.ofportmapChan
 		switch mapMsg.Operation {
-			case "add": {
+		case "add":
+			{
 				containerInspect, netInspect, err := getContainerFromEndpoint(d.dockerclient, mapMsg.EndpointID)
 				if err == nil {
 					bridgeName, _ := getBridgeNamefromresource(&netInspect)
 					OFPorts[mapMsg.EndpointID] = OFPortContainer{
-						OFPort: mapMsg.OFPort,
+						OFPort:           mapMsg.OFPort,
 						containerInspect: containerInspect,
 					}
 					log.Infof("%s now on %s ofport %d", containerInspect.Name, bridgeName, mapMsg.OFPort)
 					portacl, ok := containerInspect.Config.Labels["dovesnap.faucet.portacl"]
-					if (ok) {
+					if ok {
 						log.Infof("Set portacl %s", portacl)
 						req := &faucetconfserver.SetPortAclRequest{
 							DpName: netInspect.Name,
 							PortNo: int32(mapMsg.OFPort),
-							Acls: portacl,
+							Acls:   portacl,
 						}
 						_, err := confclient.SetPortAcl(context.Background(), req)
 						if err != nil {
@@ -403,12 +380,13 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 					}
 				}
 			}
-			case "rm": {
+		case "rm":
+			{
 				// The container will be gone by the time we query docker.
-				delete (OFPorts, mapMsg.EndpointID)
+				delete(OFPorts, mapMsg.EndpointID)
 			}
-			default:
-				log.Errorf("unknown consolidation message: %s", mapMsg)
+		default:
+			log.Errorf("unknown consolidation message: %s", mapMsg)
 		}
 	}
 }
@@ -431,9 +409,9 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 		log.Fatalf("failed to append ca certs")
 	}
 	creds := credentials.NewTLS(&tls.Config{
-		ServerName: flagFaucetconfrpcServerName,
+		ServerName:   flagFaucetconfrpcServerName,
 		Certificates: []tls.Certificate{certificate},
-		RootCAs: certPool,
+		RootCAs:      certPool,
 	})
 	// Connect to faucetconfrpc server.
 	addr := flagFaucetconfrpcServerName + ":" + strconv.Itoa(flagFaucetconfrpcServerPort)
@@ -451,13 +429,12 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 
 	// Create Docker driver
 	d := &Driver{
-		dockerclient: docker,
-		ovsdber: ovsdber{},
-		networks: make(map[string]*NetworkState),
+		dockerclient:  docker,
+		ovsdber:       ovsdber{},
+		networks:      make(map[string]*NetworkState),
 		ofportmapChan: make(chan OFPortMap, 2),
 	}
 
-	// Connect to OVSDB
 	for i := 0; i < ovsStartupRetries; i++ {
 		err = d.ovsdber.show()
 		if err == nil {
@@ -476,15 +453,15 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 	if err != nil {
 		return nil, fmt.Errorf("Could not get docker networks: %s", err)
 	}
-	for _, net := range netlist{
-		if net.Driver == DriverName{
+	for _, net := range netlist {
+		if net.Driver == DriverName {
 			netInspect, err := d.dockerclient.NetworkInspect(context.Background(), net.ID, types.NetworkInspectOptions{})
 			if err != nil {
 				return nil, fmt.Errorf("Could not inpect docker networks inpect: %s", err)
 			}
 			bridgeName, err := getBridgeNamefromresource(&netInspect)
 			if err != nil {
-				return nil,err
+				return nil, err
 			}
 			ns := &NetworkState{
 				BridgeName: bridgeName,
@@ -500,7 +477,7 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 func vethPair(suffix string) *netlink.Veth {
 	return &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{Name: ovsPortPrefix + suffix},
-		PeerName: "ethc" + suffix,
+		PeerName:  "ethc" + suffix,
 	}
 }
 
