@@ -23,7 +23,6 @@ func InitLogging(debugHandle io.Writer,
 	infoHandle io.Writer,
 	warningHandle io.Writer,
 	errorHandle io.Writer) {
-
 	Debug = log.New(debugHandle, "DEBUG: ", standardLogFlags)
 	Info = log.New(infoHandle, "INFO: ", standardLogFlags)
 	Warning = log.New(warningHandle, "WARNING: ", standardLogFlags)
