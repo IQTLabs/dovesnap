@@ -10,7 +10,7 @@ import (
 const (
 	ovsofctlPath   = "/usr/bin/ovs-ofctl"
 	ovsvsctlPath   = "/usr/bin/ovs-vsctl"
-	ovsvsctlDBPath = "unix:/usr/local/var/run/openvswitch/db.sock"
+	ovsvsctlDBPath = "unix:/var/run/openvswitch/db.sock"
 )
 
 func VsCtl(args ...string) error {

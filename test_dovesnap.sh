@@ -43,6 +43,7 @@ wget --retry-connrefused --tries=20 -q -O/dev/null localhost:9302 > /dev/null ||
 docker ps -a
 echo creating testnet
 docker network create testnet -d ovs -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653 || exit 1
+docker network ls
 DPSTATUS=""
 while [ "$DPSTATUS" == "" ] ; do
 	echo waiting for OVS DP to come up
