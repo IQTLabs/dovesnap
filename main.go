@@ -3,10 +3,10 @@ package main
 import (
 	"os"
 
+	ovs "dovesnap/ovs"
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/docker/go-plugins-helpers/network"
-	ovs "dovesnap/ovs"
 )
 
 const (
@@ -19,17 +19,17 @@ func main() {
 		Usage: "enable debugging",
 	}
 	flagFaucetconfrpcServerName := cli.StringFlag{
-		Name: "faucetconfrpc_addr",
+		Name:  "faucetconfrpc_addr",
 		Usage: "address of faucetconfrpc server",
 		Value: "localhost",
 	}
 	flagFaucetconfrpcServerPort := cli.IntFlag{
-		Name: "faucetconfrpc_port",
+		Name:  "faucetconfrpc_port",
 		Usage: "port for faucetconfrpc server",
 		Value: 59999,
 	}
 	flagFaucetconfrpcKeydir := cli.StringFlag{
-		Name: "faucetconfrpc_keydir",
+		Name:  "faucetconfrpc_keydir",
 		Usage: "directory with keys for faucetconfrpc server",
 		Value: "/faucetconfrpc",
 	}

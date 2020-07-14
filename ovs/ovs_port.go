@@ -10,7 +10,7 @@ import (
 
 func (ovsdber *ovsdber) lowestFreePortOnBridge(bridgeName string) (lowestFreePort uint, err error) {
 	output, err := OfCtl("dump-ports-desc", bridgeName)
-	if (err != nil) {
+	if err != nil {
 		return 0, err
 	}
 	var ofportNumberDump = regexp.MustCompile(`^\s*(\d+)\(\S+\).+$`)
@@ -35,10 +35,10 @@ func (ovsdber *ovsdber) lowestFreePortOnBridge(bridgeName string) (lowestFreePor
 
 func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag uint) (ofport uint, err error) {
 	lowestFreePort, err := ovsdber.lowestFreePortOnBridge(bridgeName)
-	if (err != nil) {
+	if err != nil {
 		return lowestFreePort, err
 	}
-	if (tag != 0) {
+	if tag != 0 {
 		return lowestFreePort, VsCtl("add-port", bridgeName, portName, fmt.Sprintf("tag=%u", tag), "--", "set", "Interface", portName, fmt.Sprintf("ofport_request=%d", lowestFreePort))
 	}
 	return lowestFreePort, VsCtl("add-port", bridgeName, portName, "--", "set", "Interface", portName, fmt.Sprintf("ofport_request=%d", lowestFreePort))
