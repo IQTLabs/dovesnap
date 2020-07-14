@@ -105,40 +105,16 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 	if err != nil {
 		return err
 	}
-
-	bridgeName := "dovesnap-stack"
-	if err := d.addBridge(bridgeName); err != nil {
-		log.Debugf("Error creating stacking ovs bridge [ %s ] : [ %s ]", bridgeName, err)
-		return err
-	}
-
-	var ovsConfigCmds [][]string
-	ovsConfigCmds = append(ovsConfigCmds, []string{"set", "bridge", bridgeName, fmt.Sprintf("other-config:datapath-id=%s", dpid)})
-	ovsConfigCmds = append(ovsConfigCmds, []string{"set", "bridge",  bridgeName, "fail-mode=secure"})
-	controllers := append([]string{"set-controller", bridgeName}, strings.Split(controller, ",")...)
-	ovsConfigCmds = append(ovsConfigCmds, controllers)
-
-	for _, cmd := range ovsConfigCmds {
-		err := VsCtl(cmd...)
-		if err != nil {
-			// At least one bridge config failed, so delete the bridge.
-			if delerr := d.deleteBridge(bridgeName); delerr != nil {
-				log.Debugf("Error cleaning up and deleting bridge [ %s ] : [ %s ]", bridgeName, delerr)
-			}
-			return err
-		}
-	}
-	return nil
+	return d.ovsdber.createBridge("dovesnap-stack", controller, dpid, "")
 }
 
 func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
-	// Ensure stack bridge is created or exists
+	log.Debugf("Create network request: %+v", r)
 	stackerr := d.createStackingBridge(r)
+
 	if stackerr != nil {
 		log.Debugf("Unable able to create stacking bridge because: [ %s ]", stackerr)
 	}
-
-	log.Debugf("Create network request: %+v", r)
 
 	bridgeName, err := getBridgeName(r)
 	if err != nil {
@@ -457,7 +433,6 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 		ofportmapChan: make(chan OFPortMap, 2),
 	}
 
-	// Connect to OVSDB
 	for i := 0; i < ovsStartupRetries; i++ {
 		err = d.ovsdber.show()
 		if err == nil {
@@ -469,7 +444,7 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 	if d.ovsdber.show() != nil {
 		return nil, fmt.Errorf("Could not connect to open vswitch")
 	}
-
+	
 	go consolidateDockerInfo(d, confclient)
 
 	netlist, err := d.dockerclient.NetworkList(context.Background(), types.NetworkListOptions{})

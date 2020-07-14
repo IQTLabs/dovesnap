@@ -8,7 +8,6 @@ import (
 	"github.com/docker/libnetwork/iptables"
 )
 
-
 func (ovsdber *ovsdber) show() error {
 	return VsCtl("show")
 }
@@ -23,10 +22,8 @@ func (ovsdber *ovsdber) deleteBridge(bridgeName string) error {
 	return VsCtl("del-br", bridgeName)
 }
 
-//  setup bridge, if bridge does not exist create it.
-func (d *Driver) initBridge(id string, controller string, dpid string, add_ports string) error {
-	bridgeName := d.networks[id].BridgeName
-	if err := d.ovsdber.addBridge(bridgeName); err != nil {
+func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid string, add_ports string) error {
+	if err := ovsdber.addBridge(bridgeName); err != nil {
 		log.Errorf("error creating ovs bridge [ %s ] : [ %s ]", bridgeName, err)
 		return err
 	}
@@ -64,6 +61,23 @@ func (d *Driver) initBridge(id string, controller string, dpid string, add_ports
 		}
 	}
 
+	// Bring the bridge up
+	err := interfaceUp(bridgeName)
+	if err != nil {
+		log.Warnf("Error enabling bridge: [ %s ]", err)
+		VsCtl("del-br", bridgeName)
+	}
+	return err
+}
+
+//  setup bridge, if bridge does not exist create it.
+func (d *Driver) initBridge(id string, controller string, dpid string, add_ports string) error {
+	bridgeName := d.networks[id].BridgeName
+	err := d.ovsdber.createBridge(bridgeName, controller, dpid, add_ports)
+	if err != nil {
+	       log.Errorf("Error creating bridge: %s", err)
+	       return err
+	}
 	bridgeMode := d.networks[id].Mode
 	switch bridgeMode {
 	case modeNAT:
@@ -92,14 +106,6 @@ func (d *Driver) initBridge(id string, controller string, dpid string, add_ports
 			//ToDo: Add NIC to the bridge
 		}
 	}
-
-	// Bring the bridge up
-	err := interfaceUp(bridgeName)
-	if err != nil {
-		log.Warnf("Error enabling bridge: [ %s ]", err)
-		return err
-	}
-
 	return nil
 }
 
