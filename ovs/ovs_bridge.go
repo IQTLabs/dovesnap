@@ -34,7 +34,7 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 	}
 
 	if controller != "" {
-		ovsConfigCmds = append(ovsConfigCmds, []string{"set", "bridge",  bridgeName, "fail-mode=secure"})
+		ovsConfigCmds = append(ovsConfigCmds, []string{"set", "bridge", bridgeName, "fail-mode=secure"})
 		controllers := append([]string{"set-controller", bridgeName}, strings.Split(controller, ",")...)
 		ovsConfigCmds = append(ovsConfigCmds, controllers)
 	}
@@ -75,8 +75,8 @@ func (d *Driver) initBridge(id string, controller string, dpid string, add_ports
 	bridgeName := d.networks[id].BridgeName
 	err := d.ovsdber.createBridge(bridgeName, controller, dpid, add_ports)
 	if err != nil {
-	       log.Errorf("Error creating bridge: %s", err)
-	       return err
+		log.Errorf("Error creating bridge: %s", err)
+		return err
 	}
 	bridgeMode := d.networks[id].Mode
 	switch bridgeMode {

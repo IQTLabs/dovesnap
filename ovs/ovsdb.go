@@ -8,12 +8,12 @@ import (
 )
 
 const (
-	ovsofctlPath = "/usr/local/bin/ovs-ofctl"
-	ovsvsctlPath = "/usr/local/bin/ovs-vsctl"
+	ovsofctlPath   = "/usr/local/bin/ovs-ofctl"
+	ovsvsctlPath   = "/usr/local/bin/ovs-vsctl"
 	ovsvsctlDBPath = "unix:/usr/local/var/run/openvswitch/db.sock"
 )
 
-func VsCtl(args ...string) (error) {
+func VsCtl(args ...string) error {
 	all := append([]string{fmt.Sprintf("--db=%s", ovsvsctlDBPath)}, args...)
 	output, err := exec.Command(ovsvsctlPath, all...).CombinedOutput()
 	if err != nil {
