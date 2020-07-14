@@ -23,9 +23,7 @@ services:
       - --faucetconfrpc_keydir=/faucetconfrpc
   ovs:
     restart: always
-    image: openvswitch:2.13.0
-    build:
-      context: openvswitch
+    image: cyberreboot/openvswitch:v2.13.0
     volumes:
       - /usr/local/var/run/openvswitch:/usr/local/var/run/openvswitch
     privileged: true

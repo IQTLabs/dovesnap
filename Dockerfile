@@ -1,4 +1,4 @@
-FROM golang
+FROM golang:1.14
 RUN apt-get update && apt-get -y install iptables dbus go-dep
 RUN update-alternatives --set iptables /usr/sbin/iptables-legacy
 RUN apt-get update && apt-get install -y python3-pip python3 python python-setuptools make autoconf wget gcc git
