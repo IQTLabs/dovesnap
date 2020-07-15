@@ -391,7 +391,9 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 	}
 }
 
-func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string) (*Driver, error) {
+func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackingInterfaces string) (*Driver, error) {
+	// Get interfaces to use for stacking
+	stacking_interfaces := strings.Split(flagStackingInterfaces), ",")
 	// Read faucetconfrpc credentials.
 	crt_file := flagFaucetconfrpcKeydir + "/client.crt"
 	key_file := flagFaucetconfrpcKeydir + "/client.key"
