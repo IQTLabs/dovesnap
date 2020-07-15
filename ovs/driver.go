@@ -101,11 +101,11 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 		return err
 	}
 
-	dpid, err := getBridgeDpid(r)
+	err = d.ovsdber.createBridge("dovesnap-stack", controller, "0xFFFFFFFFFFFD", "")
 	if err != nil {
-		return err
+		log.Debugf("Unable able to create stacking bridge because: [ %s ]", err)
 	}
-	return d.ovsdber.createBridge("dovesnap-stack", controller, dpid, "")
+	return nil
 }
 
 func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
@@ -113,7 +113,7 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
 	stackerr := d.createStackingBridge(r)
 
 	if stackerr != nil {
-		log.Debugf("Unable able to create stacking bridge because: [ %s ]", stackerr)
+		log.Errorf("Unable able to create stacking bridge because: [ %s ]", stackerr)
 	}
 
 	bridgeName, err := getBridgeName(r)
@@ -265,7 +265,7 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 	bridgeName := d.networks[r.NetworkID].BridgeName
 	ofport, err := d.addInternalPort(bridgeName, localVethPair.Name, 0)
 	if err != nil {
-		log.Errorf("error attaching veth [ %s ] to bridge [ %s ]", localVethPair.Name, bridgeName)
+		log.Debugf("Error attaching veth [ %s ] to bridge [ %s ]", localVethPair.Name, bridgeName)
 		return nil, err
 	}
 	log.Infof("Attached veth [ %s ] to bridge [ %s ] ofport %d", localVethPair.Name, bridgeName, ofport)

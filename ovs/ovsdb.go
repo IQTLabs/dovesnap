@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	ovsofctlPath   = "/usr/local/bin/ovs-ofctl"
-	ovsvsctlPath   = "/usr/local/bin/ovs-vsctl"
-	ovsvsctlDBPath = "unix:/usr/local/var/run/openvswitch/db.sock"
+	ovsofctlPath   = "/usr/bin/ovs-ofctl"
+	ovsvsctlPath   = "/usr/bin/ovs-vsctl"
+	ovsvsctlDBPath = "unix:/var/run/openvswitch/db.sock"
 )
 
 func VsCtl(args ...string) error {

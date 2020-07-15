@@ -8,7 +8,7 @@ services:
     volumes:
       - /run/docker/plugins:/run/docker/plugins
       - /var/run/docker.sock:/var/run/docker.sock
-      - /usr/local/var/run/openvswitch:/usr/local/var/run/openvswitch
+      - /usr/local/var/run/openvswitch:/var/run/openvswitch
       - /opt/dovesnap/faucetconfrpc:/faucetconfrpc
     network_mode: host
     stdin_open: true
