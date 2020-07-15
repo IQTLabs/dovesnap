@@ -35,7 +35,7 @@ func main() {
 	}
 	flagStackingInterfaces := cli.StringFlag{
 		Name:  "stacking_ports",
-		Usage: "comma separated list of interface names to use for stacking",
+		Usage: "comma separated list of [dpid:port:interface_name] to use for stacking",
 	}
 	app := cli.NewApp()
 	app.Name = "dovesnap"
