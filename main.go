@@ -33,6 +33,10 @@ func main() {
 		Usage: "directory with keys for faucetconfrpc server",
 		Value: "/faucetconfrpc",
 	}
+	flagStackingInterfaces := cli.StringFlag{
+		Name:  "stacking_ports",
+		Usage: "comma separated list of interface names to use for stacking",
+	}
 	app := cli.NewApp()
 	app.Name = "dovesnap"
 	app.Usage = "Docker Open vSwitch Network Plugin"
@@ -42,6 +46,7 @@ func main() {
 		flagFaucetconfrpcServerName,
 		flagFaucetconfrpcServerPort,
 		flagFaucetconfrpcKeydir,
+		flagStackingInterfaces,
 	}
 	app.Action = Run
 	app.Run(os.Args)
@@ -55,7 +60,8 @@ func Run(ctx *cli.Context) {
 	d, err := ovs.NewDriver(
 		ctx.String("faucetconfrpc_addr"),
 		ctx.Int("faucetconfrpc_port"),
-		ctx.String("faucetconfrpc_keydir"))
+		ctx.String("faucetconfrpc_keydir"),
+		ctx.String("stacking_ports"))
 	if err != nil {
 		panic(err)
 	}
