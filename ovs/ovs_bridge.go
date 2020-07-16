@@ -17,15 +17,26 @@ func (ovsdber *ovsdber) addBridge(bridgeName string) error {
 	return VsCtl("add-br", bridgeName, "--", "set", "Bridge", bridgeName, "stp_enable=false")
 }
 
+// addBridgeExists adds the OVS bridge or does nothing if it already exists
+func (ovsdber *ovsdber) addBridgeExists(bridgeName string) error {
+	return VsCtl("add-br", bridgeName, "--may-exist", "--", "set", "Bridge", bridgeName, "stp_enable=false")
+}
+
 // deleteBridge deletes the OVS bridge
 func (ovsdber *ovsdber) deleteBridge(bridgeName string) error {
 	return VsCtl("del-br", bridgeName)
 }
 
-func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid string, add_ports string) error {
-	if err := ovsdber.addBridge(bridgeName); err != nil {
-		log.Debugf("Error creating ovs bridge [ %s ] : [ %s ]", bridgeName, err)
-		return err
+func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid string, add_ports string, exists bool) error {
+	if exists {
+		if err := ovsdber.addBridgeExists(bridgeName); err != nil {
+			log.Errorf("Error creating ovs bridge [ %s ] : [ %s ]", bridgeName, err)
+			return err
+		}
+	} else {
+		if err := ovsdber.addBridge(bridgeName); err != nil {
+			log.Errorf("Error creating ovs bridge [ %s ] : [ %s ]", bridgeName, err)
+			return err
 	}
 	var ovsConfigCmds [][]string
 
@@ -73,7 +84,7 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 //  setup bridge, if bridge does not exist create it.
 func (d *Driver) initBridge(id string, controller string, dpid string, add_ports string) error {
 	bridgeName := d.networks[id].BridgeName
-	err := d.ovsdber.createBridge(bridgeName, controller, dpid, add_ports)
+	err := d.ovsdber.createBridge(bridgeName, controller, dpid, add_ports, false)
 	if err != nil {
 		log.Errorf("Error creating bridge: %s", err)
 		return err

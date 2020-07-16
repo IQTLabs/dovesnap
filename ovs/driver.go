@@ -102,7 +102,7 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 	}
 
 	// TODO this needs to first lookup facuet config and then pick a DPID in range that isn't already used
-	err = d.ovsdber.createBridge("dovesnap-stack", controller, "0x0E0000000011", "")
+	err = d.ovsdber.createBridge("dovesnap-stack", controller, "0x0E0000000011", "", true)
 	if err != nil {
 		log.Debugf("Unable able to create stacking bridge because: [ %s ]", err)
 	}
@@ -396,6 +396,7 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 	// Get interfaces to use for stacking
 	stacking_interfaces := strings.Split(flagStackingInterfaces, ",")
 	log.Debugf("Stacking interfaces: %v", stacking_interfaces)
+
 	// Read faucetconfrpc credentials.
 	crt_file := flagFaucetconfrpcKeydir + "/client.crt"
 	key_file := flagFaucetconfrpcKeydir + "/client.key"
@@ -417,6 +418,7 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 		Certificates: []tls.Certificate{certificate},
 		RootCAs:      certPool,
 	})
+
 	// Connect to faucetconfrpc server.
 	addr := flagFaucetconfrpcServerName + ":" + strconv.Itoa(flagFaucetconfrpcServerPort)
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(creds), grpc.WithBlock())
