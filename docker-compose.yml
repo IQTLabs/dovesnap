@@ -18,6 +18,7 @@ services:
     depends_on:
       - ovs
     command:
+      - -d
       - --faucetconfrpc_addr=localhost
       - --faucetconfrpc_port=59999
       - --faucetconfrpc_keydir=/faucetconfrpc

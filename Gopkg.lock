@@ -21,6 +21,14 @@
   version = "v0.8.7"
 
 [[projects]]
+  digest = "1:602f4cb0448d97aa613683750b1ba7740bf7072bde6ecea97a202332a15c20b4"
+  name = "github.com/chtison/baseconverter"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "9cbb75d689aac2e40252ac46655cd509870128f9"
+  version = "v1.0.0"
+
+[[projects]]
   digest = "1:30e8074ed013fe9a5e4b0521f3b5a4af927ed0f3e24041c07ea230f75d96435b"
   name = "github.com/codegangsta/cli"
   packages = ["."]
@@ -340,6 +348,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/Sirupsen/logrus",
+    "github.com/chtison/baseconverter",
     "github.com/codegangsta/cli",
     "github.com/cyberreboot/faucetconfrpc/faucetconfrpc",
     "github.com/docker/docker/api/types",

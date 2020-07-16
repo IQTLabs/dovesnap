@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	bc "github.com/chtison/baseconverter"
 	log "github.com/Sirupsen/logrus"
 	"github.com/cyberreboot/faucetconfrpc/faucetconfrpc"
 	"github.com/docker/docker/api/types"
@@ -93,6 +94,18 @@ func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) 
 	return optionValue
 }
 
+func base36to16(value string) string {
+	var inBase string = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	var toBase string = "0123456789ABCDEF"
+	converted, _, _ := bc.BaseToBase(value, inBase, toBase)
+	digits := len(converted)
+	for digits < 6 {
+		converted = "0" + converted
+		digits = len(converted)
+	}
+	return converted
+}
+
 func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) error {
 	log.Debugf("Create stack bridge request")
 
@@ -101,8 +114,16 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 		return err
 	}
 
-	// TODO this needs to first lookup facuet config and then pick a DPID in range that isn't already used
-	err = d.ovsdber.createBridge("dovesnap-stack", controller, "0x0E0000000011", "", true)
+	info, err := d.dockerclient.Info(context.Background())
+	if err != nil {
+		return err
+	}
+	engineId := strings.Split(info.ID, ":")[0]
+	log.Debugf("Docker Engine ID %s:", info.ID)
+	engineId = base36to16(engineId)
+	dpid := "0x0E0F00" + engineId
+
+	err = d.ovsdber.createBridge("dovesnap-" + engineId, controller, dpid, "", true)
 	if err != nil {
 		log.Debugf("Unable able to create stacking bridge because: [ %s ]", err)
 	}
