@@ -15,7 +15,7 @@ services:
        FAUCET_CONFIG_AUTO_REVERT: '1'
   faucet_certstrap:
     restart: on-failure
-    image: 'cyberreboot/faucet-certstrap:v0.14.0'
+    image: 'cyberreboot/faucet-certstrap:v0.14.1'
     network_mode: none
     volumes:
         - /opt/dovesnap:/opt/dovesnap
@@ -24,7 +24,7 @@ services:
         - localhost
   faucetconfrpc:
     restart: always
-    image: 'cyberreboot/faucetconfrpc:v0.8'
+    image: 'cyberreboot/faucetconfrpc:v0.9'
     network_mode: host
     volumes:
         - /opt/dovesnap/faucetconfrpc:/faucetconfrpc
