@@ -37,6 +37,7 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 		if err := ovsdber.addBridge(bridgeName); err != nil {
 			log.Errorf("Error creating ovs bridge [ %s ] : [ %s ]", bridgeName, err)
 			return err
+		}
 	}
 	var ovsConfigCmds [][]string
 
