@@ -132,8 +132,8 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 
 func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
 	log.Debugf("Create network request: %+v", r)
-	stackerr := d.createStackingBridge(r)
 
+	stackerr := d.createStackingBridge(r)
 	if stackerr != nil {
 		log.Errorf("Unable able to create stacking bridge because: [ %s ]", stackerr)
 	}
