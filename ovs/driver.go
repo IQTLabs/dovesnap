@@ -101,7 +101,7 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 		return err
 	}
 
-	// TODO this needs to first lookup facuet config and then pick a DPID in range that isn't already used
+	// TODO this needs to first lookup faucet config and then pick a DPID in range that isn't already used
 	err = d.ovsdber.createBridge("dovesnap-stack", controller, "0x0E0000000011", "", true)
 	if err != nil {
 		log.Debugf("Unable able to create stacking bridge because: [ %s ]", err)
@@ -111,8 +111,8 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 
 func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
 	log.Debugf("Create network request: %+v", r)
-	stackerr := d.createStackingBridge(r)
 
+	stackerr := d.createStackingBridge(r)
 	if stackerr != nil {
 		log.Errorf("Unable able to create stacking bridge because: [ %s ]", stackerr)
 	}
