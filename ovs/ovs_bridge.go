@@ -19,7 +19,7 @@ func (ovsdber *ovsdber) addBridge(bridgeName string) error {
 
 // addBridgeExists adds the OVS bridge or does nothing if it already exists
 func (ovsdber *ovsdber) addBridgeExists(bridgeName string) error {
-	return VsCtl("add-br", bridgeName, "--may-exist", "--", "set", "Bridge", bridgeName, "stp_enable=false")
+	return VsCtl("--may-exist", "add-br", bridgeName, "--", "set", "Bridge", bridgeName, "stp_enable=false")
 }
 
 // deleteBridge deletes the OVS bridge
