@@ -62,10 +62,12 @@ type OFPortContainer struct {
 }
 
 type Driver struct {
-	dockerclient *client.Client
+	dockerclient        *client.Client
 	ovsdber
-	networks      map[string]*NetworkState
-	ofportmapChan chan OFPortMap
+	faucetclient        faucetconfserver.FaucetConfServerClient
+	stacking_interfaces
+	networks            map[string]*NetworkState
+	ofportmapChan       chan OFPortMap
 }
 
 // NetworkState is filled in at network creation time
@@ -122,6 +124,10 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 	log.Debugf("Docker Engine ID %s:", info.ID)
 	engineId = base36to16(engineId)
 	dpid := "0x0E0F00" + engineId
+
+	faucetconf := d.faucetclient.GetConfigFile(context.Background())
+	log.Debugf("faucetconf: %v", faucetconf)
+	log.Debugf("stacking interfaces: %v", d.stacking_interfaces)
 
 	err = d.ovsdber.createBridge("dovesnap-"+engineId, controller, dpid, "", true)
 	if err != nil {
@@ -456,10 +462,12 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 
 	// Create Docker driver
 	d := &Driver{
-		dockerclient:  docker,
-		ovsdber:       ovsdber{},
-		networks:      make(map[string]*NetworkState),
-		ofportmapChan: make(chan OFPortMap, 2),
+		dockerclient:        docker,
+		ovsdber:             ovsdber{},
+		faucetclient:        confclient,
+		stacking_interfaces: stacking_interfaces,
+		networks:            make(map[string]*NetworkState),
+		ofportmapChan:       make(chan OFPortMap, 2),
 	}
 
 	for i := 0; i < ovsStartupRetries; i++ {
