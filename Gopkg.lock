@@ -29,14 +29,6 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:30e8074ed013fe9a5e4b0521f3b5a4af927ed0f3e24041c07ea230f75d96435b"
-  name = "github.com/codegangsta/cli"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "565493f259bf868adb54d45d5f4c68d405117adf"
-  version = "v1.2.0"
-
-[[projects]]
   digest = "1:17220d24a71d938010a77675bce92f846bc4876e555c26f5976c92deaf55b69a"
   name = "github.com/coreos/go-systemd"
   packages = ["activation"]
@@ -45,12 +37,12 @@
   version = "v22.0.0"
 
 [[projects]]
-  digest = "1:acf63e0df5a09642d680e90fbbeda90cf3230f575a8e6b805cf88a8965cdd08f"
+  digest = "1:9920ee6791e90e94dd91a6492395f912c05f90e2b77bd8b767b16e830648adfd"
   name = "github.com/cyberreboot/faucetconfrpc"
   packages = ["faucetconfrpc"]
   pruneopts = "UT"
-  revision = "b328179715e090f44960027dd6de83d89547c9c6"
-  version = "v0.8"
+  revision = "858480067b1c6be698b2ac84ca7ea6f23090dff4"
+  version = "v0.10"
 
 [[projects]]
   digest = "1:4ddc17aeaa82cb18c5f0a25d7c253a10682f518f4b2558a82869506eec223d76"
@@ -349,7 +341,6 @@
   input-imports = [
     "github.com/Sirupsen/logrus",
     "github.com/chtison/baseconverter",
-    "github.com/codegangsta/cli",
     "github.com/cyberreboot/faucetconfrpc/faucetconfrpc",
     "github.com/docker/docker/api/types",
     "github.com/docker/docker/client",
