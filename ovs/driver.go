@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	bc "github.com/chtison/baseconverter"
 	log "github.com/Sirupsen/logrus"
+	bc "github.com/chtison/baseconverter"
 	"github.com/cyberreboot/faucetconfrpc/faucetconfrpc"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -123,7 +123,7 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 	engineId = base36to16(engineId)
 	dpid := "0x0E0F00" + engineId
 
-	err = d.ovsdber.createBridge("dovesnap-" + engineId, controller, dpid, "", true)
+	err = d.ovsdber.createBridge("dovesnap-"+engineId, controller, dpid, "", true)
 	if err != nil {
 		log.Debugf("Unable able to create stacking bridge because: [ %s ]", err)
 	}
@@ -383,7 +383,7 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 						log.Infof("Set portacl %s", portacl)
 						req := &faucetconfserver.SetPortAclRequest{
 							DpName: netInspect.Name,
-							PortNo: int32(mapMsg.OFPort),
+							PortNo: uint32(mapMsg.OFPort),
 							Acls:   portacl,
 						}
 						_, err := confclient.SetPortAcl(context.Background(), req)

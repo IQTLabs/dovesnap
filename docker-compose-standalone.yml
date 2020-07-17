@@ -24,7 +24,7 @@ services:
         - localhost
   faucetconfrpc:
     restart: always
-    image: 'cyberreboot/faucetconfrpc:v0.9'
+    image: 'cyberreboot/faucetconfrpc:v0.10'
     network_mode: host
     volumes:
         - /opt/dovesnap/faucetconfrpc:/faucetconfrpc

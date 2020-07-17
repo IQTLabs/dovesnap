@@ -1,11 +1,10 @@
 package main
 
 import (
-	"os"
+	"flag"
 
 	ovs "dovesnap/ovs"
 	log "github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
 	"github.com/docker/go-plugins-helpers/network"
 )
 
@@ -14,54 +13,20 @@ const (
 )
 
 func main() {
-	flagDebug := cli.BoolFlag{
-		Name:  "debug, d",
-		Usage: "enable debugging",
-	}
-	flagFaucetconfrpcServerName := cli.StringFlag{
-		Name:  "faucetconfrpc_addr",
-		Usage: "address of faucetconfrpc server",
-		Value: "localhost",
-	}
-	flagFaucetconfrpcServerPort := cli.IntFlag{
-		Name:  "faucetconfrpc_port",
-		Usage: "port for faucetconfrpc server",
-		Value: 59999,
-	}
-	flagFaucetconfrpcKeydir := cli.StringFlag{
-		Name:  "faucetconfrpc_keydir",
-		Usage: "directory with keys for faucetconfrpc server",
-		Value: "/faucetconfrpc",
-	}
-	flagStackingInterfaces := cli.StringFlag{
-		Name:  "stacking_ports",
-		Usage: "comma separated list of [dpid:port:interface_name] to use for stacking",
-	}
-	app := cli.NewApp()
-	app.Name = "dovesnap"
-	app.Usage = "Docker Open vSwitch Network Plugin"
-	app.Version = version
-	app.Flags = []cli.Flag{
-		flagDebug,
-		flagFaucetconfrpcServerName,
-		flagFaucetconfrpcServerPort,
-		flagFaucetconfrpcKeydir,
-		flagStackingInterfaces,
-	}
-	app.Action = Run
-	app.Run(os.Args)
-}
-
-// Run initializes the driver
-func Run(ctx *cli.Context) {
-	if ctx.Bool("debug") {
+	flagDebug := flag.Bool("debug", false, "enable debugging")
+	flagFaucetconfrpcServerName := flag.String("faucetconfrpc_addr", "localhost", "address of faucetconfrpc server")
+	flagFaucetconfrpcServerPort := flag.Int("faucetconfrpc_port", 59999, "port for faucetconfrpc server")
+	flagFaucetconfrpcKeydir := flag.String("faucetconfrpc_keydir", "/faucetconfrpc", "directory with keys for faucetconfrpc server")
+	flagStackingInterfaces := flag.String("stacking_ports", "", "comma separated list of [dpid:port:interface_name] to use for stacking")
+	flag.Parse()
+	if *flagDebug {
 		log.SetLevel(log.DebugLevel)
 	}
 	d, err := ovs.NewDriver(
-		ctx.String("faucetconfrpc_addr"),
-		ctx.Int("faucetconfrpc_port"),
-		ctx.String("faucetconfrpc_keydir"),
-		ctx.String("stacking_ports"))
+		*flagFaucetconfrpcServerName,
+		*flagFaucetconfrpcServerPort,
+		*flagFaucetconfrpcKeydir,
+		*flagStackingInterfaces)
 	if err != nil {
 		panic(err)
 	}

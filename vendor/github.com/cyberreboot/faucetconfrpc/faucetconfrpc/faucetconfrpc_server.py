@@ -110,32 +110,40 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
         new_file.close()
         os.rename(new_file_name, os.path.join(config_dir, config_filename))
 
-    def _set_config_file(self, config_filename, config_yaml, merge):
+    def _set_config_file(self, config_filename, config_yaml, merge, del_yaml_keys=None):
         try:
             config_filename = self._validate_filename(config_filename)
             new_config_yaml = yaml.safe_load(config_yaml)
             if merge:
                 curr_config_yaml = self._get_config_file(config_filename)
+                if del_yaml_keys:
+                    curr_config_yaml = self._del_keys_from_yaml(
+                        del_yaml_keys, curr_config_yaml)
                 new_config_yaml = self._yaml_merge(curr_config_yaml, new_config_yaml)
             self._validate_config_tree(config_filename, new_config_yaml)
             self._replace_config_file(config_filename, new_config_yaml)
         except (FileNotFoundError, PermissionError, _ServerError) as err:
             raise _ServerError(err)
 
+    @staticmethod
+    def _del_keys_from_yaml(config_yaml_keys, new_config_yaml):
+        config_yaml_keys = yaml.safe_load(config_yaml_keys)
+        if not isinstance(config_yaml_keys, list):
+            raise _ServerError('config_yaml_keys %s not a list' % config_yaml_keys)
+        penultimate_key = new_config_yaml
+        last_key = config_yaml_keys[-1]
+        for key in config_yaml_keys[:-1]:
+            penultimate_key = penultimate_key[key]
+        if isinstance(penultimate_key, dict):
+            del penultimate_key[last_key]
+        else:
+            penultimate_key.remove(last_key)
+        return new_config_yaml
+
     def _del_config_from_file(self, config_filename, config_yaml_keys):
         try:
-            config_yaml_keys = yaml.safe_load(config_yaml_keys)
-            if not isinstance(config_yaml_keys, list):
-                raise _ServerError('config_yaml_keys %s not a list' % config_yaml_keys)
-            new_config_yaml = self._get_config_file(config_filename)
-            penultimate_key = new_config_yaml
-            last_key = config_yaml_keys[-1]
-            for key in config_yaml_keys[:-1]:
-                penultimate_key = penultimate_key[key]
-            if isinstance(penultimate_key, dict):
-                del penultimate_key[last_key]
-            else:
-                penultimate_key.remove(last_key)
+            new_config_yaml = self._del_keys_from_yaml(
+                config_yaml_keys, self._get_config_file(config_filename))
             self._validate_config_tree(config_filename, new_config_yaml)
             self._replace_config_file(config_filename, new_config_yaml)
         except (KeyError, ValueError, _ServerError) as err:
@@ -161,6 +169,33 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
                 self._log_error(context, request, err)
         return faucetconfrpc_pb2.GetConfigFileReply()
 
+    def GetDpInfo(self, request, context):  # pylint: disable=invalid-name
+        with self.lock:
+            try:
+                config_filename = request.config_filename
+                if not config_filename:
+                    config_filename = self.default_config
+                config_yaml = self._get_config_file(config_filename)
+                dps = config_yaml['dps']
+                if request.dp_name:
+                    dps = {}
+                    if request.dp_name in dps:
+                        dps = {request.dp_name: dps[request.dp_name]}
+                reply = faucetconfrpc_pb2.GetDpInfoReply()
+                for dp_name, dp in dps.items():  # pylint: disable=invalid-name
+                    dp_info = reply.dps.add()  # pylint: disable=no-member
+                    dp_info.name = dp_name
+                    dp_info.dp_id = dp.get('dp_id', 0)
+                    dp_info.description = dp.get('description', '')
+                    for port_no, port in dp.get('interfaces', {}).items():
+                        interface_info = dp_info.interfaces.add()
+                        interface_info.port_no = port_no
+                        interface_info.name = port.get('name', '')
+                        interface_info.description = port.get('description', '')
+            except _ServerError as err:
+                self._log_error(context, request, err)
+        return reply
+
     def SetConfigFile(self, request, context):  # pylint: disable=invalid-name
         """Overwrite/update config file contents with provided YAML."""
         with self.lock:
@@ -169,7 +204,8 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
                 if not config_filename:
                     config_filename = self._filename_for_yaml(request.config_yaml)
                 self._set_config_file(
-                    config_filename, request.config_yaml, request.merge)
+                    config_filename, request.config_yaml, request.merge,
+                    request.del_config_yaml_keys)
             except _ServerError as err:
                 self._log_error(context, request, err)
         return faucetconfrpc_pb2.SetConfigFileReply()
