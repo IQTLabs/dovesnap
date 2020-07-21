@@ -17,7 +17,7 @@ func main() {
 	flagFaucetconfrpcServerName := flag.String("faucetconfrpc_addr", "localhost", "address of faucetconfrpc server")
 	flagFaucetconfrpcServerPort := flag.Int("faucetconfrpc_port", 59999, "port for faucetconfrpc server")
 	flagFaucetconfrpcKeydir := flag.String("faucetconfrpc_keydir", "/faucetconfrpc", "directory with keys for faucetconfrpc server")
-	flagStackingInterfaces := flag.String("stacking_ports", "", "comma separated list of [dpid:port:interface_name] to use for stacking")
+	flagStackingInterfaces := flag.String("stacking_interfaces", "", "comma separated list of [dpid:port:interface_name] to use for stacking")
 	flag.Parse()
 	if *flagDebug {
 		log.SetLevel(log.DebugLevel)
