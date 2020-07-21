@@ -746,6 +746,6 @@ func getBridgeVlanfromresource(r *types.NetworkResource) (int, error) {
 			return vlan, nil
 		}
 	}
-	log.Infof("No VLAN found for this network, using default: %d", defaultVlan)
-	return defaultVlan, nil
+	log.Infof("No VLAN found for this network, using default: %d", defaultVLAN)
+	return defaultVLAN, nil
 }
