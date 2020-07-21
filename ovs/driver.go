@@ -173,18 +173,6 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 		log.Errorf("Unable to create stacking bridge because: [ %s ]", err)
 	}
 
-	log.Debugf("remoteDP name: %v", remoteDP)
-	gReq := &faucetconfserver.GetDpInfoRequest{
-		DpName: remoteDP,
-	}
-	log.Debugf("dpinfo request: %v", gReq)
-
-	dpInfo, err := d.faucetclient.GetDpInfo(context.Background(), gReq)
-	if err != nil {
-		log.Errorf("Error while calling GetDpInfo %s: %v", gReq, err)
-	}
-	log.Debugf("dpinfo: %+v %+v", dpInfo, dpInfo.Dps)
-
 	// TODO for loop through stacking interfaces
 	ofport, err := d.addInternalPort(dpName, localInterface, 0)
 	if err != nil {
@@ -195,12 +183,23 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 
 	sReq := &faucetconfserver.SetConfigFileRequest{
 		ConfigYaml: fmt.Sprintf("{dps: {%s: {stack: {priority: 1}, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {dp_id: %s, description: %s, hardware: Open vSwitch, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
-			remoteDP, remotePort, "Stack link to " + dpName, dpName, ofport, dpName, dpid, "Dovesnap Stacking Bridge for " + hostname, ofport, "Stack link to " + remoteDP, remoteDP, remotePort),
+			remoteDP,
+			remotePort,
+			"Stack link to " + dpName,
+			dpName,
+			ofport,
+			dpName,
+			dpid,
+			"Dovesnap Stacking Bridge for " + hostname,
+			ofport,
+			"Stack link to " + remoteDP,
+			remoteDP,
+			remotePort),
 		Merge: true,
 	}
 	_, err = d.faucetclient.SetConfigFile(context.Background(), sReq)
 	if err != nil {
-		log.Errorf("error while calling SetConfigFileRequest %s: %v", sReq, err)
+		log.Errorf("Error while calling SetConfigFileRequest %s: %v", sReq, err)
 	}
 
 	return nil
