@@ -173,15 +173,6 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 		log.Errorf("Unable to create stacking bridge because: [ %s ]", err)
 	}
 
-	gReq := &faucetconfserver.GetDpInfoRequest{
-		DpName: remoteDP,
-	}
-
-	dpInfo, err := d.faucetclient.GetDpInfo(context.Background(), gReq)
-	if err != nil {
-		log.Errorf("Error while calling GetDpInfo %s: %v", gReq, err)
-	}
-
 	// TODO for loop through stacking interfaces
 	ofport, err := d.addInternalPort(dpName, localInterface, 0)
 	if err != nil {
