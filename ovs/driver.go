@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -62,10 +63,12 @@ type OFPortContainer struct {
 }
 
 type Driver struct {
-	dockerclient *client.Client
+	dockerclient        *client.Client
 	ovsdber
-	networks      map[string]*NetworkState
-	ofportmapChan chan OFPortMap
+	faucetclient        faucetconfserver.FaucetConfServerClient
+	stackingInterfaces  []string
+	networks            map[string]*NetworkState
+	ofportmapChan       chan OFPortMap
 }
 
 // NetworkState is filled in at network creation time
@@ -106,27 +109,100 @@ func base36to16(value string) string {
 	return converted
 }
 
+func (d *Driver) getStackDP() (string, string, error) {
+	info, err := d.dockerclient.Info(context.Background())
+	if err != nil {
+		return "", "", err
+	}
+	engineId := strings.Split(info.ID, ":")[0]
+	log.Debugf("Docker Engine ID %s:", info.ID)
+	engineId = base36to16(engineId)
+	dpid := "0x0E0F00" + engineId
+	dpName := "dovesnap" + engineId
+	return dpid, dpName, nil
+}
+
 func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) error {
-	log.Debugf("Create stack bridge request")
+	log.Debugf("Create stacking bridge request")
 
 	controller, err := getBridgeController(r)
 	if err != nil {
 		return err
 	}
 
-	info, err := d.dockerclient.Info(context.Background())
+	dpid, dpName, err := d.getStackDP()
 	if err != nil {
 		return err
 	}
-	engineId := strings.Split(info.ID, ":")[0]
-	log.Debugf("Docker Engine ID %s:", info.ID)
-	engineId = base36to16(engineId)
-	dpid := "0x0E0F00" + engineId
 
-	err = d.ovsdber.createBridge("dovesnap-"+engineId, controller, dpid, "", true)
-	if err != nil {
-		log.Debugf("Unable able to create stacking bridge because: [ %s ]", err)
+	// check if the stacking bridge already exists
+	err = d.ovsdber.bridgeExists(dpName)
+	if err == nil {
+		log.Debugf("Stacking bridge already exists for this host")
+		return nil
+	} else {
+		log.Infof("Stacking bridge doesn't exist, creating one now")
 	}
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		return err
+	}
+
+
+	// TODO this needs to be validated, and looped through for multiples
+	if len(d.stackingInterfaces[0]) == 0 {
+		log.Warnf("No stacking interface defined, not stacking DPs or creating a stacking bridge")
+		return nil
+	}
+
+	// TODO this needs to be validated, and looped through for multiples
+	stackSlice := strings.Split(d.stackingInterfaces[0], ":")
+	remoteDP := stackSlice[0]
+	remotePort, err := strconv.ParseUint(stackSlice[1], 10, 32)
+	if err != nil {
+		log.Errorf("Unable to convert remote port to an unsigned integer because: [ %s ]", err)
+	}
+	localInterface := stackSlice[2]
+	if err != nil {
+		log.Errorf("Unable to convert local port to an unsigned integer because: [ %s ]", err)
+	}
+
+	err = d.ovsdber.createBridge(dpName, controller, dpid, "", true)
+	if err != nil {
+		log.Errorf("Unable to create stacking bridge because: [ %s ]", err)
+	}
+
+	log.Debugf("remoteDP name: %v", remoteDP)
+	gReq := &faucetconfserver.GetDpInfoRequest{
+		DpName: remoteDP,
+	}
+	log.Debugf("dpinfo request: %v", gReq)
+
+	dpInfo, err := d.faucetclient.GetDpInfo(context.Background(), gReq)
+	if err != nil {
+		log.Errorf("Error while calling GetDpInfo %s: %v", gReq, err)
+	}
+	log.Debugf("dpinfo: %+v %+v", dpInfo, dpInfo.Dps)
+
+	// TODO for loop through stacking interfaces
+	ofport, err := d.addInternalPort(dpName, localInterface, 0)
+	if err != nil {
+		log.Debugf("Error attaching veth [ %s ] to bridge [ %s ]", localInterface, dpName)
+		return err
+	}
+	log.Infof("Attached veth [ %s ] to bridge [ %s ] ofport %d", localInterface, dpName, ofport)
+
+	sReq := &faucetconfserver.SetConfigFileRequest{
+		ConfigYaml: fmt.Sprintf("{dps: {%s: {stack: {priority: 1}, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {dp_id: %s, description: %s, hardware: Open vSwitch, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
+			remoteDP, remotePort, "Stack link to " + dpName, dpName, ofport, dpName, dpid, "Dovesnap Stacking Bridge for " + hostname, ofport, "Stack link to " + remoteDP, remoteDP, remotePort),
+		Merge: true,
+	}
+	_, err = d.faucetclient.SetConfigFile(context.Background(), sReq)
+	if err != nil {
+		log.Errorf("error while calling SetConfigFileRequest %s: %v", sReq, err)
+	}
+
 	return nil
 }
 
@@ -135,7 +211,7 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
 
 	stackerr := d.createStackingBridge(r)
 	if stackerr != nil {
-		log.Errorf("Unable able to create stacking bridge because: [ %s ]", stackerr)
+		log.Errorf("Unable to create stacking bridge because: [ %s ]", stackerr)
 	}
 
 	bridgeName, err := getBridgeName(r)
@@ -456,10 +532,12 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 
 	// Create Docker driver
 	d := &Driver{
-		dockerclient:  docker,
-		ovsdber:       ovsdber{},
-		networks:      make(map[string]*NetworkState),
-		ofportmapChan: make(chan OFPortMap, 2),
+		dockerclient:        docker,
+		ovsdber:             ovsdber{},
+		faucetclient:        confclient,
+		stackingInterfaces:  stacking_interfaces,
+		networks:            make(map[string]*NetworkState),
+		ofportmapChan:       make(chan OFPortMap, 2),
 	}
 
 	for i := 0; i < ovsStartupRetries; i++ {

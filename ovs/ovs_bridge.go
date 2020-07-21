@@ -12,6 +12,11 @@ func (ovsdber *ovsdber) show() error {
 	return VsCtl("show")
 }
 
+// checks if a bridge already exists
+func (ovsdber *ovsdber) bridgeExists(bridgeName string) error {
+	return VsCtl("br-exists", bridgeName)
+}
+
 // addBridge adds the OVS bridge
 func (ovsdber *ovsdber) addBridge(bridgeName string) error {
 	return VsCtl("add-br", bridgeName, "--", "set", "Bridge", bridgeName, "stp_enable=false")
