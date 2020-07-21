@@ -31,8 +31,10 @@ const (
 	bridgeAddPorts      = "ovs.bridge.add_ports"
 	bridgeDpid          = "ovs.bridge.dpid"
 	bridgeController    = "ovs.bridge.controller"
+	vlanOption          = "ovs.bridge.vlan"
 	mtuOption           = "ovs.bridge.mtu"
 	defaultMTU          = 1500
+	defaultVLAN         = 100
 	bridgeNameOption    = "ovs.bridge.name"
 	bindInterfaceOption = "ovs.bridge.bind_interface"
 	modeOption          = "ovs.bridge.mode"
@@ -75,6 +77,8 @@ type Driver struct {
 // it contains state that we wish to keep for each network
 type NetworkState struct {
 	BridgeName        string
+	BridgeDpid        string
+	BridgeVLAN        int
 	MTU               int
 	Mode              string
 	Gateway           string
@@ -248,6 +252,11 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
 		return err
 	}
 
+	vlan, err := getBridgeVLAN(r)
+	if err != nil {
+		return err
+	}
+
 	add_ports, err := getBridgeAddPorts(r)
 	if err != nil {
 		return err
@@ -255,6 +264,8 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
 
 	ns := &NetworkState{
 		BridgeName:        bridgeName,
+		BridgeDpid:        dpid,
+		BridgeVLAN:        vlan,
 		MTU:               mtu,
 		Mode:              mode,
 		Gateway:           gateway,
@@ -448,6 +459,16 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 				containerInspect, netInspect, err := getContainerFromEndpoint(d.dockerclient, mapMsg.EndpointID)
 				if err == nil {
 					bridgeName, _ := getBridgeNamefromresource(&netInspect)
+					dpid, err := getBridgeDpidfromresource(&netInspect)
+					if err != nil {
+						log.Errorf("No bridge DPID could be found, can't set Faucet config")
+						break
+					}
+					vlan, err := getBridgeVlanfromresource(&netInspect)
+					if err != nil {
+						log.Errorf("No bridge VLAN could be found, can't set Faucet config")
+						break
+					}
 					OFPorts[mapMsg.EndpointID] = OFPortContainer{
 						OFPort:           mapMsg.OFPort,
 						containerInspect: containerInspect,
@@ -466,14 +487,15 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 							log.Errorf("error while calling SetPortAcl RPC %s: %v", req, err)
 						}
 					}
+					log.Debugf("Adding DP %v to Faucet config", dpid)
 					req := &faucetconfserver.SetConfigFileRequest{
-						ConfigYaml: fmt.Sprintf("{dps: {%s: {interfaces: {%d: {description: %s}}}}}",
-							netInspect.Name, mapMsg.OFPort, containerInspect.Name),
+						ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %s, interfaces: {%d: {description: %s, native_vlan: %d}}}}}",
+							netInspect.Name, dpid, mapMsg.OFPort, containerInspect.Name, vlan),
 						Merge: true,
 					}
 					_, err = confclient.SetConfigFile(context.Background(), req)
 					if err != nil {
-						log.Errorf("error while calling SetConfigFileRequest %s: %v", req, err)
+						log.Errorf("Error while calling SetConfigFileRequest %s: %v", req, err)
 					}
 				}
 			}
@@ -483,7 +505,7 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 				delete(OFPorts, mapMsg.EndpointID)
 			}
 		default:
-			log.Errorf("unknown consolidation message: %s", mapMsg)
+			log.Errorf("Unknown consolidation message: %s", mapMsg)
 		}
 	}
 }
@@ -499,15 +521,15 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 	ca_file := flagFaucetconfrpcKeydir + "/" + flagFaucetconfrpcServerName + "-ca.crt"
 	certificate, err := tls.LoadX509KeyPair(crt_file, key_file)
 	if err != nil {
-		log.Fatalf("could not load client key pair %s, %s: %s", crt_file, key_file, err)
+		log.Fatalf("Could not load client key pair %s, %s: %s", crt_file, key_file, err)
 	}
 	certPool := x509.NewCertPool()
 	ca, err := ioutil.ReadFile(ca_file)
 	if err != nil {
-		log.Fatalf("could not read ca certificate %s: %s", ca_file, err)
+		log.Fatalf("Could not read ca certificate %s: %s", ca_file, err)
 	}
 	if ok := certPool.AppendCertsFromPEM(ca); !ok {
-		log.Fatalf("failed to append ca certs")
+		log.Fatalf("Failed to append ca certs")
 	}
 	creds := credentials.NewTLS(&tls.Config{
 		ServerName:   flagFaucetconfrpcServerName,
@@ -519,14 +541,14 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 	addr := flagFaucetconfrpcServerName + ":" + strconv.Itoa(flagFaucetconfrpcServerPort)
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(creds), grpc.WithBlock())
 	if err != nil {
-		log.Fatalf("could not dial %s: %s", addr, err)
+		log.Fatalf("Could not dial %s: %s", addr, err)
 	}
 	confclient := faucetconfserver.NewFaucetConfServerClient(conn)
 
 	// Connect to Docker
 	docker, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
-		return nil, fmt.Errorf("could not connect to docker: %s", err)
+		return nil, fmt.Errorf("Could not connect to docker: %s", err)
 	}
 
 	// Create Docker driver
@@ -640,6 +662,18 @@ func getBridgeDpid(r *networkplugin.CreateNetworkRequest) (string, error) {
 	return getGenericOption(r, bridgeDpid), nil
 }
 
+func getBridgeVLAN(r *networkplugin.CreateNetworkRequest) (int, error) {
+	bridgeVLAN := defaultVLAN
+	vlan := getGenericOption(r, vlanOption)
+	if vlan != "" {
+		vlan_int, err := strconv.Atoi(vlan)
+		if err != nil {
+			bridgeVLAN = vlan_int
+		}
+	}
+	return bridgeVLAN, nil
+}
+
 func getBridgeAddPorts(r *networkplugin.CreateNetworkRequest) (string, error) {
 	return getGenericOption(r, bridgeAddPorts), nil
 }
@@ -694,4 +728,24 @@ func getBindInterface(r *networkplugin.CreateNetworkRequest) (string, error) {
 func getBridgeNamefromresource(r *types.NetworkResource) (string, error) {
 	bridgeName := bridgePrefix + truncateID(r.ID)
 	return bridgeName, nil
+}
+
+func getBridgeDpidfromresource(r *types.NetworkResource) (string, error) {
+	if r.Options != nil {
+		if dpid, ok := r.Options[bridgeDpid]; ok {
+			return dpid, nil
+		}
+	}
+	return "", fmt.Errorf("No DPID found for this network")
+}
+
+func getBridgeVlanfromresource(r *types.NetworkResource) (int, error) {
+	if r.Options != nil {
+		vlan, err := strconv.Atoi(r.Options[vlanOption])
+		if err == nil {
+			return vlan, nil
+		}
+	}
+	log.Infof("No VLAN found for this network, using default: %d", defaultVLAN)
+	return defaultVLAN, nil
 }
