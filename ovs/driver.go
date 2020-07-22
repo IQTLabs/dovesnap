@@ -140,7 +140,7 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 	}
 
 	// check if the stacking bridge already exists
-	err = d.ovsdber.bridgeExists(dpName)
+	_, err = d.ovsdber.bridgeExists(dpName)
 	if err == nil {
 		log.Debugf("Stacking bridge already exists for this host")
 		return nil
@@ -178,7 +178,7 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 	}
 
 	// TODO for loop through stacking interfaces
-	ofport, err := d.addInternalPort(dpName, localInterface, 0)
+	ofport, _, err := d.addInternalPort(dpName, localInterface, 0)
 	if err != nil {
 		log.Debugf("Error attaching veth [ %s ] to bridge [ %s ]", localInterface, dpName)
 		return err
@@ -286,7 +286,7 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 	log.Debugf("Delete network request: %+v", r)
 	bridgeName := d.networks[r.NetworkID].BridgeName
 	log.Debugf("Deleting Bridge %s", bridgeName)
-	err := d.deleteBridge(bridgeName)
+	_, err := d.deleteBridge(bridgeName)
 	if err != nil {
 		log.Errorf("Deleting bridge %s failed: %s", bridgeName, err)
 		return err
@@ -371,7 +371,7 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 		return nil, err
 	}
 	bridgeName := d.networks[r.NetworkID].BridgeName
-	ofport, err := d.addInternalPort(bridgeName, localVethPair.Name, 0)
+	ofport, _, err := d.addInternalPort(bridgeName, localVethPair.Name, 0)
 	if err != nil {
 		log.Debugf("Error attaching veth [ %s ] to bridge [ %s ]", localVethPair.Name, bridgeName)
 		return nil, err
@@ -399,13 +399,18 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 
 func (d *Driver) Leave(r *networkplugin.LeaveRequest) error {
 	log.Debugf("Leave request: %+v", r)
-	localVethPair := vethPair(truncateID(r.EndpointID))
-	if err := netlink.LinkDel(localVethPair); err != nil {
-		log.Errorf("unable to delete veth on leave: %s", err)
-	}
 	portID := fmt.Sprintf(ovsPortPrefix + truncateID(r.EndpointID))
 	bridgeName := d.networks[r.NetworkID].BridgeName
-	err := d.ovsdber.deletePort(bridgeName, portID)
+	ofport, err := d.ovsdber.getOfPortNumber(portID)
+	if err != nil {
+		log.Errorf("Unable to get ofport number from %s", portID)
+		return err
+	}
+	localVethPair := vethPair(truncateID(r.EndpointID))
+	if err := netlink.LinkDel(localVethPair); err != nil {
+		log.Errorf("Unable to delete veth on leave: %s", err)
+	}
+	err = d.ovsdber.deletePort(bridgeName, portID)
 	if err != nil {
 		log.Errorf("OVS port [ %s ] delete transaction failed on bridge [ %s ] due to: %s", portID, bridgeName, err)
 		return err
@@ -413,7 +418,7 @@ func (d *Driver) Leave(r *networkplugin.LeaveRequest) error {
 	log.Infof("Deleted OVS port [ %s ] from bridge [ %s ]", portID, bridgeName)
 	log.Debugf("Leave %s:%s", r.NetworkID, r.EndpointID)
 	rmmap := OFPortMap{
-		OFPort:     0,
+		OFPort:     ofport,
 		NetworkID:  r.NetworkID,
 		EndpointID: r.EndpointID,
 		Operation:  "rm",
@@ -446,6 +451,17 @@ func getContainerFromEndpoint(dockerclient *client.Client, EndpointID string) (t
 		time.Sleep(1 * time.Second)
 	}
 	return types.ContainerJSON{}, types.NetworkResource{}, fmt.Errorf("Endpoint %s not found", EndpointID)
+}
+
+func getNetworkNameFromID(dockerclient *client.Client, NetworkID string) (string, error) {
+	for i := 0; i < dockerRetries; i++ {
+		netInspect, err := dockerclient.NetworkInspect(context.Background(), NetworkID, types.NetworkInspectOptions{})
+		if err == nil {
+			return netInspect.Name, nil
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return "", fmt.Errorf("Network %s not found", NetworkID)
 }
 
 func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServerClient) {
@@ -487,10 +503,10 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 							log.Errorf("error while calling SetPortAcl RPC %s: %v", req, err)
 						}
 					}
-					log.Debugf("Adding DP %v to Faucet config", dpid)
+					log.Debugf("Adding datapath %v to Faucet config", dpid)
 					req := &faucetconfserver.SetConfigFileRequest{
 						ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %s, interfaces: {%d: {description: %s, native_vlan: %d}}}}}",
-							netInspect.Name, dpid, mapMsg.OFPort, containerInspect.Name, vlan),
+							netInspect.Name, dpid, mapMsg.OFPort, containerInspect.Name + truncateID(containerInspect.ID), vlan),
 						Merge: true,
 					}
 					_, err = confclient.SetConfigFile(context.Background(), req)
@@ -501,8 +517,16 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 			}
 		case "rm":
 			{
-				// The container will be gone by the time we query docker.
-				delete(OFPorts, mapMsg.EndpointID)
+				networkName, err := getNetworkNameFromID(d.dockerclient, mapMsg.NetworkID)
+				if err != nil {
+					log.Errorf("Unable to find Docker network %s to remove it from Faucet", mapMsg.NetworkID)
+				} else {
+					log.Debugf("Removing port %d on %s from Faucet config", mapMsg.OFPort, networkName)
+					// TODO Have to remove the switch if there are no more ports
+
+					// The container will be gone by the time we query docker.
+					delete(OFPorts, mapMsg.EndpointID)
+				}
 			}
 		default:
 			log.Errorf("Unknown consolidation message: %s", mapMsg)
@@ -562,14 +586,15 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 	}
 
 	for i := 0; i < ovsStartupRetries; i++ {
-		err = d.ovsdber.show()
+		_, err = d.ovsdber.show()
 		if err == nil {
 			break
 		}
 		log.Infof("Waiting for open vswitch")
 		time.Sleep(5 * time.Second)
 	}
-	if d.ovsdber.show() != nil {
+	_, err = d.ovsdber.show()
+	if err != nil {
 		return nil, fmt.Errorf("Could not connect to open vswitch")
 	}
 
