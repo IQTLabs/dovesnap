@@ -506,7 +506,7 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 					log.Debugf("Adding datapath %v to Faucet config", dpid)
 					req := &faucetconfserver.SetConfigFileRequest{
 						ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %s, interfaces: {%d: {description: %s, native_vlan: %d}}}}}",
-							netInspect.Name, dpid, mapMsg.OFPort, containerInspect.Name + truncateID(containerInspect.ID), vlan),
+							netInspect.Name, dpid, mapMsg.OFPort, containerInspect.Name + " " + truncateID(containerInspect.ID), vlan),
 						Merge: true,
 					}
 					_, err = confclient.SetConfigFile(context.Background(), req)
