@@ -8,38 +8,38 @@ import (
 	"github.com/docker/libnetwork/iptables"
 )
 
-func (ovsdber *ovsdber) show() error {
+func (ovsdber *ovsdber) show() (string, error) {
 	return VsCtl("show")
 }
 
 // checks if a bridge already exists
-func (ovsdber *ovsdber) bridgeExists(bridgeName string) error {
+func (ovsdber *ovsdber) bridgeExists(bridgeName string) (string, error) {
 	return VsCtl("br-exists", bridgeName)
 }
 
 // addBridge adds the OVS bridge
-func (ovsdber *ovsdber) addBridge(bridgeName string) error {
+func (ovsdber *ovsdber) addBridge(bridgeName string) (string, error) {
 	return VsCtl("add-br", bridgeName, "--", "set", "Bridge", bridgeName, "stp_enable=false")
 }
 
 // addBridgeExists adds the OVS bridge or does nothing if it already exists
-func (ovsdber *ovsdber) addBridgeExists(bridgeName string) error {
+func (ovsdber *ovsdber) addBridgeExists(bridgeName string) (string, error) {
 	return VsCtl("--may-exist", "add-br", bridgeName, "--", "set", "Bridge", bridgeName, "stp_enable=false")
 }
 
 // deleteBridge deletes the OVS bridge
-func (ovsdber *ovsdber) deleteBridge(bridgeName string) error {
+func (ovsdber *ovsdber) deleteBridge(bridgeName string) (string, error) {
 	return VsCtl("del-br", bridgeName)
 }
 
 func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid string, add_ports string, exists bool) error {
 	if exists {
-		if err := ovsdber.addBridgeExists(bridgeName); err != nil {
+		if _, err := ovsdber.addBridgeExists(bridgeName); err != nil {
 			log.Errorf("Error creating ovs bridge [ %s ] : [ %s ]", bridgeName, err)
 			return err
 		}
 	} else {
-		if err := ovsdber.addBridge(bridgeName); err != nil {
+		if _, err := ovsdber.addBridge(bridgeName); err != nil {
 			log.Errorf("Error creating ovs bridge [ %s ] : [ %s ]", bridgeName, err)
 			return err
 		}
@@ -70,7 +70,7 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 	}
 
 	for _, cmd := range ovsConfigCmds {
-		err := VsCtl(cmd...)
+		_, err := VsCtl(cmd...)
 		if err != nil {
 			// At least one bridge config failed, so delete the bridge.
 			VsCtl("del-br", bridgeName)
