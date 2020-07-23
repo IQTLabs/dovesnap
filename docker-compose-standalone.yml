@@ -1,5 +1,17 @@
 version: '3.7'
 services:
+  gauge:
+    restart: always
+    image: 'faucet/gauge:1.9.47'
+    network_mode: host
+    environment:
+      GAUGE_CONFIG: '/etc/faucet/gauge.yaml'
+      GAUGE_CONFIG_STAT_RELOAD: '1'
+    volumes:
+      - /var/log/faucet:/var/log/faucet
+      - '${FAUCET_PREFIX}/etc/faucet:/etc/faucet'
+    ports:
+      - '6654:6653'
   faucet:
     restart: always
     image: 'faucet/faucet:1.9.47'
