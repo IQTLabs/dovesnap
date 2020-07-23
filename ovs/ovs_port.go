@@ -49,6 +49,24 @@ func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag 
 	return lowestFreePort, value, err
 }
 
+func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, portName string, portNamePeer string) (uint, uint, error) {
+	lowestFreePort, err := ovsdber.lowestFreePortOnBridge(bridgeName)
+	if err != nil {
+		return 0, 0, err
+	}
+	lowestFreePortPeer, err := ovsdber.lowestFreePortOnBridge(bridgeNamePeer)
+	if err != nil {
+		return 0, 0, err
+	}
+	_, err = VsCtl("add-port", bridgeName, portName, "--", "set", "Interface", portName, fmt.Sprintf("ofport_request=%d", lowestFreePort))
+	_, err = VsCtl("set", "interface", portName, "type=patch")
+	_, err = VsCtl("add-port", bridgeNamePeer, portNamePeer, "--", "set", "Interface", portNamePeer, fmt.Sprintf("ofport_request=%d", lowestFreePortPeer))
+	_, err = VsCtl("set", "interface", portNamePeer, "type=patch")
+	_, err = VsCtl("set", "interface", portName, fmt.Sprintf("options:peer=%s", portNamePeer))
+	_, err = VsCtl("set", "interface", portNamePeer, fmt.Sprintf("options:peer=%s", portName))
+	return lowestFreePort, lowestFreePortPeer, err
+}
+
 func (ovsdber *ovsdber) deletePort(bridgeName string, portName string) error {
 	_, err := VsCtl("del-port", bridgeName, portName)
 	return err
