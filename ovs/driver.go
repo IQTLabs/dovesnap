@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
+	bc "github.com/kenshaw/baseconv"
 	log "github.com/Sirupsen/logrus"
-	bc "github.com/chtison/baseconverter"
 	"github.com/cyberreboot/faucetconfrpc/faucetconfrpc"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -102,15 +102,13 @@ func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) 
 }
 
 func base36to16(value string) string {
-	var inBase string = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	var toBase string = "0123456789ABCDEF"
-	converted, _, _ := bc.BaseToBase(value, inBase, toBase)
+	converted, _ := bc.Convert(strings.ToLower(value), bc.Digits36,  bc.DigitsHex)
 	digits := len(converted)
 	for digits < 6 {
 		converted = "0" + converted
 		digits = len(converted)
 	}
-	return converted
+	return strings.ToUpper(converted)
 }
 
 func (d *Driver) getStackDP() (string, string, error) {
@@ -587,8 +585,25 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 				if err != nil {
 					log.Errorf("Unable to find Docker network %s to remove it from Faucet", mapMsg.NetworkID)
 				} else {
+					interfaces := &faucetconfserver.InterfaceInfo{
+						PortNo: int32(mapMsg.OFPort),
+					}
 					log.Debugf("Removing port %d on %s from Faucet config", mapMsg.OFPort, networkName)
-					// TODO Have to remove the switch if there are no more ports
+					interfacesConf := []*faucetconfserver.DpInfo{
+						{
+							Name: networkName,
+							Interfaces: []*faucetconfserver.InterfaceInfo{interfaces},
+						},
+					}
+
+					req := &faucetconfserver.DelDpInterfacesRequest{
+						InterfacesConfig: interfacesConf,
+						DeleteEmptyDp:    true,
+					}
+					_, err := confclient.DelDpInterfaces(context.Background(), req)
+					if err != nil {
+						log.Errorf("error while calling DelDpInterfaces RPC %s: %v", req, err)
+					}
 
 					// The container will be gone by the time we query docker.
 					delete(OFPorts, mapMsg.EndpointID)
