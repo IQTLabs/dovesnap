@@ -426,7 +426,7 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
                     except KeyError:
                         continue
             if request.delete_empty_dp:
-                for dp_info in request.dps:
+                for dp_info in request.interfaces_config:
                     try:
                         if not config_yaml['dps'][dp_info.name]['interfaces']:
                             self._del_dp(dp_info.name, config_yaml)

@@ -182,15 +182,22 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 	}
 	log.Infof("Attached veth [ %s ] to bridge [ %s ] ofport %d", localInterface, dpName, ofport)
 
+	strDpid, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
+	intDpid, err := strconv.Atoi(strDpid)
+	if err != nil {
+		log.Errorf("Unable convert dp_id to an int because: %v", err)
+		return err
+	}
+
 	sReq := &faucetconfserver.SetConfigFileRequest{
-		ConfigYaml: fmt.Sprintf("{dps: {%s: {stack: {priority: 1}, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {dp_id: %s, description: %s, hardware: Open vSwitch, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
+		ConfigYaml: fmt.Sprintf("{dps: {%s: {stack: {priority: 1}, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {dp_id: %d, description: %s, hardware: Open vSwitch, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
 			remoteDP,
 			remotePort,
 			"Stack link to "+dpName,
 			dpName,
 			ofport,
 			dpName,
-			dpid,
+			intDpid,
 			"Dovesnap Stacking Bridge for "+hostname,
 			ofport,
 			"Stack link to "+remoteDP,
@@ -512,10 +519,18 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 					log.Errorf("Unable to create patch port between bridges because: %v", err)
 					break
 				}
+
+				strDpid, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
+				intDpid, err := strconv.Atoi(strDpid)
+				if err != nil {
+					log.Errorf("Unable convert dp_id to an int because: %v", err)
+					break
+				}
+
 				sReq := &faucetconfserver.SetConfigFileRequest{
-					ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %s, description: %s, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
+					ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %d, description: %s, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
 						netInspect.Name,
-						dpid,
+						intDpid,
 						"OVS Bridge "+bridgeName,
 						ofportNum,
 						"Stack link to "+stackDpName,
@@ -567,9 +582,16 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 						}
 					}
 					log.Debugf("Adding datapath %v to Faucet config", dpid)
+					strDpid, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
+					intDpid, err := strconv.Atoi(strDpid)
+					if err != nil {
+						log.Errorf("Unable convert dp_id to an int because: %v", err)
+						break
+					}
+
 					req := &faucetconfserver.SetConfigFileRequest{
-						ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %s, interfaces: {%d: {description: %s, native_vlan: %d}}}}}",
-							netInspect.Name, dpid, mapMsg.OFPort, fmt.Sprintf("%s %s", containerInspect.Name, truncateID(containerInspect.ID)), vlan),
+						ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %d, interfaces: {%d: {description: %s, native_vlan: %d}}}}}",
+							netInspect.Name, intDpid, mapMsg.OFPort, fmt.Sprintf("%s %s", containerInspect.Name, truncateID(containerInspect.ID)), vlan),
 						Merge: true,
 					}
 					_, err = confclient.SetConfigFile(context.Background(), req)

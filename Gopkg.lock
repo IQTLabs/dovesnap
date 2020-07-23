@@ -29,12 +29,12 @@
   version = "v22.1.0"
 
 [[projects]]
-  digest = "1:423c4720e0430407e16c33b1e40c1c68ae1b0425a11fbd87d83e1411cedd4ae5"
+  digest = "1:564e5f5a4d7a4a0b6468b9158de0536ec86506bbe6eb681e0ca4b3233295a03d"
   name = "github.com/cyberreboot/faucetconfrpc"
   packages = ["faucetconfrpc"]
   pruneopts = "UT"
-  revision = "c39e94dae93c1f286b29c78aa414ec5581c37bfe"
-  version = "v0.12"
+  revision = "dd964406b50e826973221463e85f847716e1e8ab"
+  version = "v0.13"
 
 [[projects]]
   digest = "1:4ddc17aeaa82cb18c5f0a25d7c253a10682f518f4b2558a82869506eec223d76"
