@@ -212,11 +212,6 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
 	log.Debugf("Create network request: %+v", r)
 
-	stackerr := d.createStackingBridge(r)
-	if stackerr != nil {
-		log.Errorf("Unable to create stacking bridge because: [ %s ]", stackerr)
-	}
-
 	bridgeName, err := getBridgeName(r)
 	if err != nil {
 		return err
@@ -279,6 +274,19 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
 		delete(d.networks, r.NetworkID)
 		return err
 	}
+
+	// Create stacking bridge and links
+	stackerr := d.createStackingBridge(r)
+	if stackerr != nil {
+		log.Errorf("Unable to create stacking bridge because: [ %s ]", stackerr)
+	}
+	createmap := OFPortMap{
+		OFPort:     0,
+		NetworkID:  r.NetworkID,
+		EndpointID: bridgeName,
+		Operation:  "create",
+	}
+	d.ofportmapChan <- createmap
 	return nil
 }
 
@@ -291,6 +299,7 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 		log.Errorf("Deleting bridge %s failed: %s", bridgeName, err)
 		return err
 	}
+	// TODO remove the bridge from the faucet config if it exists
 	delete(d.networks, r.NetworkID)
 	return nil
 }
@@ -464,12 +473,69 @@ func getNetworkNameFromID(dockerclient *client.Client, NetworkID string) (string
 	return "", fmt.Errorf("Network %s not found", NetworkID)
 }
 
+func getNetworkInspectFromID(dockerclient *client.Client, NetworkID string) (types.NetworkResource, error) {
+	for i := 0; i < dockerRetries; i++ {
+		netInspect, err := dockerclient.NetworkInspect(context.Background(), NetworkID, types.NetworkInspectOptions{})
+		if err == nil {
+			return netInspect, nil
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return types.NetworkResource{}, fmt.Errorf("Network %s not found", NetworkID)
+}
+
 func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServerClient) {
 	OFPorts := make(map[string]OFPortContainer)
 
 	for {
 		mapMsg := <-d.ofportmapChan
 		switch mapMsg.Operation {
+		case "create":
+			{
+				_, stackDpName, err := d.getStackDP()
+				if err != nil {
+					log.Errorf("Unable to get stack DP name because: %v", err)
+					break
+				}
+				log.Debugf("network id: %s", mapMsg.NetworkID)
+				bridgeName := bridgePrefix + truncateID(mapMsg.NetworkID)
+				netInspect, err := getNetworkInspectFromID(d.dockerclient, mapMsg.NetworkID)
+				if err != nil {
+					log.Errorf("Unable to get network inspection because: %v", err)
+					break
+				}
+				dpid, err := getBridgeDpidfromresource(&netInspect)
+				if err != nil {
+					log.Errorf("Unable to bridge dp_id because: %v", err)
+					break
+				}
+
+				ofportNum, ofportNumPeer, err := d.addPatchPort(bridgeName, stackDpName, netInspect.Name + "-patch-" + stackDpName, stackDpName + "-patch-" + netInspect.Name)
+				if err != nil {
+					log.Errorf("Unable to create patch port between bridges because: %v", err)
+					break
+				}
+				sReq := &faucetconfserver.SetConfigFileRequest{
+					ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %s, description: %s, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
+						netInspect.Name,
+						dpid,
+						"OVS Bridge " + bridgeName,
+						ofportNum,
+						"Stack link to " + stackDpName,
+						stackDpName,
+						ofportNumPeer,
+						stackDpName,
+						ofportNumPeer,
+						"Stack link to " + netInspect.Name,
+						netInspect.Name,
+						ofportNum),
+					Merge: true,
+				}
+				_, err = d.faucetclient.SetConfigFile(context.Background(), sReq)
+				if err != nil {
+					log.Errorf("Error while calling SetConfigFileRequest %s: %v", sReq, err)
+				}
+			}
 		case "add":
 			{
 				containerInspect, netInspect, err := getContainerFromEndpoint(d.dockerclient, mapMsg.EndpointID)
@@ -506,7 +572,7 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 					log.Debugf("Adding datapath %v to Faucet config", dpid)
 					req := &faucetconfserver.SetConfigFileRequest{
 						ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %s, interfaces: {%d: {description: %s, native_vlan: %d}}}}}",
-							netInspect.Name, dpid, mapMsg.OFPort, containerInspect.Name + " " + truncateID(containerInspect.ID), vlan),
+							netInspect.Name, dpid, mapMsg.OFPort, fmt.Sprintf("%s %s", containerInspect.Name, truncateID(containerInspect.ID)), vlan),
 						Merge: true,
 					}
 					_, err = confclient.SetConfigFile(context.Background(), req)
