@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	bc "github.com/kenshaw/baseconv"
 	log "github.com/Sirupsen/logrus"
 	"github.com/cyberreboot/faucetconfrpc/faucetconfrpc"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	networkplugin "github.com/docker/go-plugins-helpers/network"
+	bc "github.com/kenshaw/baseconv"
 	"github.com/vishvananda/netlink"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -65,12 +65,12 @@ type OFPortContainer struct {
 }
 
 type Driver struct {
-	dockerclient        *client.Client
+	dockerclient *client.Client
 	ovsdber
-	faucetclient        faucetconfserver.FaucetConfServerClient
-	stackingInterfaces  []string
-	networks            map[string]*NetworkState
-	ofportmapChan       chan OFPortMap
+	faucetclient       faucetconfserver.FaucetConfServerClient
+	stackingInterfaces []string
+	networks           map[string]*NetworkState
+	ofportmapChan      chan OFPortMap
 }
 
 // NetworkState is filled in at network creation time
@@ -102,7 +102,7 @@ func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) 
 }
 
 func base36to16(value string) string {
-	converted, _ := bc.Convert(strings.ToLower(value), bc.Digits36,  bc.DigitsHex)
+	converted, _ := bc.Convert(strings.ToLower(value), bc.Digits36, bc.DigitsHex)
 	digits := len(converted)
 	for digits < 6 {
 		converted = "0" + converted
@@ -151,7 +151,6 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 		return err
 	}
 
-
 	// TODO this needs to be validated, and looped through for multiples
 	if len(d.stackingInterfaces[0]) == 0 {
 		log.Warnf("No stacking interface defined, not stacking DPs or creating a stacking bridge")
@@ -187,14 +186,14 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 		ConfigYaml: fmt.Sprintf("{dps: {%s: {stack: {priority: 1}, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {dp_id: %s, description: %s, hardware: Open vSwitch, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
 			remoteDP,
 			remotePort,
-			"Stack link to " + dpName,
+			"Stack link to "+dpName,
 			dpName,
 			ofport,
 			dpName,
 			dpid,
-			"Dovesnap Stacking Bridge for " + hostname,
+			"Dovesnap Stacking Bridge for "+hostname,
 			ofport,
-			"Stack link to " + remoteDP,
+			"Stack link to "+remoteDP,
 			remoteDP,
 			remotePort),
 		Merge: true,
@@ -508,7 +507,7 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 					break
 				}
 
-				ofportNum, ofportNumPeer, err := d.addPatchPort(bridgeName, stackDpName, netInspect.Name + "-patch-" + stackDpName, stackDpName + "-patch-" + netInspect.Name)
+				ofportNum, ofportNumPeer, err := d.addPatchPort(bridgeName, stackDpName, netInspect.Name+"-patch-"+stackDpName, stackDpName+"-patch-"+netInspect.Name)
 				if err != nil {
 					log.Errorf("Unable to create patch port between bridges because: %v", err)
 					break
@@ -517,14 +516,14 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 					ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %s, description: %s, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
 						netInspect.Name,
 						dpid,
-						"OVS Bridge " + bridgeName,
+						"OVS Bridge "+bridgeName,
 						ofportNum,
-						"Stack link to " + stackDpName,
+						"Stack link to "+stackDpName,
 						stackDpName,
 						ofportNumPeer,
 						stackDpName,
 						ofportNumPeer,
-						"Stack link to " + netInspect.Name,
+						"Stack link to "+netInspect.Name,
 						netInspect.Name,
 						ofportNum),
 					Merge: true,
@@ -591,7 +590,7 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 					log.Debugf("Removing port %d on %s from Faucet config", mapMsg.OFPort, networkName)
 					interfacesConf := []*faucetconfserver.DpInfo{
 						{
-							Name: networkName,
+							Name:       networkName,
 							Interfaces: []*faucetconfserver.InterfaceInfo{interfaces},
 						},
 					}
@@ -658,12 +657,12 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 
 	// Create Docker driver
 	d := &Driver{
-		dockerclient:        docker,
-		ovsdber:             ovsdber{},
-		faucetclient:        confclient,
-		stackingInterfaces:  stacking_interfaces,
-		networks:            make(map[string]*NetworkState),
-		ofportmapChan:       make(chan OFPortMap, 2),
+		dockerclient:       docker,
+		ovsdber:            ovsdber{},
+		faucetclient:       confclient,
+		stackingInterfaces: stacking_interfaces,
+		networks:           make(map[string]*NetworkState),
+		ofportmapChan:      make(chan OFPortMap, 2),
 	}
 
 	for i := 0; i < ovsStartupRetries; i++ {
