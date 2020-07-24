@@ -54,6 +54,8 @@ var (
 
 type OFPortMap struct {
 	OFPort     uint
+	AddPorts   string
+	Mode       string
 	NetworkID  string
 	EndpointID string
 	Operation  string
@@ -286,6 +288,8 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
 	}
 	createmap := OFPortMap{
 		OFPort:     0,
+		AddPorts:   add_ports,
+		Mode:       mode,
 		NetworkID:  r.NetworkID,
 		EndpointID: bridgeName,
 		Operation:  "create",
@@ -303,6 +307,13 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 		log.Errorf("Deleting bridge %s failed: %s", bridgeName, err)
 		return err
 	}
+	// TODO can't get the name this way because the network is already deleted
+	netInspect, err := getNetworkInspectFromID(d.dockerclient, r.NetworkID)
+	if err != nil {
+		log.Errorf("Unable to get network inspection because: %v", err)
+		return err
+	}
+	log.Debugf("Deleting DP %s from Faucet", netInspect.Name)
 	// TODO remove the bridge from the faucet config if it exists
 	delete(d.networks, r.NetworkID)
 	return nil
@@ -402,6 +413,8 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 	log.Debugf("Join endpoint %s:%s to %s", r.NetworkID, r.EndpointID, r.SandboxKey)
 	addmap := OFPortMap{
 		OFPort:     ofport,
+		AddPorts:   "",
+		Mode:       "",
 		NetworkID:  r.NetworkID,
 		EndpointID: r.EndpointID,
 		Operation:  "add",
@@ -432,6 +445,8 @@ func (d *Driver) Leave(r *networkplugin.LeaveRequest) error {
 	log.Debugf("Leave %s:%s", r.NetworkID, r.EndpointID)
 	rmmap := OFPortMap{
 		OFPort:     ofport,
+		AddPorts:   "",
+		Mode:       "",
 		NetworkID:  r.NetworkID,
 		EndpointID: r.EndpointID,
 		Operation:  "rm",
@@ -510,7 +525,12 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 				}
 				dpid, err := getBridgeDpidfromresource(&netInspect)
 				if err != nil {
-					log.Errorf("Unable to bridge dp_id because: %v", err)
+					log.Errorf("Unable to get bridge dp_id because: %v", err)
+					break
+				}
+				vlan, err := getBridgeVlanfromresource(&netInspect)
+				if err != nil {
+					log.Errorf("Unable to get bridge vlan because: %v", err)
 					break
 				}
 
@@ -527,11 +547,31 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 					break
 				}
 
+				add_ports := mapMsg.AddPorts
+				add_interfaces := ""
+				if add_ports != "" {
+			                for _, add_port_number_str := range strings.Split(add_ports, ",") {
+						add_port_number := strings.Split(add_port_number_str, "/")
+						add_port := add_port_number[0]
+						ofport, err := d.ovsdber.getOfPortNumber(add_port)
+						if err != nil {
+							log.Errorf("Unable to get ofport number from %s", add_port)
+							break
+						}
+						add_interfaces += fmt.Sprintf("%d: {description: %s, native_vlan: %d},", ofport, "Physical interface " + add_port, vlan)
+					}
+				}
+				mode := mapMsg.Mode
+				if mode == "nat" {
+					add_interfaces += fmt.Sprintf("4294967294: {description: OVS Port for NAT, native_vlan: %d},", vlan)
+				}
+
 				sReq := &faucetconfserver.SetConfigFileRequest{
-					ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %d, description: %s, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
+					ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %d, description: %s, interfaces: {%s %d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
 						netInspect.Name,
 						intDpid,
 						"OVS Bridge "+bridgeName,
+						add_interfaces,
 						ofportNum,
 						"Stack link to "+stackDpName,
 						stackDpName,
@@ -578,7 +618,7 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 						}
 						_, err := confclient.SetPortAcl(context.Background(), req)
 						if err != nil {
-							log.Errorf("error while calling SetPortAcl RPC %s: %v", req, err)
+							log.Errorf("Error while calling SetPortAcl RPC %s: %v", req, err)
 						}
 					}
 					log.Debugf("Adding datapath %v to Faucet config", dpid)
@@ -623,7 +663,7 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 					}
 					_, err := confclient.DelDpInterfaces(context.Background(), req)
 					if err != nil {
-						log.Errorf("error while calling DelDpInterfaces RPC %s: %v", req, err)
+						log.Errorf("Error while calling DelDpInterfaces RPC %s: %v", req, err)
 					}
 
 					// The container will be gone by the time we query docker.
