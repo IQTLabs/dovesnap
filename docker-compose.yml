@@ -17,11 +17,9 @@ services:
     depends_on:
       - ovs
     command:
-      - --debug
       - --faucetconfrpc_addr=localhost
       - --faucetconfrpc_port=59999
       - --faucetconfrpc_keydir=/faucetconfrpc
-      - --stacking_interfaces=switch1:8:enp3s0
   ovs:
     restart: always
     image: cyberreboot/openvswitch:v2.13.0
