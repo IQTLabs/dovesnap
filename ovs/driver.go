@@ -307,14 +307,31 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 		log.Errorf("Deleting bridge %s failed: %s", bridgeName, err)
 		return err
 	}
-	// TODO can't get the name this way because the network is already deleted
-	netInspect, err := getNetworkInspectFromID(d.dockerclient, r.NetworkID)
-	if err != nil {
-		log.Errorf("Unable to get network inspection because: %v", err)
+
+	// remove the bridge from the faucet config if it exists
+	dpid := d.networks[r.NetworkID].BridgeDpid
+	if dpid == "" {
+		log.Errorf("Unable to find the dp_id to remove from Faucet")
 		return err
 	}
-	log.Debugf("Deleting DP %s from Faucet", netInspect.Name)
-	// TODO remove the bridge from the faucet config if it exists
+	strDpid, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
+	intDpid, err := strconv.Atoi(strDpid)
+	log.Debugf("Deleting DP %s from Faucet", dpid)
+	dp := []*faucetconfserver.DpInfo{
+		{
+			DpId: uint64(intDpid),
+		},
+	}
+	dReq := &faucetconfserver.DelDpsRequest{
+		InterfacesConfig: dp,
+	}
+
+	_, err = d.faucetclient.DelDps(context.Background(), dReq)
+	if err != nil {
+		log.Errorf("Error while calling DelDps %s: %v", dReq, err)
+		return err
+	}
+
 	delete(d.networks, r.NetworkID)
 	return nil
 }
@@ -754,10 +771,23 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 			}
 			bridgeName, err := getBridgeNamefromresource(&netInspect)
 			if err != nil {
+				log.Errorf("Unable to get bridge name because: %v", err)
 				return nil, err
+			}
+			dpid, err := getBridgeDpidfromresource(&netInspect)
+			if err != nil {
+				log.Errorf("Unable to get bridge dp_id because: %v", err)
+				break
+			}
+			vlan, err := getBridgeVlanfromresource(&netInspect)
+			if err != nil {
+				log.Errorf("Unable to get bridge vlan because: %v", err)
+				break
 			}
 			ns := &NetworkState{
 				BridgeName: bridgeName,
+				BridgeDpid: dpid,
+				BridgeVLAN: vlan,
 			}
 			d.networks[net.ID] = ns
 			log.Debugf("Existing networks created by this driver: %v", netInspect.Name)
