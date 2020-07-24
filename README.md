@@ -5,7 +5,7 @@ dovesnap
 
 The quickstart instructions describe how to start the plugin. There are two modes, **nat** and **flat** described in the following section. At the moment, flat mode is the default.
 
-**1.** Make sure you are using Docker 1.9 or later
+**1.** Make sure you are using Docker 1.10 or later
 
 **2.** You need to `modprobe openvswitch` on the machine where the Docker Daemon is located
 
@@ -18,7 +18,7 @@ $ sudo modprobe openvswitch
 **4.** Now you are ready to create a new network
 
 ```
-$ docker network create -d ovs mynet
+$ docker network create --internal -d ovs mynet
 ```
 
 **5.** Test it out!
@@ -38,7 +38,7 @@ There are two generic modes, `flat` and `nat`. The default mode is `flat`.
 - flat is simply an OVS bridge with the container link attached to it. An example would be a Docker host is plugged into a data center port that has a subnet of `192.168.1.0/24`. You would start the plugin like so:
 
 ```
-$ docker network create --gateway=192.168.1.1 --subnet=192.168.1.0/24 -d ovs mynet
+$ docker network create --internal --gateway=192.168.1.1 --subnet=192.168.1.0/24 -d ovs mynet
 ```
 
 - Containers now start attached to an OVS bridge. It could be tagged or untagged but either way it is isolated and unable to communicate to anything outside of its bridge domain. In this case, you either add VXLAN tunnels to other bridges of the same bridge domain or add an `eth` interface to the bridge to allow access to the underlying network when traffic leaves the Docker host. To do so, you simply add the `eth` interface to the ovs bridge. Neither the bridge nor the eth interface need to have an IP address since traffic from the container is strictly L2. **Warning** if you are remoted into the physical host make sure you are not using an ethernet interface to attach to the bridge that is also your management interface since the eth interface no longer uses the IP address it had. The IP would need to be migrated to ovsbr-docker0 in this case. Allowing underlying network access to an OVS bridge can be done like so:
@@ -69,7 +69,7 @@ e0de2079-66f0-4279-a1c8-46ba0672426e
     ovs_version: "2.3.1"
 ```
 
-**Flat Mode Note:** Hosts will only be able to ping one another unless you add an ethernet interface to the `docker-ovsbr0` bridge with something like `ovs-vsctl add-port <bridge_name> <port_name>`. NAT mode will masquerade around that issue. It is an inherent hastle of bridges that is unavoidable. This is a reason bridgeless implementation [gopher-net/ipvlan-docker-plugin](https://github.com/gopher-net/ipvlan-docker-plugin) and [gopher-net/macvlan-docker-plugin](https://github.com/gopher-net/macvlan-docker-plugin) can be attractive.
+**Flat Mode Note:** Hosts will only be able to ping one another unless you add an ethernet interface to the `docker-ovsbr0` bridge with something like `ovs-vsctl add-port <bridge_name> <port_name>`. NAT mode will masquerade around that issue. It is an inherent hassle of bridges that is unavoidable. This is a reason bridgeless implementation [gopher-net/ipvlan-docker-plugin](https://github.com/gopher-net/ipvlan-docker-plugin) and [gopher-net/macvlan-docker-plugin](https://github.com/gopher-net/macvlan-docker-plugin) can be attractive.
 
 ### Thanks
 
