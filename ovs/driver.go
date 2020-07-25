@@ -78,6 +78,7 @@ type Driver struct {
 // NetworkState is filled in at network creation time
 // it contains state that we wish to keep for each network
 type NetworkState struct {
+	NetworkName       string
 	BridgeName        string
 	BridgeDpid        string
 	BridgeVLAN        int
@@ -309,17 +310,11 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 	}
 
 	// remove the bridge from the faucet config if it exists
-	dpid := d.networks[r.NetworkID].BridgeDpid
-	if dpid == "" {
-		log.Errorf("Unable to find the dp_id to remove from Faucet")
-		return err
-	}
-	strDpid, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
-	intDpid, err := strconv.Atoi(strDpid)
-	log.Debugf("Deleting DP %s from Faucet", dpid)
+	networkName := d.networks[r.NetworkID].NetworkName
+	log.Debugf("Deleting DP %s from Faucet", networkName)
 	dp := []*faucetconfserver.DpInfo{
 		{
-			DpId: uint64(intDpid),
+			Name: networkName,
 		},
 	}
 	dReq := &faucetconfserver.DelDpsRequest{
@@ -540,6 +535,7 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 					log.Errorf("Unable to get network inspection because: %v", err)
 					break
 				}
+				d.networks[mapMsg.NetworkID].NetworkName = netInspect.Name
 				dpid, err := getBridgeDpidfromresource(&netInspect)
 				if err != nil {
 					log.Errorf("Unable to get bridge dp_id because: %v", err)
@@ -785,9 +781,10 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 				break
 			}
 			ns := &NetworkState{
-				BridgeName: bridgeName,
-				BridgeDpid: dpid,
-				BridgeVLAN: vlan,
+				NetworkName: netInspect.Name,
+				BridgeName:  bridgeName,
+				BridgeDpid:  dpid,
+				BridgeVLAN:  vlan,
 			}
 			d.networks[net.ID] = ns
 			log.Debugf("Existing networks created by this driver: %v", netInspect.Name)
