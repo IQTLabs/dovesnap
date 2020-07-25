@@ -12,11 +12,11 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	bc "github.com/chtison/baseconverter"
 	"github.com/cyberreboot/faucetconfrpc/faucetconfrpc"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	networkplugin "github.com/docker/go-plugins-helpers/network"
+	bc "github.com/kenshaw/baseconv"
 	"github.com/vishvananda/netlink"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -54,6 +54,8 @@ var (
 
 type OFPortMap struct {
 	OFPort     uint
+	AddPorts   string
+	Mode       string
 	NetworkID  string
 	EndpointID string
 	Operation  string
@@ -65,12 +67,12 @@ type OFPortContainer struct {
 }
 
 type Driver struct {
-	dockerclient        *client.Client
+	dockerclient *client.Client
 	ovsdber
-	faucetclient        faucetconfserver.FaucetConfServerClient
-	stackingInterfaces  []string
-	networks            map[string]*NetworkState
-	ofportmapChan       chan OFPortMap
+	faucetclient       faucetconfserver.FaucetConfServerClient
+	stackingInterfaces []string
+	networks           map[string]*NetworkState
+	ofportmapChan      chan OFPortMap
 }
 
 // NetworkState is filled in at network creation time
@@ -102,15 +104,13 @@ func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) 
 }
 
 func base36to16(value string) string {
-	var inBase string = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	var toBase string = "0123456789ABCDEF"
-	converted, _, _ := bc.BaseToBase(value, inBase, toBase)
+	converted, _ := bc.Convert(strings.ToLower(value), bc.Digits36, bc.DigitsHex)
 	digits := len(converted)
 	for digits < 6 {
 		converted = "0" + converted
 		digits = len(converted)
 	}
-	return converted
+	return strings.ToUpper(converted)
 }
 
 func (d *Driver) getStackDP() (string, string, error) {
@@ -153,7 +153,6 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 		return err
 	}
 
-
 	// TODO this needs to be validated, and looped through for multiples
 	if len(d.stackingInterfaces[0]) == 0 {
 		log.Warnf("No stacking interface defined, not stacking DPs or creating a stacking bridge")
@@ -185,18 +184,25 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 	}
 	log.Infof("Attached veth [ %s ] to bridge [ %s ] ofport %d", localInterface, dpName, ofport)
 
+	strDpid, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
+	intDpid, err := strconv.Atoi(strDpid)
+	if err != nil {
+		log.Errorf("Unable convert dp_id to an int because: %v", err)
+		return err
+	}
+
 	sReq := &faucetconfserver.SetConfigFileRequest{
-		ConfigYaml: fmt.Sprintf("{dps: {%s: {stack: {priority: 1}, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {dp_id: %s, description: %s, hardware: Open vSwitch, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
+		ConfigYaml: fmt.Sprintf("{dps: {%s: {stack: {priority: 1}, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {dp_id: %d, description: %s, hardware: Open vSwitch, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
 			remoteDP,
 			remotePort,
-			"Stack link to " + dpName,
+			"Stack link to "+dpName,
 			dpName,
 			ofport,
 			dpName,
-			dpid,
-			"Dovesnap Stacking Bridge for " + hostname,
+			intDpid,
+			"Dovesnap Stacking Bridge for "+hostname,
 			ofport,
-			"Stack link to " + remoteDP,
+			"Stack link to "+remoteDP,
 			remoteDP,
 			remotePort),
 		Merge: true,
@@ -282,6 +288,8 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) error {
 	}
 	createmap := OFPortMap{
 		OFPort:     0,
+		AddPorts:   add_ports,
+		Mode:       mode,
 		NetworkID:  r.NetworkID,
 		EndpointID: bridgeName,
 		Operation:  "create",
@@ -299,7 +307,31 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 		log.Errorf("Deleting bridge %s failed: %s", bridgeName, err)
 		return err
 	}
-	// TODO remove the bridge from the faucet config if it exists
+
+	// remove the bridge from the faucet config if it exists
+	dpid := d.networks[r.NetworkID].BridgeDpid
+	if dpid == "" {
+		log.Errorf("Unable to find the dp_id to remove from Faucet")
+		return err
+	}
+	strDpid, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
+	intDpid, err := strconv.Atoi(strDpid)
+	log.Debugf("Deleting DP %s from Faucet", dpid)
+	dp := []*faucetconfserver.DpInfo{
+		{
+			DpId: uint64(intDpid),
+		},
+	}
+	dReq := &faucetconfserver.DelDpsRequest{
+		InterfacesConfig: dp,
+	}
+
+	_, err = d.faucetclient.DelDps(context.Background(), dReq)
+	if err != nil {
+		log.Errorf("Error while calling DelDps %s: %v", dReq, err)
+		return err
+	}
+
 	delete(d.networks, r.NetworkID)
 	return nil
 }
@@ -398,6 +430,8 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 	log.Debugf("Join endpoint %s:%s to %s", r.NetworkID, r.EndpointID, r.SandboxKey)
 	addmap := OFPortMap{
 		OFPort:     ofport,
+		AddPorts:   "",
+		Mode:       "",
 		NetworkID:  r.NetworkID,
 		EndpointID: r.EndpointID,
 		Operation:  "add",
@@ -428,6 +462,8 @@ func (d *Driver) Leave(r *networkplugin.LeaveRequest) error {
 	log.Debugf("Leave %s:%s", r.NetworkID, r.EndpointID)
 	rmmap := OFPortMap{
 		OFPort:     ofport,
+		AddPorts:   "",
+		Mode:       "",
 		NetworkID:  r.NetworkID,
 		EndpointID: r.EndpointID,
 		Operation:  "rm",
@@ -506,27 +542,60 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 				}
 				dpid, err := getBridgeDpidfromresource(&netInspect)
 				if err != nil {
-					log.Errorf("Unable to bridge dp_id because: %v", err)
+					log.Errorf("Unable to get bridge dp_id because: %v", err)
+					break
+				}
+				vlan, err := getBridgeVlanfromresource(&netInspect)
+				if err != nil {
+					log.Errorf("Unable to get bridge vlan because: %v", err)
 					break
 				}
 
-				ofportNum, ofportNumPeer, err := d.addPatchPort(bridgeName, stackDpName, netInspect.Name + "-patch-" + stackDpName, stackDpName + "-patch-" + netInspect.Name)
+				ofportNum, ofportNumPeer, err := d.addPatchPort(bridgeName, stackDpName, netInspect.Name+"-patch-"+stackDpName, stackDpName+"-patch-"+netInspect.Name)
 				if err != nil {
 					log.Errorf("Unable to create patch port between bridges because: %v", err)
 					break
 				}
+
+				strDpid, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
+				intDpid, err := strconv.Atoi(strDpid)
+				if err != nil {
+					log.Errorf("Unable convert dp_id to an int because: %v", err)
+					break
+				}
+
+				add_ports := mapMsg.AddPorts
+				add_interfaces := ""
+				if add_ports != "" {
+			                for _, add_port_number_str := range strings.Split(add_ports, ",") {
+						add_port_number := strings.Split(add_port_number_str, "/")
+						add_port := add_port_number[0]
+						ofport, err := d.ovsdber.getOfPortNumber(add_port)
+						if err != nil {
+							log.Errorf("Unable to get ofport number from %s", add_port)
+							break
+						}
+						add_interfaces += fmt.Sprintf("%d: {description: %s, native_vlan: %d},", ofport, "Physical interface " + add_port, vlan)
+					}
+				}
+				mode := mapMsg.Mode
+				if mode == "nat" {
+					add_interfaces += fmt.Sprintf("4294967294: {description: OVS Port for NAT, native_vlan: %d},", vlan)
+				}
+
 				sReq := &faucetconfserver.SetConfigFileRequest{
-					ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %s, description: %s, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
+					ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %d, description: %s, interfaces: {%s %d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
 						netInspect.Name,
-						dpid,
-						"OVS Bridge " + bridgeName,
+						intDpid,
+						"OVS Bridge "+bridgeName,
+						add_interfaces,
 						ofportNum,
-						"Stack link to " + stackDpName,
+						"Stack link to "+stackDpName,
 						stackDpName,
 						ofportNumPeer,
 						stackDpName,
 						ofportNumPeer,
-						"Stack link to " + netInspect.Name,
+						"Stack link to "+netInspect.Name,
 						netInspect.Name,
 						ofportNum),
 					Merge: true,
@@ -566,13 +635,20 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 						}
 						_, err := confclient.SetPortAcl(context.Background(), req)
 						if err != nil {
-							log.Errorf("error while calling SetPortAcl RPC %s: %v", req, err)
+							log.Errorf("Error while calling SetPortAcl RPC %s: %v", req, err)
 						}
 					}
 					log.Debugf("Adding datapath %v to Faucet config", dpid)
+					strDpid, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
+					intDpid, err := strconv.Atoi(strDpid)
+					if err != nil {
+						log.Errorf("Unable convert dp_id to an int because: %v", err)
+						break
+					}
+
 					req := &faucetconfserver.SetConfigFileRequest{
-						ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %s, interfaces: {%d: {description: %s, native_vlan: %d}}}}}",
-							netInspect.Name, dpid, mapMsg.OFPort, fmt.Sprintf("%s %s", containerInspect.Name, truncateID(containerInspect.ID)), vlan),
+						ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %d, interfaces: {%d: {description: %s, native_vlan: %d}}}}}",
+							netInspect.Name, intDpid, mapMsg.OFPort, fmt.Sprintf("%s %s", containerInspect.Name, truncateID(containerInspect.ID)), vlan),
 						Merge: true,
 					}
 					_, err = confclient.SetConfigFile(context.Background(), req)
@@ -587,8 +663,25 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 				if err != nil {
 					log.Errorf("Unable to find Docker network %s to remove it from Faucet", mapMsg.NetworkID)
 				} else {
+					interfaces := &faucetconfserver.InterfaceInfo{
+						PortNo: int32(mapMsg.OFPort),
+					}
 					log.Debugf("Removing port %d on %s from Faucet config", mapMsg.OFPort, networkName)
-					// TODO Have to remove the switch if there are no more ports
+					interfacesConf := []*faucetconfserver.DpInfo{
+						{
+							Name:       networkName,
+							Interfaces: []*faucetconfserver.InterfaceInfo{interfaces},
+						},
+					}
+
+					req := &faucetconfserver.DelDpInterfacesRequest{
+						InterfacesConfig: interfacesConf,
+						DeleteEmptyDp:    true,
+					}
+					_, err := confclient.DelDpInterfaces(context.Background(), req)
+					if err != nil {
+						log.Errorf("Error while calling DelDpInterfaces RPC %s: %v", req, err)
+					}
 
 					// The container will be gone by the time we query docker.
 					delete(OFPorts, mapMsg.EndpointID)
@@ -643,12 +736,12 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 
 	// Create Docker driver
 	d := &Driver{
-		dockerclient:        docker,
-		ovsdber:             ovsdber{},
-		faucetclient:        confclient,
-		stackingInterfaces:  stacking_interfaces,
-		networks:            make(map[string]*NetworkState),
-		ofportmapChan:       make(chan OFPortMap, 2),
+		dockerclient:       docker,
+		ovsdber:            ovsdber{},
+		faucetclient:       confclient,
+		stackingInterfaces: stacking_interfaces,
+		networks:           make(map[string]*NetworkState),
+		ofportmapChan:      make(chan OFPortMap, 2),
 	}
 
 	for i := 0; i < ovsStartupRetries; i++ {
@@ -678,10 +771,23 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 			}
 			bridgeName, err := getBridgeNamefromresource(&netInspect)
 			if err != nil {
+				log.Errorf("Unable to get bridge name because: %v", err)
 				return nil, err
+			}
+			dpid, err := getBridgeDpidfromresource(&netInspect)
+			if err != nil {
+				log.Errorf("Unable to get bridge dp_id because: %v", err)
+				break
+			}
+			vlan, err := getBridgeVlanfromresource(&netInspect)
+			if err != nil {
+				log.Errorf("Unable to get bridge vlan because: %v", err)
+				break
 			}
 			ns := &NetworkState{
 				BridgeName: bridgeName,
+				BridgeDpid: dpid,
+				BridgeVLAN: vlan,
 			}
 			d.networks[net.ID] = ns
 			log.Debugf("Existing networks created by this driver: %v", netInspect.Name)

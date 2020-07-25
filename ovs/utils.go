@@ -54,11 +54,10 @@ func setInterfaceIP(name string, rawIP string) error {
 		log.Fatalf("Abandoning retrieving the new OVS bridge link from netlink, Run [ ip link ] to troubleshoot the error: %s", err)
 		return err
 	}
-	ipNet, err := netlink.ParseIPNet(rawIP)
+	addr, err := netlink.ParseAddr(rawIP)
 	if err != nil {
 		return err
 	}
-	addr := &netlink.Addr{ipNet, ""}
 	return netlink.AddrAdd(iface, addr)
 }
 

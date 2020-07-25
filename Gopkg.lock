@@ -21,28 +21,20 @@
   version = "v0.8.7"
 
 [[projects]]
-  digest = "1:602f4cb0448d97aa613683750b1ba7740bf7072bde6ecea97a202332a15c20b4"
-  name = "github.com/chtison/baseconverter"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "9cbb75d689aac2e40252ac46655cd509870128f9"
-  version = "v1.0.0"
-
-[[projects]]
   digest = "1:17220d24a71d938010a77675bce92f846bc4876e555c26f5976c92deaf55b69a"
   name = "github.com/coreos/go-systemd"
   packages = ["activation"]
   pruneopts = "UT"
-  revision = "2d78030078ef61b3cae27f42ad6d0e46db51b339"
-  version = "v22.0.0"
+  revision = "b51e752dd1c9c618846f8bc5b95ab524bd7b11c2"
+  version = "v22.1.0"
 
 [[projects]]
-  digest = "1:9920ee6791e90e94dd91a6492395f912c05f90e2b77bd8b767b16e830648adfd"
+  digest = "1:564e5f5a4d7a4a0b6468b9158de0536ec86506bbe6eb681e0ca4b3233295a03d"
   name = "github.com/cyberreboot/faucetconfrpc"
   packages = ["faucetconfrpc"]
   pruneopts = "UT"
-  revision = "858480067b1c6be698b2ac84ca7ea6f23090dff4"
-  version = "v0.10"
+  revision = "dd964406b50e826973221463e85f847716e1e8ab"
+  version = "v0.13"
 
 [[projects]]
   digest = "1:4ddc17aeaa82cb18c5f0a25d7c253a10682f518f4b2558a82869506eec223d76"
@@ -114,18 +106,20 @@
   version = "v0.4.0"
 
 [[projects]]
-  digest = "1:545c06b237682c554c707a4baa85470f96dccb52eeb2ebd201dff119d2db9d54"
+  digest = "1:fdf545ec76ac97175364bccf1ee1e45067b8d4e3a6e57abab318e6437930b88a"
   name = "github.com/docker/libnetwork"
   packages = ["iptables"]
   pruneopts = "UT"
-  revision = "04cc1fa0a89f8c407b7be8cab883d4b17531ea7d"
+  revision = "1ee720e18fe98dceda6039bdd005ffbcb359d343"
+  version = "v0.5.6"
 
 [[projects]]
-  digest = "1:8bb0d597d5a956620f440a73bb5f33d0e1e29e77e8b79980ba8bfd00610a3e89"
+  digest = "1:75ea251921accab70d09dfd854f8d287224b65ab8d5da23447f0aeb2c0ee906b"
   name = "github.com/godbus/dbus"
   packages = ["."]
   pruneopts = "UT"
-  revision = "9055aba822f5d54b1cb3e124336499648cb5d3c5"
+  revision = "37bf87eef99d69c4f1d3528bd66e3a87dc201472"
+  version = "v5.0.3"
 
 [[projects]]
   digest = "1:4caab6f14c6b9654ccb7d398791d1f71a2d4e693ea508d29659a173e1b2e644a"
@@ -148,6 +142,14 @@
   pruneopts = "UT"
   revision = "d04d7b157bb510b1e0c10132224b616ac0e26b17"
   version = "v1.4.2"
+
+[[projects]]
+  branch = "master"
+  digest = "1:9be343da58dccf03f750add204216b9d3d8e61dd8e5e1e57a1098f778c6e417a"
+  name = "github.com/kenshaw/baseconv"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "5ac6a1b7584c87afde1a974bdc313149489ec173"
 
 [[projects]]
   digest = "1:52891c539dfacbcaf8f204ad46c201c702d7210eab162085ee3676914bf3b269"
@@ -177,18 +179,27 @@
   version = "v0.9.1"
 
 [[projects]]
-  digest = "1:e32c2ba3d9b82bc8b3a49b2086acce80a05d82e007cac220857cff62f603d2fe"
+  digest = "1:1314b5ef1c0b25257ea02e454291bf042478a48407cfe3ffea7e20323bbf5fdf"
   name = "github.com/vishvananda/netlink"
   packages = [
     ".",
     "nl",
   ]
   pruneopts = "UT"
-  revision = "a57a12c1b1d8aa37cf2f9da4fa7657b1f1fed88c"
+  revision = "f049be6f391489d3f374498fe0c8df8449258372"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
-  digest = "1:72a1fda19c701d91e6e6608626926cfb916f36a2b3ed2920e782317e23b3f43a"
+  digest = "1:d908ab19780234808ae28f4325672723316908a05ff5347ba37f6ecaccc18df4"
+  name = "github.com/vishvananda/netns"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "52d707b772fe9481fde11266d26560bd2be7a780"
+
+[[projects]]
+  branch = "master"
+  digest = "1:f7309a62b78b03e8d5df8029c5704f2fc1af6ff42ee114a832dc7bc2896cc717"
   name = "golang.org/x/net"
   packages = [
     "context/ctxhttp",
@@ -202,18 +213,19 @@
     "trace",
   ]
   pruneopts = "UT"
-  revision = "d3edc9973b7eb1fb302b0ff2c62357091cea9a30"
+  revision = "ab34263943818b32f575efc978a3d24e80b04bd7"
 
 [[projects]]
   branch = "master"
-  digest = "1:968aac203feaa75d5e4c758550abcd9523dd736e5e3c2892e94feb9006e4fb36"
+  digest = "1:4e8a5dc258b2e5c19310815eb2073938d2a32f474325936c600b43d4b51dcb03"
   name = "golang.org/x/sys"
   packages = [
+    "internal/unsafeheader",
     "unix",
     "windows",
   ]
   pruneopts = "UT"
-  revision = "669c56c373c468cbe0f0c12b7939832b26088d33"
+  revision = "76b94024e4b621e672466e8db3d7f084e7ddcad2"
 
 [[projects]]
   digest = "1:fa940333c48808b0d86ef21f412ffcfd0e5084a82f13905c028a404803b1908f"
@@ -246,7 +258,7 @@
   name = "google.golang.org/genproto"
   packages = ["googleapis/rpc/status"]
   pruneopts = "UT"
-  revision = "7a2ca40e9dc324f00c1e7ea8786ddf6366d9e803"
+  revision = "88e341933a542e6f21b9ad041696148fee087ab1"
 
 [[projects]]
   digest = "1:bb13817ff92653da1e69c2a031ab43da3a09e4e3512301c99358565855489782"
@@ -340,12 +352,12 @@
   analyzer-version = 1
   input-imports = [
     "github.com/Sirupsen/logrus",
-    "github.com/chtison/baseconverter",
     "github.com/cyberreboot/faucetconfrpc/faucetconfrpc",
     "github.com/docker/docker/api/types",
     "github.com/docker/docker/client",
     "github.com/docker/go-plugins-helpers/network",
     "github.com/docker/libnetwork/iptables",
+    "github.com/kenshaw/baseconv",
     "github.com/vishvananda/netlink",
     "google.golang.org/grpc",
     "google.golang.org/grpc/credentials",

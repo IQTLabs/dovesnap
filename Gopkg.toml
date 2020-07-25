@@ -6,6 +6,10 @@
   branch = "master"
   name = "github.com/docker/go-plugins-helpers"
 
+[[constraint]]
+  name = "github.com/cyberreboot/faucetconfrpc"
+  version = "0.13"
+
 [prune]
   go-tests = true
   unused-packages = true

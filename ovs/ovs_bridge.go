@@ -120,13 +120,13 @@ func (d *Driver) initBridge(id string, controller string, dpid string, add_ports
 
 	case modeFlat:
 		{
-			//ToDo: Add NIC to the bridge
+			// NIC is already added to the bridge in createBridge
 		}
 	}
 	return nil
 }
 
-// todo: reconcile with what libnetwork does and port mappings
+// TODO: reconcile with what libnetwork does and port mappings
 func natOut(cidr string) error {
 	masquerade := []string{
 		"POSTROUTING", "-t", "nat",

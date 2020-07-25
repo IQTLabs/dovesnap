@@ -14,7 +14,6 @@ services:
     stdin_open: true
     tty: true
     privileged: true
-    command: -d
     depends_on:
       - ovs
     command:
@@ -26,7 +25,10 @@ services:
     image: cyberreboot/openvswitch:v2.13.0
     volumes:
       - /usr/local/var/run/openvswitch:/usr/local/var/run/openvswitch
+      - ovs-data:/etc/openvswitch
     privileged: true
     network_mode: host
     cap_add:
       - NET_ADMIN
+volumes:
+  ovs-data:
