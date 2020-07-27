@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 
 echo running gofmt...
 GOFMTOUT=$(gofmt -l *go */*go)

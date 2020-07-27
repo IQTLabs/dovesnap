@@ -3,13 +3,18 @@ name: test
 on: [push, pull_request]
 
 jobs:
+  gofmt:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: go format
+      run: ./codecheck.sh
   test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - name: int_test
       run: |
-        ./codecheck.sh && \
         sudo modprobe openvswitch && \
         sudo modprobe 8021q && \
         export DEBIAN_FRONTEND=noninteractive && \
