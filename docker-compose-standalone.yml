@@ -13,6 +13,23 @@ services:
     environment:
        FAUCET_CONFIG_STAT_RELOAD: '1'
        FAUCET_CONFIG_AUTO_REVERT: '1'
+  gauge:
+    restart: always
+    image: 'faucet/gauge:1.9.47'
+    network_mode: host
+    volumes:
+       - /var/log/gauge:/var/log/gauge
+       - '${FAUCET_PREFIX}/etc/faucet:/etc/faucet'
+    ports:
+       - '6654:6654'
+       - '9303:9303'
+    # TODO: workaround for faucet/gauge in network:host mode
+    command:
+       - 'gauge'
+       - '--ryu-ofp-tcp-listen-port=6654'
+    environment:
+       GAUGE_CONFIG_STAT_RELOAD: '1'
+       GAUGE_CONFIG_AUTO_REVERT: '1'
   faucet_certstrap:
     restart: on-failure
     image: 'cyberreboot/faucet-certstrap:v0.14.2'
@@ -37,4 +54,5 @@ services:
         - --config_dir=/etc/faucet
     depends_on:
       - faucet
+      - gauge
 
