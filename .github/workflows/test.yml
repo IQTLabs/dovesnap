@@ -8,8 +8,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: go format
-      with:
-        script: .codecheck.sh
+      run: ./codecheck.sh
   test:
     runs-on: ubuntu-latest
     steps:
