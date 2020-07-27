@@ -66,9 +66,9 @@ func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, p
 	return lowestFreePort, lowestFreePortPeer, err
 }
 
-func (ovsdber *ovsdber) deletePatchPort(bridgeName string, bridgeNamePeer string) (error) {
+func (ovsdber *ovsdber) deletePatchPort(bridgeName string, bridgeNamePeer string) error {
 	// Only need to delete one side, as the other side is the bridge that got removed completely
-	_, err := VsCtl("del-port", bridgeName, bridgeName + "-patch-" + bridgeNamePeer)
+	_, err := VsCtl("del-port", bridgeName, bridgeName+"-patch-"+bridgeNamePeer)
 	return err
 }
 

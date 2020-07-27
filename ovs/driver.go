@@ -329,7 +329,6 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 
 	delete(d.networks, r.NetworkID)
 
-
 	_, stackDpName, err := d.getStackDP()
 	if err != nil {
 		log.Errorf("Unable to get stack DP name because: %v", err)
@@ -575,7 +574,7 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 				add_ports := mapMsg.AddPorts
 				add_interfaces := ""
 				if add_ports != "" {
-			                for _, add_port_number_str := range strings.Split(add_ports, ",") {
+					for _, add_port_number_str := range strings.Split(add_ports, ",") {
 						add_port_number := strings.Split(add_port_number_str, "/")
 						add_port := add_port_number[0]
 						ofport, err := d.ovsdber.getOfPortNumber(add_port)
@@ -583,7 +582,7 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 							log.Errorf("Unable to get ofport number from %s", add_port)
 							break
 						}
-						add_interfaces += fmt.Sprintf("%d: {description: %s, native_vlan: %d},", ofport, "Physical interface " + add_port, vlan)
+						add_interfaces += fmt.Sprintf("%d: {description: %s, native_vlan: %d},", ofport, "Physical interface "+add_port, vlan)
 					}
 				}
 				mode := mapMsg.Mode
