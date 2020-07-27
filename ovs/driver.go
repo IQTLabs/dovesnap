@@ -328,6 +328,18 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 	}
 
 	delete(d.networks, r.NetworkID)
+
+
+	_, stackDpName, err := d.getStackDP()
+	if err != nil {
+		log.Errorf("Unable to get stack DP name because: %v", err)
+		return err
+	}
+	err = d.deletePatchPort(stackDpName, networkName)
+	if err != nil {
+		log.Errorf("Unable to delete patch port between bridges because: %v", err)
+		return err
+	}
 	return nil
 }
 
