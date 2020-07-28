@@ -11,11 +11,10 @@ services:
       - /usr/local/var/run/openvswitch:/var/run/openvswitch
       - /opt/dovesnap/faucetconfrpc:/faucetconfrpc
     network_mode: host
-    stdin_open: true
-    tty: true
-    privileged: true
     depends_on:
       - ovs
+    cap_add:
+      - NET_ADMIN
     command:
       - --faucetconfrpc_addr=localhost
       - --faucetconfrpc_port=59999
@@ -26,7 +25,6 @@ services:
     volumes:
       - /usr/local/var/run/openvswitch:/usr/local/var/run/openvswitch
       - ovs-data:/etc/openvswitch
-    privileged: true
     network_mode: host
     cap_add:
       - NET_ADMIN
