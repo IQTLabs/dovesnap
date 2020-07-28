@@ -113,7 +113,7 @@ func (d *Driver) initBridge(id string, controller string, dpid string, add_ports
 
 			// Add NAT rules for iptables
 			if err = natOut(gatewayIP); err != nil {
-				log.Fatalf("Could not set NAT rules for bridge %s", bridgeName)
+				log.Fatalf("Could not set NAT rules for bridge %s because %v", bridgeName, err)
 				return err
 			}
 		}
