@@ -20,10 +20,12 @@ services:
       - dovesnap
     volumes:
       - /var/log/gauge:/var/log/gauge
+      - ./configs/gauge.yaml:/etc/faucet/gauge.yaml
       - '${FAUCET_PREFIX}/etc/faucet:/etc/faucet'
     ports:
-      - '6654:6654'
+      - '6654:6653'
     environment:
+      GAUGE_CONFIG: '/etc/faucet/gauge.yaml'
       GAUGE_CONFIG_STAT_RELOAD: '1'
       GAUGE_CONFIG_AUTO_REVERT: '1'
   faucet_certstrap:

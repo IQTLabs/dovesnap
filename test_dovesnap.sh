@@ -66,6 +66,7 @@ docker network create testnet -d ovs -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0
 docker network ls
 echo creating testcon
 # github test runner can't use ping.
+docker pull busybox
 docker run -d --label="dovesnap.faucet.portacl=allowall" --net=testnet --rm --name=testcon busybox sleep 1d
 RET=$?
 if [ "$RET" != "0" ] ; then
