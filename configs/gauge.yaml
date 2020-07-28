@@ -8,12 +8,12 @@ watchers:
     port_stats_poller:
         type: 'port_stats'
         all_dps: True
-        interval: 10
+        interval: 5
         db: 'prometheus'
     flow_table_poller:
         type: 'flow_table'
         all_dps: True
-        interval: 60
+        interval: 5
         db: 'prometheus'
 dbs:
     prometheus:
