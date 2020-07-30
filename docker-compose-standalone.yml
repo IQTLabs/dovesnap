@@ -30,7 +30,7 @@ services:
       GAUGE_CONFIG_AUTO_REVERT: '1'
   faucet_certstrap:
     restart: on-failure
-    image: 'cyberreboot/faucet-certstrap:v0.14.2'
+    image: 'cyberreboot/faucet-certstrap:v0.14.3'
     network_mode: none
     volumes:
       - /opt/dovesnap:/opt/dovesnap
