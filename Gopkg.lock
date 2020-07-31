@@ -30,7 +30,7 @@
 
 [[projects]]
   digest = "1:564e5f5a4d7a4a0b6468b9158de0536ec86506bbe6eb681e0ca4b3233295a03d"
-  name = "github.com/cyberreboot/faucetconfrpc"
+  name = "github.com/iqtlabs/faucetconfrpc"
   packages = ["faucetconfrpc"]
   pruneopts = "UT"
   revision = "dd964406b50e826973221463e85f847716e1e8ab"
@@ -352,11 +352,11 @@
   analyzer-version = 1
   input-imports = [
     "github.com/Sirupsen/logrus",
-    "github.com/cyberreboot/faucetconfrpc/faucetconfrpc",
     "github.com/docker/docker/api/types",
     "github.com/docker/docker/client",
     "github.com/docker/go-plugins-helpers/network",
     "github.com/docker/libnetwork/iptables",
+    "github.com/iqtlabs/faucetconfrpc/faucetconfrpc",
     "github.com/kenshaw/baseconv",
     "github.com/vishvananda/netlink",
     "google.golang.org/grpc",

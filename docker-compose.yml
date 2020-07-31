@@ -2,7 +2,7 @@ version: '3.7'
 services:
   plugin:
     restart: always
-    image: cyberreboot/dovesnap
+    image: iqtlabs/dovesnap
     build:
       context: .
     volumes:
@@ -21,7 +21,7 @@ services:
       - --faucetconfrpc_keydir=/faucetconfrpc
   ovs:
     restart: always
-    image: cyberreboot/openvswitch:v2.13.0
+    image: iqtlabs/openvswitch:v2.13.0
     volumes:
       - /usr/local/var/run/openvswitch:/usr/local/var/run/openvswitch
       - ovs-data:/etc/openvswitch

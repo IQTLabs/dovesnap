@@ -7,7 +7,7 @@
   name = "github.com/docker/go-plugins-helpers"
 
 [[constraint]]
-  name = "github.com/cyberreboot/faucetconfrpc"
+  name = "github.com/iqtlabs/faucetconfrpc"
   version = "0.13"
 
 [prune]
