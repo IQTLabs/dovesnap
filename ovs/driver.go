@@ -12,10 +12,10 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/cyberreboot/faucetconfrpc/faucetconfrpc"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	networkplugin "github.com/docker/go-plugins-helpers/network"
+	"github.com/iqtlabs/faucetconfrpc/faucetconfrpc"
 	bc "github.com/kenshaw/baseconv"
 	"github.com/vishvananda/netlink"
 	"google.golang.org/grpc"
