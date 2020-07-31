@@ -539,22 +539,15 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 					log.Errorf("Unable to get stack DP name because: %v", err)
 					break
 				}
-				log.Debugf("network id: %s", mapMsg.NetworkID)
-				bridgeName := bridgePrefix + truncateID(mapMsg.NetworkID)
+				log.Debugf("network ID: %s", mapMsg.NetworkID)
 				netInspect, err := getNetworkInspectFromID(d.dockerclient, mapMsg.NetworkID)
 				if err != nil {
 					log.Errorf("Unable to get network inspection because: %v", err)
 					break
 				}
 				d.networks[mapMsg.NetworkID].NetworkName = netInspect.Name
-				dpid, err := getBridgeDpidfromresource(&netInspect)
+				bridgeName, dpid, vlan, err := getBridgeFromResource(&netInspect)
 				if err != nil {
-					log.Errorf("Unable to get bridge dp_id because: %v", err)
-					break
-				}
-				vlan, err := getBridgeVlanfromresource(&netInspect)
-				if err != nil {
-					log.Errorf("Unable to get bridge vlan because: %v", err)
 					break
 				}
 
@@ -616,17 +609,11 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 			{
 				containerInspect, netInspect, err := getContainerFromEndpoint(d.dockerclient, mapMsg.EndpointID)
 				if err == nil {
-					bridgeName, _ := getBridgeNamefromresource(&netInspect)
-					dpid, err := getBridgeDpidfromresource(&netInspect)
+					bridgeName, dpid, vlan, err := getBridgeFromResource(&netInspect)
 					if err != nil {
-						log.Errorf("No bridge DPID could be found, can't set Faucet config")
 						break
 					}
-					vlan, err := getBridgeVlanfromresource(&netInspect)
-					if err != nil {
-						log.Errorf("No bridge VLAN could be found, can't set Faucet config")
-						break
-					}
+
 					OFPorts[mapMsg.EndpointID] = OFPortContainer{
 						OFPort:           mapMsg.OFPort,
 						containerInspect: containerInspect,
@@ -776,20 +763,9 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 			if err != nil {
 				return nil, fmt.Errorf("Could not inpect docker networks inpect: %s", err)
 			}
-			bridgeName, err := getBridgeNamefromresource(&netInspect)
+			bridgeName, dpid, vlan, err := getBridgeFromResource(&netInspect)
 			if err != nil {
-				log.Errorf("Unable to get bridge name because: %v", err)
-				return nil, err
-			}
-			dpid, err := getBridgeDpidfromresource(&netInspect)
-			if err != nil {
-				log.Errorf("Unable to get bridge dp_id because: %v", err)
-				break
-			}
-			vlan, err := getBridgeVlanfromresource(&netInspect)
-			if err != nil {
-				log.Errorf("Unable to get bridge vlan because: %v", err)
-				break
+				continue
 			}
 			ns := &NetworkState{
 				NetworkName: netInspect.Name,
@@ -930,27 +906,42 @@ func getBindInterface(r *networkplugin.CreateNetworkRequest) (string, error) {
 	return "", nil
 }
 
-func getBridgeNamefromresource(r *types.NetworkResource) (string, error) {
-	bridgeName := bridgePrefix + truncateID(r.ID)
-	return bridgeName, nil
+func mustGetBridgeNameFromResource(r *types.NetworkResource) string {
+	return bridgePrefix + truncateID(r.ID)
 }
 
-func getBridgeDpidfromresource(r *types.NetworkResource) (string, error) {
+func mustGetBridgeDpidFromResource(r *types.NetworkResource) string {
 	if r.Options != nil {
 		if dpid, ok := r.Options[bridgeDpid]; ok {
-			return dpid, nil
+			return dpid
 		}
 	}
-	return "", fmt.Errorf("No DPID found for this network")
+	panic("No DPID found for this network")
 }
 
-func getBridgeVlanfromresource(r *types.NetworkResource) (int, error) {
+func mustGetBridgeVlanFromResource(r *types.NetworkResource) int {
 	if r.Options != nil {
 		vlan, err := strconv.Atoi(r.Options[vlanOption])
 		if err == nil {
-			return vlan, nil
+			return vlan
 		}
 	}
 	log.Infof("No VLAN found for this network, using default: %d", defaultVLAN)
-	return defaultVLAN, nil
+	return defaultVLAN
+}
+
+func getBridgeFromResource(r *types.NetworkResource) (bridgeName string, dpid string, vlan int, err error) {
+	defer func() {
+		err = nil
+		if r := recover(); r != nil {
+			err = fmt.Errorf("missing bridge info: %v", r)
+			bridgeName = ""
+			dpid = ""
+			vlan = 0
+		}
+	}()
+	bridgeName = mustGetBridgeNameFromResource(r)
+	dpid = mustGetBridgeDpidFromResource(r)
+	vlan = mustGetBridgeVlanFromResource(r)
+	return
 }
