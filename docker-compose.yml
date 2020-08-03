@@ -9,14 +9,16 @@ services:
       - /run/docker/plugins:/run/docker/plugins
       - /var/run/docker.sock:/var/run/docker.sock
       - /usr/local/var/run/openvswitch:/var/run/openvswitch
-      - /opt/dovesnap/faucetconfrpc:/faucetconfrpc
+      - /opt/faucetconfrpc:/faucetconfrpc
     network_mode: host
+    extra_hosts:
+      - faucetconfrpc:127.0.0.1
     depends_on:
       - ovs
     cap_add:
       - NET_ADMIN
     command:
-      - --faucetconfrpc_addr=localhost
+      - --faucetconfrpc_addr=faucetconfrpc
       - --faucetconfrpc_port=59999
       - --faucetconfrpc_keydir=/faucetconfrpc
   ovs:
