@@ -62,10 +62,10 @@ dbs:
 EOGC
 echo creating keys
 mkdir -p /opt/faucetconfrpc || exit 1
-FAUCET_PREFIX=$TMPDIR STACKING_INTERFACES=testnet:11:eth0 docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up faucet_certstrap || exit 1
+FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up faucet_certstrap || exit 1
 ls -al /opt/faucetconfrpc/client.key || exit 1
 echo starting dovesnap infrastructure
-docker-compose build && FAUCET_PREFIX=$TMPDIR STACKING_INTERFACES=testnet:11:eth0 docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
+docker-compose build && FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
 sleep 5
 docker ps -a
 echo creating testnet
