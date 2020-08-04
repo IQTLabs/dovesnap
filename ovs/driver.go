@@ -152,11 +152,6 @@ func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) err
 		return err
 	}
 
-	if !usingStacking(d) {
-		log.Warnf("No stacking interface defined, not stacking DPs or creating a stacking bridge")
-		return nil
-	}
-
 	// TODO this needs to be validated, and looped through for multiples
 	stackSlice := strings.Split(d.stackingInterfaces[0], ":")
 	remoteDP := stackSlice[0]
@@ -253,10 +248,13 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) (err error
 		panic(err)
 	}
 
-	// Create stacking bridge and links
-	stackerr := d.createStackingBridge(r)
-	if stackerr != nil {
-		panic(stackerr)
+	if usingStacking(d) {
+		stackerr := d.createStackingBridge(r)
+		if stackerr != nil {
+			panic(stackerr)
+		}
+	} else {
+		log.Warnf("No stacking interface defined, not stacking DPs or creating a stacking bridge")
 	}
 
 	createmap := OFPortMap{
