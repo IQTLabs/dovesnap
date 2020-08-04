@@ -67,8 +67,10 @@ ls -al /opt/faucetconfrpc/client.key || exit 1
 echo starting dovesnap infrastructure
 docker-compose build && FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
 for p in 6653 6654 ; do
-	while [ "$(ss -tHl sport = :$p)" == "" ] ; do
+	PORTCOUNT=""
+	while [ "$PORTCOUNT" = "0" ] ; do
 		echo waiting for $p
+		PORTCOUNT=$(ss -tHl sport = :$p|grep -c $p)
 		sleep 1
 	done
 done
@@ -85,10 +87,13 @@ if [ "$RET" != "0" ] ; then
 	echo testcon container creation returned: $RET
 	exit 1
 fi
-while [ "$(sudo grep -c allowall $FAUCET_CONFIG)" != "2" ] ; do
-	echo waiting for ACL to be applied
-	docker logs `docker ps |grep dovesnap_plugin|cut -f 1 -d " "`
+echo waiting for ACL to be applied
+DOVESNAPID="$(docker ps -q --filter name=dovesnap_plugin)"
+ACLCOUNT=0
+while [ "$ACLCOUNT" != "2" ] ; do
+	docker logs $DOVESNAPID
 	sudo cat $FAUCET_CONFIG
+	ACLCOUNT=$(sudo grep -c allowall $FAUCET_CONFIG)
         sleep 1
 done
 sudo grep "description: /testcon" $FAUCET_CONFIG || exit 1
