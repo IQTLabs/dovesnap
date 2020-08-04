@@ -66,7 +66,14 @@ FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-sta
 ls -al /opt/faucetconfrpc/client.key || exit 1
 echo starting dovesnap infrastructure
 docker-compose build && FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
-sleep 5
+for p in 6653 6654 ; do
+	PORTCOUNT=""
+	while [ "$PORTCOUNT" = "0" ] ; do
+		echo waiting for $p
+		PORTCOUNT=$(ss -tHl sport = :$p|grep -c $p)
+		sleep 1
+	done
+done
 docker ps -a
 echo creating testnet
 docker network create testnet -d ovs -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 || exit 1
@@ -74,16 +81,19 @@ docker network ls
 echo creating testcon
 # github test runner can't use ping.
 docker pull busybox
-docker run -d --label="dovesnap.faucet.portacl=allowall" --net=testnet --rm --name=testcon busybox sleep 1d
+docker run -d --label="dovesnap.faucet.portacl=allowall" --net=testnet --rm --name=testcon busybox sleep 1h
 RET=$?
 if [ "$RET" != "0" ] ; then
 	echo testcon container creation returned: $RET
 	exit 1
 fi
-while [ "$(sudo grep -c allowall $FAUCET_CONFIG)" != "2" ] ; do
-	echo waiting for ACL to be applied
-	docker logs `docker ps |grep dovesnap_plugin|cut -f 1 -d " "`
+echo waiting for ACL to be applied
+DOVESNAPID="$(docker ps -q --filter name=dovesnap_plugin)"
+ACLCOUNT=0
+while [ "$ACLCOUNT" != "2" ] ; do
+	docker logs $DOVESNAPID
 	sudo cat $FAUCET_CONFIG
+	ACLCOUNT=$(sudo grep -c allowall $FAUCET_CONFIG)
         sleep 1
 done
 sudo grep "description: /testcon" $FAUCET_CONFIG || exit 1
