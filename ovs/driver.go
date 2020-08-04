@@ -615,6 +615,16 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 			log.Errorf("Error while calling SetPortAcl RPC %s: %v", req, err)
 		}
 	}
+	mirror, ok := containerInspect.Config.Labels["dovesnap.faucet.mirror"]
+	if ok {
+		boolMirror, err := strconv.ParseBool(mirror)
+		if err != nil {
+			log.Errorf("Error: mirror is not a bool, ignoring")
+		} else {
+			log.Infof("Mirroring container: %v", boolMirror)
+			// TODO set mirror in Faucet config
+		}
+	}
 	log.Debugf("Adding datapath %v to Faucet config", dpid)
 	req := &faucetconfserver.SetConfigFileRequest{
 		ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %d, interfaces: {%d: {description: %s, native_vlan: %d}}}}}",
