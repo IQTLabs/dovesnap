@@ -66,7 +66,12 @@ FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-sta
 ls -al /opt/faucetconfrpc/client.key || exit 1
 echo starting dovesnap infrastructure
 docker-compose build && FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
-sleep 5
+for p in 6653 6654 ; do
+	while [ "$(ss -tHl sport = :$p)" == "" ] ; do
+		echo waiting for $p
+		sleep 1
+	done
+done
 docker ps -a
 echo creating testnet
 docker network create testnet -d ovs -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 || exit 1
@@ -74,7 +79,7 @@ docker network ls
 echo creating testcon
 # github test runner can't use ping.
 docker pull busybox
-docker run -d --label="dovesnap.faucet.portacl=allowall" --net=testnet --rm --name=testcon busybox sleep 1d
+docker run -d --label="dovesnap.faucet.portacl=allowall" --net=testnet --rm --name=testcon busybox sleep 1h
 RET=$?
 if [ "$RET" != "0" ] ; then
 	echo testcon container creation returned: $RET
