@@ -68,7 +68,7 @@ echo starting dovesnap infrastructure
 docker-compose build && FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
 for p in 6653 6654 ; do
 	PORTCOUNT=""
-	while [ "$PORTCOUNT" == "0" ] ; do
+	while [ "$PORTCOUNT" = "0" ] ; do
 		echo waiting for $p
 		PORTCOUNT=$(ss -tHl sport = :$p|grep -c $p)
 		sleep 1
