@@ -29,14 +29,6 @@
   version = "v22.1.0"
 
 [[projects]]
-  digest = "1:564e5f5a4d7a4a0b6468b9158de0536ec86506bbe6eb681e0ca4b3233295a03d"
-  name = "github.com/iqtlabs/faucetconfrpc"
-  packages = ["faucetconfrpc"]
-  pruneopts = "UT"
-  revision = "dd964406b50e826973221463e85f847716e1e8ab"
-  version = "v0.13"
-
-[[projects]]
   digest = "1:4ddc17aeaa82cb18c5f0a25d7c253a10682f518f4b2558a82869506eec223d76"
   name = "github.com/docker/distribution"
   packages = [
@@ -142,6 +134,14 @@
   pruneopts = "UT"
   revision = "d04d7b157bb510b1e0c10132224b616ac0e26b17"
   version = "v1.4.2"
+
+[[projects]]
+  digest = "1:bf12ecba3670b971c8716c76683e5f57fdaca421ebffbfa79d3def54a1b1e688"
+  name = "github.com/iqtlabs/faucetconfrpc"
+  packages = ["faucetconfrpc"]
+  pruneopts = "UT"
+  revision = "a0e0dd6131e86b378cd81d754133ee7c8460457c"
+  version = "v0.14"
 
 [[projects]]
   branch = "master"
