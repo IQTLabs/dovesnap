@@ -27,7 +27,7 @@ dps:
     dp_id: 0x99
     hardware: Open vSwitch
     interfaces:
-        0x1:
+        1:
             native_vlan: 100
   testnet:
     dp_id: 0x1
