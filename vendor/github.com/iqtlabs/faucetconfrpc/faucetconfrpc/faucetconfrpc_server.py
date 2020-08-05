@@ -439,6 +439,45 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
         return self.request_wrapper(
             del_dp_interfaces, request, context, default_reply)
 
+    def SetRemoteMirrorPort(self, request, context):  # pylint: disable=invalid-name
+
+        default_reply = faucetconfrpc_pb2.SetRemoteMirrorPortReply()
+
+        def set_remote_mirror_port():
+            config_filename = self.default_config
+            config_yaml = self._get_config_file(config_filename)
+            config_yaml.setdefault('acls', {})
+            acl_name = 'remote-mirror-%s-%u' % (
+                request.remote_dp_name, request.remote_port_no)
+            config_yaml['acls'][acl_name] = [
+                {'rule': {
+                    'actions': {'allow': 0},
+                    'vlan_vid': request.tunnel_vid}},
+                {'rule': {
+                    'actions': {
+                        'allow': 0,
+                        'output': {
+                            'tunnel': {
+                                'dp': request.remote_dp_name,
+                                'port': request.remote_port_no,
+                                'tunnel_id': request.tunnel_vid,
+                                'type': 'vlan'}}}}},
+            ]
+            dp = config_yaml['dps'][request.dp_name]  # pylint: disable=invalid-name
+            dp['interfaces'][request.port_no] = {
+                'acls_in': [acl_name],
+                'coprocessor': {
+                    'strategy': 'vlan_vid',
+                },
+                'description': 'loopback'
+            }
+            self._set_config_file(
+                config_filename, yaml.dump(config_yaml), False, [])
+            return default_reply
+
+        return self.request_wrapper(
+            set_remote_mirror_port, request, context, default_reply)
+
 
 def serve():
     """Start server and serve requests."""

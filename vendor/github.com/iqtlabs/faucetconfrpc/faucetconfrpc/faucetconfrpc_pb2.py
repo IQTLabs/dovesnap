@@ -18,7 +18,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='faucetconfserver',
   syntax='proto3',
   serialized_options=b'Z\022.;faucetconfserver',
-  serialized_pb=b'\n!faucetconfrpc/faucetconfrpc.proto\x12\x10\x66\x61ucetconfserver\"/\n\x14GetConfigFileRequest\x12\x17\n\x0f\x63onfig_filename\x18\x01 \x01(\t\")\n\x12GetConfigFileReply\x12\x13\n\x0b\x63onfig_yaml\x18\x01 \x01(\t\"q\n\x14SetConfigFileRequest\x12\x17\n\x0f\x63onfig_filename\x18\x01 \x01(\t\x12\x13\n\x0b\x63onfig_yaml\x18\x02 \x01(\t\x12\r\n\x05merge\x18\x03 \x01(\x08\x12\x1c\n\x14\x64\x65l_config_yaml_keys\x18\x04 \x01(\t\"\x14\n\x12SetConfigFileReply\"M\n\x18\x44\x65lConfigFromFileRequest\x12\x17\n\x0f\x63onfig_filename\x18\x01 \x01(\t\x12\x18\n\x10\x63onfig_yaml_keys\x18\x02 \x01(\t\"\x18\n\x16\x44\x65lConfigFromFileReply\"P\n\x14\x41\x64\x64PortMirrorRequest\x12\x0f\n\x07\x64p_name\x18\x01 \x01(\t\x12\x0f\n\x07port_no\x18\x02 \x01(\r\x12\x16\n\x0emirror_port_no\x18\x03 \x01(\r\"\x14\n\x12\x41\x64\x64PortMirrorReply\"S\n\x17RemovePortMirrorRequest\x12\x0f\n\x07\x64p_name\x18\x01 \x01(\t\x12\x0f\n\x07port_no\x18\x02 \x01(\r\x12\x16\n\x0emirror_port_no\x18\x03 \x01(\r\"\x17\n\x15RemovePortMirrorReply\"C\n\x11SetPortAclRequest\x12\x0f\n\x07\x64p_name\x18\x01 \x01(\t\x12\x0f\n\x07port_no\x18\x02 \x01(\r\x12\x0c\n\x04\x61\x63ls\x18\x03 \x01(\t\"\x11\n\x0fSetPortAclReply\"B\n\x11\x41\x64\x64PortAclRequest\x12\x0f\n\x07\x64p_name\x18\x01 \x01(\t\x12\x0f\n\x07port_no\x18\x02 \x01(\r\x12\x0b\n\x03\x61\x63l\x18\x03 \x01(\t\"\x11\n\x0f\x41\x64\x64PortAclReply\"E\n\x14RemovePortAclRequest\x12\x0f\n\x07\x64p_name\x18\x01 \x01(\t\x12\x0f\n\x07port_no\x18\x02 \x01(\r\x12\x0b\n\x03\x61\x63l\x18\x03 \x01(\t\"\x14\n\x12RemovePortAclReply\"4\n\x0cSetInterface\x12\x0f\n\x07port_no\x18\x01 \x01(\r\x12\x13\n\x0b\x63onfig_yaml\x18\x02 \x01(\t\"\\\n\x0fSetDpInterfaces\x12\x0f\n\x07\x64p_name\x18\x01 \x01(\t\x12\x38\n\x10interface_config\x18\x02 \x03(\x0b\x32\x1e.faucetconfserver.SetInterface\"V\n\x16SetDpInterfacesRequest\x12<\n\x11interfaces_config\x18\x01 \x03(\x0b\x32!.faucetconfserver.SetDpInterfaces\"\x16\n\x14SetDpInterfacesReply\"<\n\x10GetDpInfoRequest\x12\x0f\n\x07\x64p_name\x18\x01 \x01(\t\x12\x17\n\x0f\x63onfig_filename\x18\x02 \x01(\t\"C\n\rInterfaceInfo\x12\x0f\n\x07port_no\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\"o\n\x06\x44pInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05\x64p_id\x18\x02 \x01(\x04\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12\x33\n\ninterfaces\x18\x04 \x03(\x0b\x32\x1f.faucetconfserver.InterfaceInfo\"7\n\x0eGetDpInfoReply\x12%\n\x03\x64ps\x18\x01 \x03(\x0b\x32\x18.faucetconfserver.DpInfo\"f\n\x16\x44\x65lDpInterfacesRequest\x12\x33\n\x11interfaces_config\x18\x01 \x03(\x0b\x32\x18.faucetconfserver.DpInfo\x12\x17\n\x0f\x64\x65lete_empty_dp\x18\x02 \x01(\x08\"\x16\n\x14\x44\x65lDpInterfacesReply\"D\n\rDelDpsRequest\x12\x33\n\x11interfaces_config\x18\x01 \x03(\x0b\x32\x18.faucetconfserver.DpInfo\"\r\n\x0b\x44\x65lDpsReply2\x8c\t\n\x10\x46\x61ucetConfServer\x12_\n\rGetConfigFile\x12&.faucetconfserver.GetConfigFileRequest\x1a$.faucetconfserver.GetConfigFileReply\"\x00\x12_\n\rSetConfigFile\x12&.faucetconfserver.SetConfigFileRequest\x1a$.faucetconfserver.SetConfigFileReply\"\x00\x12k\n\x11\x44\x65lConfigFromFile\x12*.faucetconfserver.DelConfigFromFileRequest\x1a(.faucetconfserver.DelConfigFromFileReply\"\x00\x12_\n\rAddPortMirror\x12&.faucetconfserver.AddPortMirrorRequest\x1a$.faucetconfserver.AddPortMirrorReply\"\x00\x12h\n\x10RemovePortMirror\x12).faucetconfserver.RemovePortMirrorRequest\x1a\'.faucetconfserver.RemovePortMirrorReply\"\x00\x12V\n\nAddPortAcl\x12#.faucetconfserver.AddPortAclRequest\x1a!.faucetconfserver.AddPortAclReply\"\x00\x12_\n\rRemovePortAcl\x12&.faucetconfserver.RemovePortAclRequest\x1a$.faucetconfserver.RemovePortAclReply\"\x00\x12V\n\nSetPortAcl\x12#.faucetconfserver.SetPortAclRequest\x1a!.faucetconfserver.SetPortAclReply\"\x00\x12\x65\n\x0fSetDpInterfaces\x12(.faucetconfserver.SetDpInterfacesRequest\x1a&.faucetconfserver.SetDpInterfacesReply\"\x00\x12S\n\tGetDpInfo\x12\".faucetconfserver.GetDpInfoRequest\x1a .faucetconfserver.GetDpInfoReply\"\x00\x12\x65\n\x0f\x44\x65lDpInterfaces\x12(.faucetconfserver.DelDpInterfacesRequest\x1a&.faucetconfserver.DelDpInterfacesReply\"\x00\x12J\n\x06\x44\x65lDps\x12\x1f.faucetconfserver.DelDpsRequest\x1a\x1d.faucetconfserver.DelDpsReply\"\x00\x42\x14Z\x12.;faucetconfserverb\x06proto3'
+  serialized_pb=b'\n!faucetconfrpc/faucetconfrpc.proto\x12\x10\x66\x61ucetconfserver\"/\n\x14GetConfigFileRequest\x12\x17\n\x0f\x63onfig_filename\x18\x01 \x01(\t\")\n\x12GetConfigFileReply\x12\x13\n\x0b\x63onfig_yaml\x18\x01 \x01(\t\"q\n\x14SetConfigFileRequest\x12\x17\n\x0f\x63onfig_filename\x18\x01 \x01(\t\x12\x13\n\x0b\x63onfig_yaml\x18\x02 \x01(\t\x12\r\n\x05merge\x18\x03 \x01(\x08\x12\x1c\n\x14\x64\x65l_config_yaml_keys\x18\x04 \x01(\t\"\x14\n\x12SetConfigFileReply\"M\n\x18\x44\x65lConfigFromFileRequest\x12\x17\n\x0f\x63onfig_filename\x18\x01 \x01(\t\x12\x18\n\x10\x63onfig_yaml_keys\x18\x02 \x01(\t\"\x18\n\x16\x44\x65lConfigFromFileReply\"\x82\x01\n\x1aSetRemoteMirrorPortRequest\x12\x0f\n\x07\x64p_name\x18\x01 \x01(\t\x12\x0f\n\x07port_no\x18\x02 \x01(\r\x12\x12\n\ntunnel_vid\x18\x03 \x01(\r\x12\x16\n\x0eremote_dp_name\x18\x04 \x01(\t\x12\x16\n\x0eremote_port_no\x18\x05 \x01(\r\"\x1a\n\x18SetRemoteMirrorPortReply\"P\n\x14\x41\x64\x64PortMirrorRequest\x12\x0f\n\x07\x64p_name\x18\x01 \x01(\t\x12\x0f\n\x07port_no\x18\x02 \x01(\r\x12\x16\n\x0emirror_port_no\x18\x03 \x01(\r\"\x14\n\x12\x41\x64\x64PortMirrorReply\"S\n\x17RemovePortMirrorRequest\x12\x0f\n\x07\x64p_name\x18\x01 \x01(\t\x12\x0f\n\x07port_no\x18\x02 \x01(\r\x12\x16\n\x0emirror_port_no\x18\x03 \x01(\r\"\x17\n\x15RemovePortMirrorReply\"C\n\x11SetPortAclRequest\x12\x0f\n\x07\x64p_name\x18\x01 \x01(\t\x12\x0f\n\x07port_no\x18\x02 \x01(\r\x12\x0c\n\x04\x61\x63ls\x18\x03 \x01(\t\"\x11\n\x0fSetPortAclReply\"B\n\x11\x41\x64\x64PortAclRequest\x12\x0f\n\x07\x64p_name\x18\x01 \x01(\t\x12\x0f\n\x07port_no\x18\x02 \x01(\r\x12\x0b\n\x03\x61\x63l\x18\x03 \x01(\t\"\x11\n\x0f\x41\x64\x64PortAclReply\"E\n\x14RemovePortAclRequest\x12\x0f\n\x07\x64p_name\x18\x01 \x01(\t\x12\x0f\n\x07port_no\x18\x02 \x01(\r\x12\x0b\n\x03\x61\x63l\x18\x03 \x01(\t\"\x14\n\x12RemovePortAclReply\"4\n\x0cSetInterface\x12\x0f\n\x07port_no\x18\x01 \x01(\r\x12\x13\n\x0b\x63onfig_yaml\x18\x02 \x01(\t\"\\\n\x0fSetDpInterfaces\x12\x0f\n\x07\x64p_name\x18\x01 \x01(\t\x12\x38\n\x10interface_config\x18\x02 \x03(\x0b\x32\x1e.faucetconfserver.SetInterface\"V\n\x16SetDpInterfacesRequest\x12<\n\x11interfaces_config\x18\x01 \x03(\x0b\x32!.faucetconfserver.SetDpInterfaces\"\x16\n\x14SetDpInterfacesReply\"<\n\x10GetDpInfoRequest\x12\x0f\n\x07\x64p_name\x18\x01 \x01(\t\x12\x17\n\x0f\x63onfig_filename\x18\x02 \x01(\t\"C\n\rInterfaceInfo\x12\x0f\n\x07port_no\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\"o\n\x06\x44pInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05\x64p_id\x18\x02 \x01(\x04\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12\x33\n\ninterfaces\x18\x04 \x03(\x0b\x32\x1f.faucetconfserver.InterfaceInfo\"7\n\x0eGetDpInfoReply\x12%\n\x03\x64ps\x18\x01 \x03(\x0b\x32\x18.faucetconfserver.DpInfo\"f\n\x16\x44\x65lDpInterfacesRequest\x12\x33\n\x11interfaces_config\x18\x01 \x03(\x0b\x32\x18.faucetconfserver.DpInfo\x12\x17\n\x0f\x64\x65lete_empty_dp\x18\x02 \x01(\x08\"\x16\n\x14\x44\x65lDpInterfacesReply\"D\n\rDelDpsRequest\x12\x33\n\x11interfaces_config\x18\x01 \x03(\x0b\x32\x18.faucetconfserver.DpInfo\"\r\n\x0b\x44\x65lDpsReply2\xff\t\n\x10\x46\x61ucetConfServer\x12_\n\rGetConfigFile\x12&.faucetconfserver.GetConfigFileRequest\x1a$.faucetconfserver.GetConfigFileReply\"\x00\x12_\n\rSetConfigFile\x12&.faucetconfserver.SetConfigFileRequest\x1a$.faucetconfserver.SetConfigFileReply\"\x00\x12k\n\x11\x44\x65lConfigFromFile\x12*.faucetconfserver.DelConfigFromFileRequest\x1a(.faucetconfserver.DelConfigFromFileReply\"\x00\x12_\n\rAddPortMirror\x12&.faucetconfserver.AddPortMirrorRequest\x1a$.faucetconfserver.AddPortMirrorReply\"\x00\x12h\n\x10RemovePortMirror\x12).faucetconfserver.RemovePortMirrorRequest\x1a\'.faucetconfserver.RemovePortMirrorReply\"\x00\x12V\n\nAddPortAcl\x12#.faucetconfserver.AddPortAclRequest\x1a!.faucetconfserver.AddPortAclReply\"\x00\x12_\n\rRemovePortAcl\x12&.faucetconfserver.RemovePortAclRequest\x1a$.faucetconfserver.RemovePortAclReply\"\x00\x12V\n\nSetPortAcl\x12#.faucetconfserver.SetPortAclRequest\x1a!.faucetconfserver.SetPortAclReply\"\x00\x12\x65\n\x0fSetDpInterfaces\x12(.faucetconfserver.SetDpInterfacesRequest\x1a&.faucetconfserver.SetDpInterfacesReply\"\x00\x12S\n\tGetDpInfo\x12\".faucetconfserver.GetDpInfoRequest\x1a .faucetconfserver.GetDpInfoReply\"\x00\x12\x65\n\x0f\x44\x65lDpInterfaces\x12(.faucetconfserver.DelDpInterfacesRequest\x1a&.faucetconfserver.DelDpInterfacesReply\"\x00\x12J\n\x06\x44\x65lDps\x12\x1f.faucetconfserver.DelDpsRequest\x1a\x1d.faucetconfserver.DelDpsReply\"\x00\x12q\n\x13SetRemoteMirrorPort\x12,.faucetconfserver.SetRemoteMirrorPortRequest\x1a*.faucetconfserver.SetRemoteMirrorPortReply\"\x00\x42\x14Z\x12.;faucetconfserverb\x06proto3'
 )
 
 
@@ -224,6 +224,89 @@ _DELCONFIGFROMFILEREPLY = _descriptor.Descriptor(
 )
 
 
+_SETREMOTEMIRRORPORTREQUEST = _descriptor.Descriptor(
+  name='SetRemoteMirrorPortRequest',
+  full_name='faucetconfserver.SetRemoteMirrorPortRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='dp_name', full_name='faucetconfserver.SetRemoteMirrorPortRequest.dp_name', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='port_no', full_name='faucetconfserver.SetRemoteMirrorPortRequest.port_no', index=1,
+      number=2, type=13, cpp_type=3, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='tunnel_vid', full_name='faucetconfserver.SetRemoteMirrorPortRequest.tunnel_vid', index=2,
+      number=3, type=13, cpp_type=3, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='remote_dp_name', full_name='faucetconfserver.SetRemoteMirrorPortRequest.remote_dp_name', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='remote_port_no', full_name='faucetconfserver.SetRemoteMirrorPortRequest.remote_port_no', index=4,
+      number=5, type=13, cpp_type=3, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=390,
+  serialized_end=520,
+)
+
+
+_SETREMOTEMIRRORPORTREPLY = _descriptor.Descriptor(
+  name='SetRemoteMirrorPortReply',
+  full_name='faucetconfserver.SetRemoteMirrorPortReply',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=522,
+  serialized_end=548,
+)
+
+
 _ADDPORTMIRRORREQUEST = _descriptor.Descriptor(
   name='AddPortMirrorRequest',
   full_name='faucetconfserver.AddPortMirrorRequest',
@@ -264,8 +347,8 @@ _ADDPORTMIRRORREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=389,
-  serialized_end=469,
+  serialized_start=550,
+  serialized_end=630,
 )
 
 
@@ -288,8 +371,8 @@ _ADDPORTMIRRORREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=471,
-  serialized_end=491,
+  serialized_start=632,
+  serialized_end=652,
 )
 
 
@@ -333,8 +416,8 @@ _REMOVEPORTMIRRORREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=493,
-  serialized_end=576,
+  serialized_start=654,
+  serialized_end=737,
 )
 
 
@@ -357,8 +440,8 @@ _REMOVEPORTMIRRORREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=578,
-  serialized_end=601,
+  serialized_start=739,
+  serialized_end=762,
 )
 
 
@@ -402,8 +485,8 @@ _SETPORTACLREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=603,
-  serialized_end=670,
+  serialized_start=764,
+  serialized_end=831,
 )
 
 
@@ -426,8 +509,8 @@ _SETPORTACLREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=672,
-  serialized_end=689,
+  serialized_start=833,
+  serialized_end=850,
 )
 
 
@@ -471,8 +554,8 @@ _ADDPORTACLREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=691,
-  serialized_end=757,
+  serialized_start=852,
+  serialized_end=918,
 )
 
 
@@ -495,8 +578,8 @@ _ADDPORTACLREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=759,
-  serialized_end=776,
+  serialized_start=920,
+  serialized_end=937,
 )
 
 
@@ -540,8 +623,8 @@ _REMOVEPORTACLREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=778,
-  serialized_end=847,
+  serialized_start=939,
+  serialized_end=1008,
 )
 
 
@@ -564,8 +647,8 @@ _REMOVEPORTACLREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=849,
-  serialized_end=869,
+  serialized_start=1010,
+  serialized_end=1030,
 )
 
 
@@ -602,8 +685,8 @@ _SETINTERFACE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=871,
-  serialized_end=923,
+  serialized_start=1032,
+  serialized_end=1084,
 )
 
 
@@ -640,8 +723,8 @@ _SETDPINTERFACES = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=925,
-  serialized_end=1017,
+  serialized_start=1086,
+  serialized_end=1178,
 )
 
 
@@ -671,8 +754,8 @@ _SETDPINTERFACESREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1019,
-  serialized_end=1105,
+  serialized_start=1180,
+  serialized_end=1266,
 )
 
 
@@ -695,8 +778,8 @@ _SETDPINTERFACESREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1107,
-  serialized_end=1129,
+  serialized_start=1268,
+  serialized_end=1290,
 )
 
 
@@ -733,8 +816,8 @@ _GETDPINFOREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1131,
-  serialized_end=1191,
+  serialized_start=1292,
+  serialized_end=1352,
 )
 
 
@@ -778,8 +861,8 @@ _INTERFACEINFO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1193,
-  serialized_end=1260,
+  serialized_start=1354,
+  serialized_end=1421,
 )
 
 
@@ -830,8 +913,8 @@ _DPINFO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1262,
-  serialized_end=1373,
+  serialized_start=1423,
+  serialized_end=1534,
 )
 
 
@@ -861,8 +944,8 @@ _GETDPINFOREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1375,
-  serialized_end=1430,
+  serialized_start=1536,
+  serialized_end=1591,
 )
 
 
@@ -899,8 +982,8 @@ _DELDPINTERFACESREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1432,
-  serialized_end=1534,
+  serialized_start=1593,
+  serialized_end=1695,
 )
 
 
@@ -923,8 +1006,8 @@ _DELDPINTERFACESREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1536,
-  serialized_end=1558,
+  serialized_start=1697,
+  serialized_end=1719,
 )
 
 
@@ -954,8 +1037,8 @@ _DELDPSREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1560,
-  serialized_end=1628,
+  serialized_start=1721,
+  serialized_end=1789,
 )
 
 
@@ -978,8 +1061,8 @@ _DELDPSREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1630,
-  serialized_end=1643,
+  serialized_start=1791,
+  serialized_end=1804,
 )
 
 _SETDPINTERFACES.fields_by_name['interface_config'].message_type = _SETINTERFACE
@@ -994,6 +1077,8 @@ DESCRIPTOR.message_types_by_name['SetConfigFileRequest'] = _SETCONFIGFILEREQUEST
 DESCRIPTOR.message_types_by_name['SetConfigFileReply'] = _SETCONFIGFILEREPLY
 DESCRIPTOR.message_types_by_name['DelConfigFromFileRequest'] = _DELCONFIGFROMFILEREQUEST
 DESCRIPTOR.message_types_by_name['DelConfigFromFileReply'] = _DELCONFIGFROMFILEREPLY
+DESCRIPTOR.message_types_by_name['SetRemoteMirrorPortRequest'] = _SETREMOTEMIRRORPORTREQUEST
+DESCRIPTOR.message_types_by_name['SetRemoteMirrorPortReply'] = _SETREMOTEMIRRORPORTREPLY
 DESCRIPTOR.message_types_by_name['AddPortMirrorRequest'] = _ADDPORTMIRRORREQUEST
 DESCRIPTOR.message_types_by_name['AddPortMirrorReply'] = _ADDPORTMIRRORREPLY
 DESCRIPTOR.message_types_by_name['RemovePortMirrorRequest'] = _REMOVEPORTMIRRORREQUEST
@@ -1059,6 +1144,20 @@ DelConfigFromFileReply = _reflection.GeneratedProtocolMessageType('DelConfigFrom
   # @@protoc_insertion_point(class_scope:faucetconfserver.DelConfigFromFileReply)
   })
 _sym_db.RegisterMessage(DelConfigFromFileReply)
+
+SetRemoteMirrorPortRequest = _reflection.GeneratedProtocolMessageType('SetRemoteMirrorPortRequest', (_message.Message,), {
+  'DESCRIPTOR' : _SETREMOTEMIRRORPORTREQUEST,
+  '__module__' : 'faucetconfrpc.faucetconfrpc_pb2'
+  # @@protoc_insertion_point(class_scope:faucetconfserver.SetRemoteMirrorPortRequest)
+  })
+_sym_db.RegisterMessage(SetRemoteMirrorPortRequest)
+
+SetRemoteMirrorPortReply = _reflection.GeneratedProtocolMessageType('SetRemoteMirrorPortReply', (_message.Message,), {
+  'DESCRIPTOR' : _SETREMOTEMIRRORPORTREPLY,
+  '__module__' : 'faucetconfrpc.faucetconfrpc_pb2'
+  # @@protoc_insertion_point(class_scope:faucetconfserver.SetRemoteMirrorPortReply)
+  })
+_sym_db.RegisterMessage(SetRemoteMirrorPortReply)
 
 AddPortMirrorRequest = _reflection.GeneratedProtocolMessageType('AddPortMirrorRequest', (_message.Message,), {
   'DESCRIPTOR' : _ADDPORTMIRRORREQUEST,
@@ -1223,8 +1322,8 @@ _FAUCETCONFSERVER = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=1646,
-  serialized_end=2810,
+  serialized_start=1807,
+  serialized_end=3086,
   methods=[
   _descriptor.MethodDescriptor(
     name='GetConfigFile',
@@ -1332,6 +1431,15 @@ _FAUCETCONFSERVER = _descriptor.ServiceDescriptor(
     containing_service=None,
     input_type=_DELDPSREQUEST,
     output_type=_DELDPSREPLY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='SetRemoteMirrorPort',
+    full_name='faucetconfserver.FaucetConfServer.SetRemoteMirrorPort',
+    index=12,
+    containing_service=None,
+    input_type=_SETREMOTEMIRRORPORTREQUEST,
+    output_type=_SETREMOTEMIRRORPORTREPLY,
     serialized_options=None,
   ),
 ])
