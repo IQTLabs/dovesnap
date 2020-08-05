@@ -2,7 +2,7 @@ version: '3.7'
 services:
   faucet:
     restart: always
-    image: 'faucet/faucet:1.9.47'
+    image: 'faucet/faucet:1.9.48'
     networks:
       - dovesnap
     volumes:
@@ -15,7 +15,7 @@ services:
       FAUCET_CONFIG_AUTO_REVERT: '1'
   gauge:
     restart: always
-    image: 'faucet/gauge:1.9.47'
+    image: 'faucet/gauge:1.9.48'
     networks:
       - dovesnap
     volumes:
