@@ -35,6 +35,8 @@ dps:
     interfaces:
         1:
             native_vlan: 100
+        88:
+            output_only: true
   testnet:
     dp_id: 0x1
     hardware: Open vSwitch
@@ -83,7 +85,7 @@ while ! docker exec -t $OVSID ovs-vsctl show ; do
 	echo waiting for OVS
 	sleep 1
 done
-docker exec -t $OVSID ovs-vsctl --if-exists del-br rootsw
+docker exec -t $OVSID /bin/sh -c 'for i in `ovs-vsctl list-br` ; do ovs-vsctl del-br $i ; done' || exit 1
 docker exec -t $OVSID ovs-vsctl add-br rootsw || exit 1
 docker exec -t $OVSID ovs-vsctl set-fail-mode rootsw secure
 docker exec -t $OVSID ovs-vsctl set bridge rootsw other-config:datapath-id=0x77
@@ -92,7 +94,7 @@ docker exec -t $OVSID ovs-vsctl add-port rootsw rootswintp1 -- set interface roo
 docker exec -t $OVSID ovs-vsctl show
 
 echo starting dovesnap infrastructure
-FAUCET_PREFIX=$TMPDIR STACKING_INTERFACES=rootsw:7:rootswextp1 docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
+FAUCET_PREFIX=$TMPDIR STACKING_INTERFACES=rootsw:7:rootswextp1 STACK_MIRROR_INTERFACE=99:666:rootsw:88 docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
 for p in 6653 6654 ; do
 	PORTCOUNT=""
 	while [ "$PORTCOUNT" = "0" ] ; do
@@ -108,7 +110,7 @@ docker network ls
 echo creating testcon
 # github test runner can't use ping.
 docker pull busybox
-docker run -d --label="dovesnap.faucet.portacl=allowall" --net=testnet --rm --name=testcon busybox sleep 1h
+docker run -d --label="dovesnap.faucet.portacl=allowall" --label="dovesnap.faucet.mirror=true" --net=testnet --rm --name=testcon busybox sleep 1h
 RET=$?
 if [ "$RET" != "0" ] ; then
 	echo testcon container creation returned: $RET
@@ -128,5 +130,13 @@ echo verifying networking
 docker exec -t testcon wget -q -O- bing.com || exit 1
 docker rm -f testcon || exit 1
 docker network rm testnet || exit 1
+OVSID="$(docker ps -q --filter name=ovs)"
+echo showing packets tunnelled
+PACKETS=$(docker exec -t $OVSID ovs-ofctl dump-flows rootsw table=0,dl_vlan=666|grep -v n_packets=0)
+echo $PACKETS
+if [ "$PACKETS" = "" ] ; then
+	echo no packets were tunnelled
+	exit 1
+fi
 FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml stop
 rm -rf $TMPDIR

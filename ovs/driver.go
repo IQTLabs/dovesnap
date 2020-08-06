@@ -71,10 +71,11 @@ type OFPortContainer struct {
 type Driver struct {
 	dockerclient *client.Client
 	ovsdber
-	faucetclient       faucetconfserver.FaucetConfServerClient
-	stackingInterfaces []string
-	networks           map[string]*NetworkState
-	ofportmapChan      chan OFPortMap
+	faucetclient         faucetconfserver.FaucetConfServerClient
+	stackingInterfaces   []string
+	stackMirrorInterface []string
+	networks             map[string]*NetworkState
+	ofportmapChan        chan OFPortMap
 }
 
 // NetworkState is filled in at network creation time
@@ -136,13 +137,14 @@ func (d *Driver) getStackDP() (string, string, error) {
 	return dpid, dpName, nil
 }
 
+func (d *Driver) mustGetLoopbackDP() string {
+	engineId, _ := d.getShortEngineID()
+	return "lb" + engineId
+}
+
 func (d *Driver) createLoopbackBridge() error {
-	engineId, err := d.getShortEngineID()
-	if err != nil {
-		return err
-	}
-	bridgeName := "lb" + engineId
-	_, err = d.ovsdber.addBridgeExists(bridgeName)
+	bridgeName := d.mustGetLoopbackDP()
+	_, err := d.ovsdber.addBridgeExists(bridgeName)
 	if err != nil {
 		return err
 	}
@@ -582,7 +584,7 @@ func mustHandleCreate(d *Driver, confclient faucetconfserver.FaucetConfServerCli
 			panic(err)
 		}
 		ofportNum, ofportNumPeer, err := d.addPatchPort(
-			bridgeName, stackDpName, netInspect.Name+"-patch-"+stackDpName, stackDpName+"-patch-"+netInspect.Name)
+			bridgeName, stackDpName, netInspect.Name+"-patch-"+stackDpName, 0, stackDpName+"-patch-"+netInspect.Name, 0)
 		if err != nil {
 			panic(err)
 		}
@@ -607,6 +609,29 @@ func mustHandleCreate(d *Driver, confclient faucetconfserver.FaucetConfServerCli
 	_, err = d.faucetclient.SetConfigFile(context.Background(), req)
 	if err != nil {
 		panic(err)
+	}
+	if usingStacking(d) && len(d.stackMirrorInterface) > 0 {
+		lbBridgeName := d.mustGetLoopbackDP()
+		lbPort, _ := strconv.Atoi(d.stackMirrorInterface[0])
+		tunnelVid, _ := strconv.Atoi(d.stackMirrorInterface[1])
+		remoteDpName := d.stackMirrorInterface[2]
+		mirrorPort, _ := strconv.Atoi(d.stackMirrorInterface[3])
+		_, _, err = d.addPatchPort(
+			bridgeName, lbBridgeName, netInspect.Name+"-lbpatch-"+lbBridgeName, uint(lbPort), lbBridgeName+"-lbpatch-"+netInspect.Name, 0)
+		if err != nil {
+			panic(err)
+		}
+		req := &faucetconfserver.SetRemoteMirrorPortRequest{
+			DpName:       netInspect.Name,
+			PortNo:       uint32(lbPort),
+			TunnelVid:    uint32(tunnelVid),
+			RemoteDpName: remoteDpName,
+			RemotePortNo: uint32(mirrorPort),
+		}
+		_, err = d.faucetclient.SetRemoteMirrorPort(context.Background(), req)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -650,7 +675,24 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 			log.Errorf("Error: mirror is not a bool, ignoring")
 		} else {
 			log.Infof("Mirroring container: %v", boolMirror)
-			// TODO set mirror in Faucet config
+			lbPort, _ := strconv.Atoi(d.stackMirrorInterface[0])
+			req := &faucetconfserver.AddPortMirrorRequest{
+				DpName:       netInspect.Name,
+				PortNo:       uint32(mapMsg.OFPort),
+				MirrorPortNo: uint32(lbPort),
+			}
+			_, err := confclient.AddPortMirror(context.Background(), req)
+			// TODO: workaround for empty mirror list.
+			if err != nil {
+				req := &faucetconfserver.SetConfigFileRequest{
+					ConfigYaml: fmt.Sprintf("{dps: {%s: {interfaces: {%d: {mirror: [%d]}}}}}", netInspect.Name, lbPort, mapMsg.OFPort),
+					Merge:      true,
+				}
+				_, err = confclient.SetConfigFile(context.Background(), req)
+			}
+			if err != nil {
+				log.Errorf("Error while calling AddPortMirror RPC %s: %v", req, err)
+			}
 		}
 	}
 	log.Debugf("Adding datapath %v to Faucet config", dpid)
@@ -716,7 +758,7 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 	}
 }
 
-func mustGetGRPCClient(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string) *grpc.ClientConn {
+func mustGetGRPCClient(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string) faucetconfserver.FaucetConfServerClient {
 	crt_file := flagFaucetconfrpcKeydir + "/client.crt"
 	key_file := flagFaucetconfrpcKeydir + "/client.key"
 	ca_file := flagFaucetconfrpcKeydir + "/" + flagFaucetconfrpcServerName + "-ca.crt"
@@ -744,19 +786,27 @@ func mustGetGRPCClient(flagFaucetconfrpcServerName string, flagFaucetconfrpcServ
 	if err != nil {
 		panic(err)
 	}
-	return conn
+	confclient := faucetconfserver.NewFaucetConfServerClient(conn)
+	_, err = confclient.GetConfigFile(context.Background(), &faucetconfserver.GetConfigFileRequest{})
+	if err != nil {
+		panic(err)
+	}
+	return confclient
 }
 
 func usingStacking(d *Driver) bool {
 	return len(d.stackingInterfaces[0]) != 0
 }
 
-func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackingInterfaces string) (*Driver, error) {
+func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackingInterfaces string, flagStackMirrorInterface string) (*Driver, error) {
 	// Get interfaces to use for stacking
+	stack_mirror_interface := strings.Split(flagStackMirrorInterface, ":")
+	if len(flagStackMirrorInterface) > 0 && len(stack_mirror_interface) != 4 {
+		return nil, fmt.Errorf("invalid stack mirror interface config: %s", flagStackMirrorInterface)
+	}
 	stacking_interfaces := strings.Split(flagStackingInterfaces, ",")
 	log.Debugf("Stacking interfaces: %v", stacking_interfaces)
-	conn := mustGetGRPCClient(flagFaucetconfrpcServerName, flagFaucetconfrpcServerPort, flagFaucetconfrpcKeydir)
-	confclient := faucetconfserver.NewFaucetConfServerClient(conn)
+	confclient := mustGetGRPCClient(flagFaucetconfrpcServerName, flagFaucetconfrpcServerPort, flagFaucetconfrpcKeydir)
 
 	// Connect to Docker
 	docker, err := client.NewClientWithOpts(client.FromEnv)
@@ -766,12 +816,13 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 
 	// Create Docker driver
 	d := &Driver{
-		dockerclient:       docker,
-		ovsdber:            ovsdber{},
-		faucetclient:       confclient,
-		stackingInterfaces: stacking_interfaces,
-		networks:           make(map[string]*NetworkState),
-		ofportmapChan:      make(chan OFPortMap, 2),
+		dockerclient:         docker,
+		ovsdber:              ovsdber{},
+		faucetclient:         confclient,
+		stackingInterfaces:   stacking_interfaces,
+		stackMirrorInterface: stack_mirror_interface,
+		networks:             make(map[string]*NetworkState),
+		ofportmapChan:        make(chan OFPortMap, 2),
 	}
 
 	for i := 0; i < ovsStartupRetries; i++ {
