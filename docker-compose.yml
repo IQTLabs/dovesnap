@@ -23,6 +23,7 @@ services:
       - --faucetconfrpc_keydir=/faucetconfrpc
       - '--stacking_interfaces=${STACKING_INTERFACES}'
       - '--stack_mirror_interface=${STACK_MIRROR_INTERFACE}'
+      - '--default_ofcontrollers=${STACK_OFCONTROLLERS}'
   ovs:
     restart: always
     image: iqtlabs/openvswitch:v2.13.0

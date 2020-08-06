@@ -24,6 +24,8 @@ func main() {
 		"stacking_interfaces", "", "comma separated list of [dpid:port:interface_name] to use for stacking")
 	flagStackMirrorInterface := flag.String(
 		"stack_mirror_interface", "", "stack tunnel mirroring configuration [dovesnapbridgeport:tunnelvid:mirrordpname:mirrorport]")
+	flagDefaultControllers := flag.String(
+		"default_ofcontrollers", "", "default OF controllers to use (must be defined if stacking is used)")
 	flag.Parse()
 	if *flagDebug {
 		log.SetLevel(log.DebugLevel)
@@ -33,7 +35,8 @@ func main() {
 		*flagFaucetconfrpcServerPort,
 		*flagFaucetconfrpcKeydir,
 		*flagStackingInterfaces,
-		*flagStackMirrorInterface)
+		*flagStackMirrorInterface,
+		*flagDefaultControllers)
 	if err != nil {
 		panic(err)
 	}
