@@ -116,17 +116,41 @@ func base36to16(value string) string {
 	return strings.ToUpper(converted)
 }
 
-func (d *Driver) getStackDP() (string, string, error) {
+func (d *Driver) getShortEngineID() (string, error) {
 	info, err := d.dockerclient.Info(context.Background())
+	if err != nil {
+		return "", err
+	}
+	log.Debugf("Docker Engine ID %s:", info.ID)
+	engineId := base36to16(strings.Split(info.ID, ":")[0])
+	return engineId, nil
+}
+
+func (d *Driver) getStackDP() (string, string, error) {
+	engineId, err := d.getShortEngineID()
 	if err != nil {
 		return "", "", err
 	}
-	engineId := strings.Split(info.ID, ":")[0]
-	log.Debugf("Docker Engine ID %s:", info.ID)
-	engineId = base36to16(engineId)
 	dpid := stackDpidPrefix + engineId
 	dpName := "dovesnap" + engineId
 	return dpid, dpName, nil
+}
+
+func (d *Driver) createLoopbackBridge() error {
+	engineId, err := d.getShortEngineID()
+	if err != nil {
+		return err
+	}
+	bridgeName := "lb" + engineId
+	_, err = d.ovsdber.addBridgeExists(bridgeName)
+	if err != nil {
+		return err
+	}
+	err = d.ovsdber.makeLoopbackBridge(bridgeName)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (d *Driver) createStackingBridge(r *networkplugin.CreateNetworkRequest) error {
@@ -252,6 +276,10 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) (err error
 		stackerr := d.createStackingBridge(r)
 		if stackerr != nil {
 			panic(stackerr)
+		}
+		lberr := d.createLoopbackBridge()
+		if lberr != nil {
+			panic(lberr)
 		}
 	} else {
 		log.Warnf("No stacking interface defined, not stacking DPs or creating a stacking bridge")

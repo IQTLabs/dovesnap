@@ -32,6 +32,20 @@ func (ovsdber *ovsdber) deleteBridge(bridgeName string) (string, error) {
 	return VsCtl("del-br", bridgeName)
 }
 
+func (ovsdber *ovsdber) makeLoopbackBridge(bridgeName string) (err error) {
+	err = nil
+	defer func() {
+		if rerr := recover(); rerr != nil {
+			err = fmt.Errorf("Cannot makeLoopbackBridge: %v", rerr)
+		}
+	}()
+
+	mustOfCtl("del-flows", bridgeName)
+	mustOfCtl("add-flow", bridgeName, "priority=0,actions=drop")
+	mustOfCtl("add-flow", bridgeName, "priority=1,actions=output:in_port")
+	return err
+}
+
 func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid string, add_ports string, exists bool) error {
 	if exists {
 		if _, err := ovsdber.addBridgeExists(bridgeName); err != nil {

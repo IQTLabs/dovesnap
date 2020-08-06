@@ -25,6 +25,14 @@ func VsCtl(args ...string) (string, error) {
 	return strings.TrimSuffix(string(output), "\n"), err
 }
 
+func mustVsCtl(args ...string) string {
+	output, err := VsCtl(args...)
+	if err != nil {
+		panic(err)
+	}
+	return output
+}
+
 func OfCtl(args ...string) ([]byte, error) {
 	output, err := exec.Command(ovsofctlPath, args...).CombinedOutput()
 	if err != nil {
@@ -33,6 +41,14 @@ func OfCtl(args ...string) ([]byte, error) {
 		log.Debugf("OK: %s, %v", ovsofctlPath, args)
 	}
 	return output, err
+}
+
+func mustOfCtl(args ...string) []byte {
+	output, err := OfCtl(args...)
+	if err != nil {
+		panic(err)
+	}
+	return output
 }
 
 type ovsdber struct {
