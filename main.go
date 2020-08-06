@@ -14,10 +14,16 @@ const (
 
 func main() {
 	flagDebug := flag.Bool("debug", false, "enable debugging")
-	flagFaucetconfrpcServerName := flag.String("faucetconfrpc_addr", "localhost", "address of faucetconfrpc server")
-	flagFaucetconfrpcServerPort := flag.Int("faucetconfrpc_port", 59999, "port for faucetconfrpc server")
-	flagFaucetconfrpcKeydir := flag.String("faucetconfrpc_keydir", "/faucetconfrpc", "directory with keys for faucetconfrpc server")
-	flagStackingInterfaces := flag.String("stacking_interfaces", "", "comma separated list of [dpid:port:interface_name] to use for stacking")
+	flagFaucetconfrpcServerName := flag.String(
+		"faucetconfrpc_addr", "localhost", "address of faucetconfrpc server")
+	flagFaucetconfrpcServerPort := flag.Int(
+		"faucetconfrpc_port", 59999, "port for faucetconfrpc server")
+	flagFaucetconfrpcKeydir := flag.String(
+		"faucetconfrpc_keydir", "/faucetconfrpc", "directory with keys for faucetconfrpc server")
+	flagStackingInterfaces := flag.String(
+		"stacking_interfaces", "", "comma separated list of [dpid:port:interface_name] to use for stacking")
+	flagStackMirrorInterface := flag.String(
+		"stack_mirror_interface", "", "stack tunnel mirroring configuration [dovesnapbridgeport:tunnelvid:mirrordpname:mirrorport]")
 	flag.Parse()
 	if *flagDebug {
 		log.SetLevel(log.DebugLevel)
@@ -26,7 +32,8 @@ func main() {
 		*flagFaucetconfrpcServerName,
 		*flagFaucetconfrpcServerPort,
 		*flagFaucetconfrpcKeydir,
-		*flagStackingInterfaces)
+		*flagStackingInterfaces,
+		*flagStackMirrorInterface)
 	if err != nil {
 		panic(err)
 	}
