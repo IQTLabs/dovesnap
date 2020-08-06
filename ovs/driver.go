@@ -610,7 +610,7 @@ func mustHandleCreate(d *Driver, confclient faucetconfserver.FaucetConfServerCli
 	if err != nil {
 		panic(err)
 	}
-	if usingStacking(d) && len(d.stackMirrorInterface) > 0 {
+	if usingStacking(d) && len(d.stackMirrorInterface) > 1 {
 		lbBridgeName := d.mustGetLoopbackDP()
 		lbPort, _ := strconv.Atoi(d.stackMirrorInterface[0])
 		tunnelVid, _ := strconv.Atoi(d.stackMirrorInterface[1])
@@ -669,7 +669,7 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 		}
 	}
 	mirror, ok := containerInspect.Config.Labels["dovesnap.faucet.mirror"]
-	if ok {
+	if ok && usingStacking(d) && len(d.stackMirrorInterface) > 1 {
 		boolMirror, err := strconv.ParseBool(mirror)
 		if err != nil {
 			log.Errorf("Error: mirror is not a bool, ignoring")
