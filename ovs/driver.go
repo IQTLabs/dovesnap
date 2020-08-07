@@ -693,33 +693,24 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 			log.Errorf("mustHandleRm failed: %v", rerr)
 		}
 	}()
-	networkName := mustGetNetworkNameFromID(d.dockerclient, mapMsg.NetworkID)
+	networkName := d.networks[mapMsg.NetworkID].NetworkName
 	interfaces := &faucetconfserver.InterfaceInfo{
 		PortNo: int32(mapMsg.OFPort),
-	}
-	containerInspect, _, err := getContainerFromEndpoint(d.dockerclient, mapMsg.EndpointID)
-	if err != nil {
-		panic(err)
 	}
 
 	log.Debugf("Removing port %d on %s from Faucet config", mapMsg.OFPort, networkName)
 
 	// TODO: faucetconfrpc should clean up the mirror reference.
-	mirror, ok := containerInspect.Config.Labels["dovesnap.faucet.mirror"]
-	if ok && usingStacking(d) && len(d.stackMirrorInterface) > 1 {
-		boolMirror, err := strconv.ParseBool(mirror)
-		if err != nil {
-			log.Errorf("Error: mirror is not a bool, ignoring")
-		} else {
-			log.Infof("unmirroring container: %v", boolMirror)
-		}
+	if usingStacking(d) && len(d.stackMirrorInterface) > 1 {
 		lbPort, _ := strconv.Atoi(d.stackMirrorInterface[0])
 		req := &faucetconfserver.RemovePortMirrorRequest{
 			DpName:       networkName,
 			PortNo:       uint32(mapMsg.OFPort),
 			MirrorPortNo: uint32(lbPort),
 		}
-		_, err = confclient.RemovePortMirror(context.Background(), req)
+		// TODO: need a way to know if the container was started with mirroring label
+		//       at this point the container is already removed, so can't inspect it
+		_, err := confclient.RemovePortMirror(context.Background(), req)
 		if err != nil {
 			log.Errorf("Error unmirroring: %v", err)
 		}
@@ -736,7 +727,7 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 		InterfacesConfig: interfacesConf,
 		DeleteEmptyDp:    true,
 	}
-	_, err = confclient.DelDpInterfaces(context.Background(), req)
+	_, err := confclient.DelDpInterfaces(context.Background(), req)
 	if err != nil {
 		log.Errorf("Error while calling DelDpInterfaces RPC %s: %v", req, err)
 	}
