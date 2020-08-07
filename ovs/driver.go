@@ -301,11 +301,6 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 	log.Debugf("Delete network request: %+v", r)
 	bridgeName := d.networks[r.NetworkID].BridgeName
 	log.Debugf("Deleting Bridge %s", bridgeName)
-	_, err := d.deleteBridge(bridgeName)
-	if err != nil {
-		log.Errorf("Deleting bridge %s failed: %s", bridgeName, err)
-		return err
-	}
 
 	// remove the bridge from the faucet config if it exists
 	networkName := d.networks[r.NetworkID].NetworkName
@@ -319,26 +314,34 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 		InterfacesConfig: dp,
 	}
 
-	_, err = d.faucetclient.DelDps(context.Background(), dReq)
+	_, err := d.faucetclient.DelDps(context.Background(), dReq)
 	if err != nil {
 		log.Errorf("Error while calling DelDps %s: %v", dReq, err)
 		return err
 	}
 
-	delete(d.networks, r.NetworkID)
-
 	if usingStacking(d) {
-		_, stackDpName, err := d.getStackDP()
-		if err != nil {
-			log.Errorf("Unable to get stack DP name because: %v", err)
-			return err
-		}
-		err = d.deletePatchPort(stackDpName, networkName)
+		_, stackDpName, _ := d.getStackDP()
+		err = d.deletePatchPort(bridgeName, stackDpName)
 		if err != nil {
 			log.Errorf("Unable to delete patch port between bridges because: %v", err)
-			return err
+		}
+		if len(d.stackMirrorInterface) > 1 {
+			lbBridgeName := d.mustGetLoopbackDP()
+			err = d.deletePatchPort(bridgeName, lbBridgeName)
+			if err != nil {
+				log.Errorf("Unable to delete patch port to loopback bridge: %v", err)
+			}
 		}
 	}
+
+        _, err = d.deleteBridge(bridgeName)
+        if err != nil {
+                log.Errorf("Deleting bridge %s failed: %s", bridgeName, err)
+                return err
+        }
+
+	delete(d.networks, r.NetworkID)
 	return nil
 }
 
@@ -581,8 +584,7 @@ func mustHandleCreate(d *Driver, confclient faucetconfserver.FaucetConfServerCli
 		if err != nil {
 			panic(err)
 		}
-		ofportNum, ofportNumPeer, err := d.addPatchPort(
-			bridgeName, stackDpName, netInspect.Name+"-patch-"+stackDpName, 0, stackDpName+"-patch-"+netInspect.Name, 0)
+		ofportNum, ofportNumPeer, err := d.addPatchPort(bridgeName, stackDpName, 0, 0)
 		if err != nil {
 			panic(err)
 		}
@@ -614,8 +616,7 @@ func mustHandleCreate(d *Driver, confclient faucetconfserver.FaucetConfServerCli
 		tunnelVid, _ := strconv.Atoi(d.stackMirrorInterface[1])
 		remoteDpName := d.stackMirrorInterface[2]
 		mirrorPort, _ := strconv.Atoi(d.stackMirrorInterface[3])
-		_, _, err = d.addPatchPort(
-			bridgeName, lbBridgeName, netInspect.Name+"-lbpatch-"+lbBridgeName, uint(lbPort), lbBridgeName+"-lbpatch-"+netInspect.Name, 0)
+		_, _, err = d.addPatchPort(bridgeName, lbBridgeName, uint(lbPort), 0)
 		if err != nil {
 			panic(err)
 		}
@@ -697,29 +698,17 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 	interfaces := &faucetconfserver.InterfaceInfo{
 		PortNo: int32(mapMsg.OFPort),
 	}
-	containerInspect, _, err := getContainerFromEndpoint(d.dockerclient, mapMsg.EndpointID)
-	if err != nil {
-		panic(err)
-	}
-
 	log.Debugf("Removing port %d on %s from Faucet config", mapMsg.OFPort, networkName)
 
 	// TODO: faucetconfrpc should clean up the mirror reference.
-	mirror, ok := containerInspect.Config.Labels["dovesnap.faucet.mirror"]
-	if ok && usingStacking(d) && len(d.stackMirrorInterface) > 1 {
-		boolMirror, err := strconv.ParseBool(mirror)
-		if err != nil {
-			log.Errorf("Error: mirror is not a bool, ignoring")
-		} else {
-			log.Infof("unmirroring container: %v", boolMirror)
-		}
+	if usingStacking(d) && len(d.stackMirrorInterface) > 1 {
 		lbPort, _ := strconv.Atoi(d.stackMirrorInterface[0])
 		req := &faucetconfserver.RemovePortMirrorRequest{
 			DpName:       networkName,
 			PortNo:       uint32(mapMsg.OFPort),
 			MirrorPortNo: uint32(lbPort),
 		}
-		_, err = confclient.RemovePortMirror(context.Background(), req)
+		_, err := confclient.RemovePortMirror(context.Background(), req)
 		if err != nil {
 			log.Errorf("Error unmirroring: %v", err)
 		}
@@ -736,7 +725,7 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 		InterfacesConfig: interfacesConf,
 		DeleteEmptyDp:    true,
 	}
-	_, err = confclient.DelDpInterfaces(context.Background(), req)
+	_, err := confclient.DelDpInterfaces(context.Background(), req)
 	if err != nil {
 		log.Errorf("Error while calling DelDpInterfaces RPC %s: %v", req, err)
 	}

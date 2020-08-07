@@ -48,7 +48,11 @@ func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag 
 	return lowestFreePort, value, err
 }
 
-func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, portName string, port uint, portNamePeer string, portPeer uint) (uint, uint, error) {
+func patchName(a string, b string) string {
+	return a + "-patch-" + b
+}
+
+func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, port uint, portPeer uint) (uint, uint, error) {
 	var err error = nil
 	if port == 0 {
 		port, err = ovsdber.lowestFreePortOnBridge(bridgeName)
@@ -62,6 +66,8 @@ func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, p
 			return 0, 0, err
 		}
 	}
+	portName := patchName(bridgeName, bridgeNamePeer)
+	portNamePeer := patchName(bridgeNamePeer, bridgeName)
 	_, err = VsCtl("add-port", bridgeName, portName, "--", "set", "Interface", portName, fmt.Sprintf("ofport_request=%d", port))
 	_, err = VsCtl("set", "interface", portName, "type=patch")
 	_, err = VsCtl("add-port", bridgeNamePeer, portNamePeer, "--", "set", "Interface", portNamePeer, fmt.Sprintf("ofport_request=%d", portPeer))
@@ -72,8 +78,8 @@ func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, p
 }
 
 func (ovsdber *ovsdber) deletePatchPort(bridgeName string, bridgeNamePeer string) error {
-	// Only need to delete one side, as the other side is the bridge that got removed completely
-	_, err := VsCtl("del-port", bridgeName, bridgeName+"-patch-"+bridgeNamePeer)
+	_, err := VsCtl("del-port", bridgeName, patchName(bridgeName, bridgeNamePeer))
+	_, err = VsCtl("del-port", bridgeNamePeer, patchName(bridgeNamePeer, bridgeName))
 	return err
 }
 
