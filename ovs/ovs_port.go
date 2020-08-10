@@ -1,6 +1,7 @@
 package ovs
 
 import (
+	"hash/crc32"
 	"fmt"
 	"regexp"
 	"sort"
@@ -48,8 +49,12 @@ func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag 
 	return lowestFreePort, value, err
 }
 
+func patchStr(a string) string {
+	return strconv.FormatUint(uint64(crc32.ChecksumIEEE([]byte(a))), 36)
+}
+
 func patchName(a string, b string) string {
-	return a + "-patch-" + b
+	return patchStr(a) + patchStr(b)
 }
 
 func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, port uint, portPeer uint) (uint, uint, error) {
