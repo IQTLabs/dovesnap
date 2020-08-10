@@ -694,10 +694,11 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 			log.Errorf("mustHandleRm failed: %v", rerr)
 		}
 	}()
-	networkName := mustGetNetworkNameFromID(d.dockerclient, mapMsg.NetworkID)
+	networkName := d.networks[mapMsg.NetworkID].NetworkName
 	interfaces := &faucetconfserver.InterfaceInfo{
 		PortNo: int32(mapMsg.OFPort),
 	}
+
 	log.Debugf("Removing port %d on %s from Faucet config", mapMsg.OFPort, networkName)
 
 	// TODO: faucetconfrpc should clean up the mirror reference.
@@ -708,6 +709,8 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 			PortNo:       uint32(mapMsg.OFPort),
 			MirrorPortNo: uint32(lbPort),
 		}
+		// TODO: need a way to know if the container was started with mirroring label
+		//       at this point the container is already removed, so can't inspect it
 		_, err := confclient.RemovePortMirror(context.Background(), req)
 		if err != nil {
 			log.Errorf("Error unmirroring: %v", err)

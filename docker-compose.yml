@@ -12,7 +12,7 @@ services:
       - /opt/faucetconfrpc:/faucetconfrpc
     network_mode: host
     extra_hosts:
-      - faucetconfrpc:127.0.0.1
+      - 'faucetconfrpc:${FAUCETCONFRPC_IP}'
     depends_on:
       - ovs
     cap_add:
