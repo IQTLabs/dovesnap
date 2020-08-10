@@ -841,9 +841,11 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 		if stackerr != nil {
 			panic(stackerr)
 		}
-		lberr := d.createLoopbackBridge()
-		if lberr != nil {
-			panic(lberr)
+		if len(d.stackMirrorInterface) > 1 {
+			lberr := d.createLoopbackBridge()
+			if lberr != nil {
+				panic(lberr)
+			}
 		}
 	} else {
 		log.Warnf("No stacking interface defined, not stacking DPs or creating a stacking bridge")

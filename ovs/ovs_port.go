@@ -69,8 +69,8 @@ func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, p
 	portName := patchName(bridgeName, bridgeNamePeer)
 	portNamePeer := patchName(bridgeNamePeer, bridgeName)
 	_, err = VsCtl("add-port", bridgeName, portName, "--", "set", "Interface", portName, fmt.Sprintf("ofport_request=%d", port))
-	_, err = VsCtl("set", "interface", portName, "type=patch")
 	_, err = VsCtl("add-port", bridgeNamePeer, portNamePeer, "--", "set", "Interface", portNamePeer, fmt.Sprintf("ofport_request=%d", portPeer))
+	_, err = VsCtl("set", "interface", portName, "type=patch")
 	_, err = VsCtl("set", "interface", portNamePeer, "type=patch")
 	_, err = VsCtl("set", "interface", portName, fmt.Sprintf("options:peer=%s", portNamePeer))
 	_, err = VsCtl("set", "interface", portNamePeer, fmt.Sprintf("options:peer=%s", portName))
@@ -78,8 +78,10 @@ func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, p
 }
 
 func (ovsdber *ovsdber) deletePatchPort(bridgeName string, bridgeNamePeer string) error {
-	_, err := VsCtl("del-port", bridgeName, patchName(bridgeName, bridgeNamePeer))
-	_, err = VsCtl("del-port", bridgeNamePeer, patchName(bridgeNamePeer, bridgeName))
+	portName := patchName(bridgeName, bridgeNamePeer)
+	portNamePeer := patchName(bridgeNamePeer, bridgeName)
+	_, err := VsCtl("del-port", bridgeName, portName)
+	_, err = VsCtl("del-port", bridgeNamePeer, portNamePeer)
 	return err
 }
 
