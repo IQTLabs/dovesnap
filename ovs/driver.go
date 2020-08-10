@@ -335,11 +335,11 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 		}
 	}
 
-        _, err = d.deleteBridge(bridgeName)
-        if err != nil {
-                log.Errorf("Deleting bridge %s failed: %s", bridgeName, err)
-                return err
-        }
+	_, err = d.deleteBridge(bridgeName)
+	if err != nil {
+		log.Errorf("Deleting bridge %s failed: %s", bridgeName, err)
+		return err
+	}
 
 	delete(d.networks, r.NetworkID)
 	return nil
