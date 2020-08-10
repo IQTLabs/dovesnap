@@ -81,9 +81,9 @@ func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, p
 	netlink.LinkAdd(&vethPair)
 	netlink.LinkSetUp(&vethPair)
 	vethPairPeer := netlink.Veth{
-                LinkAttrs: netlink.LinkAttrs{Name: portNamePeer},
-                PeerName:  portName,
-        }
+		LinkAttrs: netlink.LinkAttrs{Name: portNamePeer},
+		PeerName:  portName,
+	}
 	netlink.LinkSetUp(&vethPairPeer)
 	_, err = VsCtl("add-port", bridgeName, portName, "--", "set", "Interface", portName, fmt.Sprintf("ofport_request=%d", port))
 	_, err = VsCtl("add-port", bridgeNamePeer, portNamePeer, "--", "set", "Interface", portNamePeer, fmt.Sprintf("ofport_request=%d", portPeer))
