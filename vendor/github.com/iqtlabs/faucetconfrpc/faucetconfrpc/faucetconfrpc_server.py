@@ -242,7 +242,9 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
         dp = dps[request.dp_name]  # pylint: disable=invalid-name
         port = dp.ports[request.port_no]
         mirror_port = dp.ports[request.mirror_port_no]
-        mirrors = list(mirror_port.mirror)
+        mirrors = []
+        if mirror_port.mirror:
+            mirrors = list(mirror_port.mirror)
         return (port, mirrors)
 
     def _set_mirror(self, config_filename, request, mirrors):
