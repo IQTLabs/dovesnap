@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 )
 
 func (ovsdber *ovsdber) lowestFreePortOnBridge(bridgeName string) (lowestFreePort uint, err error) {
@@ -50,8 +49,7 @@ func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag 
 }
 
 func patchName(a string, b string) string {
-	//return a + "-patch-" + b
-	return a[len(a)-8:] + b[len(b)-8:]
+	return a + "-patch-" + b
 }
 
 func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, port uint, portPeer uint) (uint, uint, error) {
@@ -70,35 +68,18 @@ func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, p
 	}
 	portName := patchName(bridgeName, bridgeNamePeer)
 	portNamePeer := patchName(bridgeNamePeer, bridgeName)
-
-	vethPair := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{Name: portName},
-		PeerName:  portNamePeer,
-	}
-	netlink.LinkAdd(vethPair)
-	portLink, _ := netlink.LinkByName(portName)
-	netlink.LinkSetUp(portLink)
-	portPeerLink, _ := netlink.LinkByName(portName)
-	netlink.LinkSetUp(portPeerLink)
-
 	_, err = VsCtl("add-port", bridgeName, portName, "--", "set", "Interface", portName, fmt.Sprintf("ofport_request=%d", port))
+	_, err = VsCtl("set", "interface", portName, "type=patch")
 	_, err = VsCtl("add-port", bridgeNamePeer, portNamePeer, "--", "set", "Interface", portNamePeer, fmt.Sprintf("ofport_request=%d", portPeer))
-	// TODO: patch ports don't work with tagged traffic, OVS 2.12.1-2.13.1
-	//_, err = VsCtl("set", "interface", portName, "type=patch")
-	//_, err = VsCtl("set", "interface", portNamePeer, "type=patch")
-	//_, err = VsCtl("set", "interface", portName, fmt.Sprintf("options:peer=%s", portNamePeer))
-	//_, err = VsCtl("set", "interface", portNamePeer, fmt.Sprintf("options:peer=%s", portName))
+	_, err = VsCtl("set", "interface", portNamePeer, "type=patch")
+	_, err = VsCtl("set", "interface", portName, fmt.Sprintf("options:peer=%s", portNamePeer))
+	_, err = VsCtl("set", "interface", portNamePeer, fmt.Sprintf("options:peer=%s", portName))
 	return port, portPeer, err
 }
 
 func (ovsdber *ovsdber) deletePatchPort(bridgeName string, bridgeNamePeer string) error {
-	portName := patchName(bridgeName, bridgeNamePeer)
-	portNamePeer := patchName(bridgeNamePeer, bridgeName)
-	_, err := VsCtl("del-port", bridgeName, portName)
-	_, err = VsCtl("del-port", bridgeNamePeer, portNamePeer)
-	// Only need to delete one side, to delete both.
-	portLink, _ := netlink.LinkByName(portName)
-	netlink.LinkDel(portLink)
+	_, err := VsCtl("del-port", bridgeName, patchName(bridgeName, bridgeNamePeer))
+	_, err = VsCtl("del-port", bridgeNamePeer, patchName(bridgeNamePeer, bridgeName))
 	return err
 }
 
