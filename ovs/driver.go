@@ -861,7 +861,7 @@ func usingStacking(d *Driver) bool {
 }
 
 func usingStackMirroring(d *Driver) bool {
-        return usingStacking(d) && len(d.stackMirrorInterface) > 1
+	return usingStacking(d) && len(d.stackMirrorInterface) > 1
 }
 
 func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string) (*Driver, error) {
