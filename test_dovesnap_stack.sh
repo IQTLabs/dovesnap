@@ -137,7 +137,7 @@ sudo grep "description: /testcon" $FAUCET_CONFIG || exit 1
 echo verifying networking
 docker exec -t testcon wget -q -O- bing.com || exit 1
 OVSID="$(docker ps -q --filter name=ovs)"
-echo showing packets tunnelled (tunnel 356 = vlan 100 + default offset 256)
+echo showing packets tunnelled: tunnel 356 is vlan 100 plus default offset 256
 PACKETS=$(docker exec -t $OVSID ovs-ofctl dump-flows rootsw table=0,dl_vlan=356|grep -v n_packets=0)
 echo $PACKETS
 if [ "$PACKETS" = "" ] ; then
