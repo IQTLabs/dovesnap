@@ -216,7 +216,6 @@ func (d *Driver) createStackingBridge() error {
 		log.Errorf("Unable to create stacking bridge because: [ %s ]", err)
 	}
 
-
 	// loop through stacking interfaces
 	stackingPorts := []StackingPort{}
 	stackingConfig := "{dps: {"
@@ -234,7 +233,7 @@ func (d *Driver) createStackingBridge() error {
 			stackingConfig += "{priority: 1}, "
 		}
 		stackingConfig += fmt.Sprintf("interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}, ", remotePort, "Stack link to "+dpName, dpName, ofport)
-		stackingPorts = append(stackingPorts, StackingPort{ RemoteDP: remoteDP, RemotePort: remotePort, OFPort: ofport})
+		stackingPorts = append(stackingPorts, StackingPort{RemoteDP: remoteDP, RemotePort: remotePort, OFPort: ofport})
 	}
 
 	stackingConfig += fmt.Sprintf("%s: {dp_id: %d, description: %s, hardware: Open vSwitch, interfaces: {",
@@ -252,7 +251,7 @@ func (d *Driver) createStackingBridge() error {
 
 	req := &faucetconfserver.SetConfigFileRequest{
 		ConfigYaml: stackingConfig,
-		Merge: true,
+		Merge:      true,
 	}
 
 	_, err = d.faucetclient.SetConfigFile(context.Background(), req)

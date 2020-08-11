@@ -94,7 +94,7 @@ docker exec -t $OVSID ovs-vsctl add-port rootsw rootswintp1 -- set interface roo
 docker exec -t $OVSID ovs-vsctl show
 
 echo starting dovesnap infrastructure
-FAUCET_PREFIX=$TMPDIR STACKING_INTERFACES=rootsw:7:rootswextp1 STACK_MIRROR_INTERFACE=99:666:rootsw:88 STACK_OFCONTROLLERS=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
+FAUCET_PREFIX=$TMPDIR STACK_PRIORITY1=rootsw STACKING_INTERFACES=rootsw:7:rootswextp1 STACK_MIRROR_INTERFACE=99:666:rootsw:88 STACK_OFCONTROLLERS=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
 for p in 6653 6654 ; do
 	PORTCOUNT=""
 	while [ "$PORTCOUNT" = "0" ] ; do
