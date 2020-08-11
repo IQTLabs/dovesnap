@@ -63,6 +63,12 @@ type OFPortMap struct {
 	Operation  string
 }
 
+type StackingPort struct {
+	OFPort     uint
+	RemoteDP   string
+	RemotePort uint64
+}
+
 type OFPortContainer struct {
 	OFPort           uint
 	containerInspect types.ContainerJSON
@@ -72,6 +78,7 @@ type Driver struct {
 	dockerclient *client.Client
 	ovsdber
 	faucetclient            faucetconfserver.FaucetConfServerClient
+	stackPriority1          string
 	stackingInterfaces      []string
 	stackMirrorInterface    []string
 	stackDefaultControllers string
@@ -156,7 +163,21 @@ func (d *Driver) createLoopbackBridge() error {
 	return nil
 }
 
-func (d *Driver) mustGetStackBridgeConfig() (string, string, int, string, string, uint64, string) {
+func (d *Driver) mustGetStackingInterface(stackingInterface string) (string, uint64, string) {
+	stackSlice := strings.Split(stackingInterface, ":")
+	remoteDP := stackSlice[0]
+	remotePort, err := strconv.ParseUint(stackSlice[1], 10, 32)
+	if err != nil {
+		panic(fmt.Errorf("Unable to convert remote port to an unsigned integer because: [ %s ]", err))
+	}
+	localInterface := stackSlice[2]
+	if err != nil {
+		panic(fmt.Errorf("Unable to convert local port to an unsigned integer because: [ %s ]", err))
+	}
+	return remoteDP, remotePort, localInterface
+}
+
+func (d *Driver) mustGetStackBridgeConfig() (string, string, int, string) {
 	dpid, dpName, err := d.getStackDP()
 	if err != nil {
 		panic(err)
@@ -167,28 +188,16 @@ func (d *Driver) mustGetStackBridgeConfig() (string, string, int, string, string
 		panic(err)
 	}
 
-	// TODO this needs to be validated, and looped through for multiples
-	stackSlice := strings.Split(d.stackingInterfaces[0], ":")
-	remoteDP := stackSlice[0]
-	remotePort, err := strconv.ParseUint(stackSlice[1], 10, 32)
-	if err != nil {
-		panic(fmt.Errorf("Unable to convert remote port to an unsigned integer because: [ %s ]", err))
-	}
-	localInterface := stackSlice[2]
-	if err != nil {
-		panic(fmt.Errorf("Unable to convert local port to an unsigned integer because: [ %s ]", err))
-	}
-
 	strDpid, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
 	intDpid, err := strconv.Atoi(strDpid)
 	if err != nil {
 		panic(fmt.Errorf("Unable convert dp_id to an int because: %v", err))
 	}
-	return hostname, dpid, intDpid, dpName, remoteDP, remotePort, localInterface
+	return hostname, dpid, intDpid, dpName
 }
 
 func (d *Driver) createStackingBridge() error {
-	hostname, dpid, intDpid, dpName, remoteDP, remotePort, localInterface := d.mustGetStackBridgeConfig()
+	hostname, dpid, intDpid, dpName := d.mustGetStackBridgeConfig()
 	if d.stackDefaultControllers == "" {
 		panic(fmt.Errorf("default OF controllers must be defined for stacking"))
 	}
@@ -207,29 +216,42 @@ func (d *Driver) createStackingBridge() error {
 		log.Errorf("Unable to create stacking bridge because: [ %s ]", err)
 	}
 
-	// TODO for loop through stacking interfaces
-	ofport, _, err := d.addInternalPort(dpName, localInterface, 0)
-	if err != nil {
-		log.Debugf("Error attaching veth [ %s ] to bridge [ %s ]", localInterface, dpName)
-		return err
+	// loop through stacking interfaces
+	stackingPorts := []StackingPort{}
+	stackingConfig := "{dps: {"
+	for _, stackingInterface := range d.stackingInterfaces {
+		remoteDP, remotePort, localInterface := d.mustGetStackingInterface(stackingInterface)
+
+		ofport, _, err := d.addInternalPort(dpName, localInterface, 0)
+		if err != nil {
+			log.Debugf("Error attaching veth [ %s ] to bridge [ %s ]", localInterface, dpName)
+			return err
+		}
+		log.Infof("Attached veth [ %s ] to bridge [ %s ] ofport %d", localInterface, dpName, ofport)
+		stackingConfig += fmt.Sprintf("%s: {stack: ", remoteDP)
+		if d.stackPriority1 == remoteDP {
+			stackingConfig += "{priority: 1}, "
+		}
+		stackingConfig += fmt.Sprintf("interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}, ", remotePort, "Stack link to "+dpName, dpName, ofport)
+		stackingPorts = append(stackingPorts, StackingPort{RemoteDP: remoteDP, RemotePort: remotePort, OFPort: ofport})
 	}
-	log.Infof("Attached veth [ %s ] to bridge [ %s ] ofport %d", localInterface, dpName, ofport)
+
+	stackingConfig += fmt.Sprintf("%s: {dp_id: %d, description: %s, hardware: Open vSwitch, interfaces: {",
+		dpName,
+		intDpid,
+		"Dovesnap Stacking Bridge for "+hostname)
+	for _, stackingPort := range stackingPorts {
+		stackingConfig += fmt.Sprintf("%d: {description: %s, stack: {dp: %s, port: %d}},",
+			stackingPort.OFPort,
+			"Stack link to "+stackingPort.RemoteDP,
+			stackingPort.RemoteDP,
+			stackingPort.RemotePort)
+	}
+	stackingConfig += "}}}}"
 
 	req := &faucetconfserver.SetConfigFileRequest{
-		ConfigYaml: fmt.Sprintf("{dps: {%s: {stack: {priority: 1}, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {dp_id: %d, description: %s, hardware: Open vSwitch, interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
-			remoteDP,
-			remotePort,
-			"Stack link to "+dpName,
-			dpName,
-			ofport,
-			dpName,
-			intDpid,
-			"Dovesnap Stacking Bridge for "+hostname,
-			ofport,
-			"Stack link to "+remoteDP,
-			remoteDP,
-			remotePort),
-		Merge: true,
+		ConfigYaml: stackingConfig,
+		Merge:      true,
 	}
 
 	_, err = d.faucetclient.SetConfigFile(context.Background(), req)
@@ -795,7 +817,7 @@ func usingStacking(d *Driver) bool {
 	return len(d.stackingInterfaces[0]) != 0
 }
 
-func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string) (*Driver, error) {
+func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string) (*Driver, error) {
 	// Get interfaces to use for stacking
 	stack_mirror_interface := strings.Split(flagStackMirrorInterface, ":")
 	if len(flagStackMirrorInterface) > 0 && len(stack_mirror_interface) != 4 {
@@ -816,6 +838,7 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 		dockerclient:            docker,
 		ovsdber:                 ovsdber{},
 		faucetclient:            confclient,
+		stackPriority1:          flagStackPriority1,
 		stackingInterfaces:      stacking_interfaces,
 		stackMirrorInterface:    stack_mirror_interface,
 		stackDefaultControllers: flagDefaultControllers,
