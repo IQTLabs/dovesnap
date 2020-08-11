@@ -25,7 +25,7 @@ func main() {
 	flagStackPriority1 := flag.String(
 		"stack_priority1", "", "dp name of switch to give stacking priority 1")
 	flagStackMirrorInterface := flag.String(
-		"stack_mirror_interface", "", "stack tunnel mirroring configuration [dovesnapbridgeport:tunnelvid:mirrordpname:mirrorport]")
+		"stack_mirror_interface", "", "stack tunnel mirroring configuration [mirrordpname:mirrorport]")
 	flagDefaultControllers := flag.String(
 		"default_ofcontrollers", "", "default OF controllers to use (must be defined if stacking is used)")
 	flag.Parse()

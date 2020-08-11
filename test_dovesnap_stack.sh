@@ -94,7 +94,7 @@ docker exec -t $OVSID ovs-vsctl add-port rootsw rootswintp1 -- set interface roo
 docker exec -t $OVSID ovs-vsctl show
 
 echo starting dovesnap infrastructure
-FAUCET_PREFIX=$TMPDIR STACK_PRIORITY1=rootsw STACKING_INTERFACES=rootsw:7:rootswextp1 STACK_MIRROR_INTERFACE=99:666:rootsw:88 STACK_OFCONTROLLERS=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
+FAUCET_PREFIX=$TMPDIR STACK_PRIORITY1=rootsw STACKING_INTERFACES=rootsw:7:rootswextp1 STACK_MIRROR_INTERFACE=rootsw:88 STACK_OFCONTROLLERS=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
 for p in 6653 6654 ; do
 	PORTCOUNT=""
 	while [ "$PORTCOUNT" = "0" ] ; do
@@ -105,7 +105,7 @@ for p in 6653 6654 ; do
 done
 docker ps -a
 echo creating testnet
-docker network create testnet -d ovs -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 || exit 1
+docker network create testnet -d ovs -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.lbport=99 || exit 1
 docker network ls
 echo creating testcon
 # github test runner can't use ping.
@@ -137,8 +137,8 @@ sudo grep "description: /testcon" $FAUCET_CONFIG || exit 1
 echo verifying networking
 docker exec -t testcon wget -q -O- bing.com || exit 1
 OVSID="$(docker ps -q --filter name=ovs)"
-echo showing packets tunnelled
-PACKETS=$(docker exec -t $OVSID ovs-ofctl dump-flows rootsw table=0,dl_vlan=666|grep -v n_packets=0)
+echo showing packets tunnelled (tunnel 356 = vlan 100 + default offset 256)
+PACKETS=$(docker exec -t $OVSID ovs-ofctl dump-flows rootsw table=0,dl_vlan=356|grep -v n_packets=0)
 echo $PACKETS
 if [ "$PACKETS" = "" ] ; then
         echo no packets were tunnelled
