@@ -26,6 +26,7 @@ const (
 	DriverName          = "ovs"
 	defaultRoute        = "0.0.0.0/0"
 	ovsPortPrefix       = "ovs-veth0-"
+	peerOvsPortPrefix   = "ethc"
 	bridgePrefix        = "ovsbr-"
 	containerEthName    = "eth"
 	bridgeAddPorts      = "ovs.bridge.add_ports"
@@ -907,7 +908,7 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 func vethPair(suffix string) *netlink.Veth {
 	return &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{Name: ovsPortPrefix + suffix},
-		PeerName:  "ethc" + suffix,
+		PeerName:  peerOvsPortPrefix + suffix,
 	}
 }
 
