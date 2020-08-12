@@ -821,13 +821,14 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 }
 
 func mustGetGRPCClient(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string) faucetconfserver.FaucetConfServerClient {
-	crt_file := flagFaucetconfrpcKeydir + "/client.crt"
-	key_file := flagFaucetconfrpcKeydir + "/client.key"
+	crt_file := flagFaucetconfrpcKeydir + "/faucetconfrpc.crt"
+	key_file := flagFaucetconfrpcKeydir + "/faucetconfrpc.key"
 	ca_file := flagFaucetconfrpcKeydir + "/" + flagFaucetconfrpcServerName + "-ca.crt"
 	certificate, err := tls.LoadX509KeyPair(crt_file, key_file)
 	if err != nil {
 		panic(err)
 	}
+	log.Debugf("Certificates loaded")
 	certPool := x509.NewCertPool()
 	ca, err := ioutil.ReadFile(ca_file)
 	if err != nil {
@@ -844,15 +845,18 @@ func mustGetGRPCClient(flagFaucetconfrpcServerName string, flagFaucetconfrpcServ
 
 	// Connect to faucetconfrpc server.
 	addr := flagFaucetconfrpcServerName + ":" + strconv.Itoa(flagFaucetconfrpcServerPort)
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(creds), grpc.WithBlock())
+	log.Debugf("Connecting to RPC server: %v", addr)
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(creds), grpc.WithBlock(), grpc.WithTimeout(30*time.Second))
 	if err != nil {
 		panic(err)
 	}
+	log.Debugf("Connected to RPC server")
 	confclient := faucetconfserver.NewFaucetConfServerClient(conn)
 	_, err = confclient.GetConfigFile(context.Background(), &faucetconfserver.GetConfigFileRequest{})
 	if err != nil {
 		panic(err)
 	}
+	log.Debugf("Successfully retrieved Faucet config")
 	return confclient
 }
 

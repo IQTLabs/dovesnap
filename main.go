@@ -43,6 +43,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	log.Infof("New Docker driver created")
 	h := network.NewHandler(d)
+	log.Infof("Getting ready to serve new Docker driver")
 	h.ServeUnix(ovs.DriverName, 0)
 }
