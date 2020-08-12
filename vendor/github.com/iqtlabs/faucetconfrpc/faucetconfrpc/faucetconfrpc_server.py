@@ -449,8 +449,10 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
             config_filename = self.default_config
             config_yaml = self._get_config_file(config_filename)
             config_yaml.setdefault('acls', {})
-            acl_name = 'remote-mirror-%s-%u' % (
-                request.remote_dp_name, request.remote_port_no)
+            acl_name = 'remote-mirror-%u-%s-%u' % (
+                request.tunnel_vid,
+                request.remote_dp_name,
+                request.remote_port_no)
             config_yaml['acls'][acl_name] = [
                 {'rule': {
                     'actions': {'allow': 0},

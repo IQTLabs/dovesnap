@@ -4,8 +4,8 @@ import (
 	"flag"
 
 	ovs "dovesnap/ovs"
-	log "github.com/Sirupsen/logrus"
 	"github.com/docker/go-plugins-helpers/network"
+	log "github.com/sirupsen/logrus"
 )
 
 const (

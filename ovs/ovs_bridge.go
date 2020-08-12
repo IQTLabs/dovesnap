@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/docker/libnetwork/iptables"
+	log "github.com/sirupsen/logrus"
 )
 
 func (ovsdber *ovsdber) show() (string, error) {

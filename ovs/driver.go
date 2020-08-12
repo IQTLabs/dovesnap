@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	networkplugin "github.com/docker/go-plugins-helpers/network"
 	"github.com/iqtlabs/faucetconfrpc/faucetconfrpc"
 	bc "github.com/kenshaw/baseconv"
+	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -868,7 +868,7 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 	// Get interfaces to use for stacking
 	stack_mirror_interface := strings.Split(flagStackMirrorInterface, ":")
 	if len(flagStackMirrorInterface) > 0 && len(stack_mirror_interface) != 2 {
-		return nil, fmt.Errorf("invalid stack mirror interface config: %s", flagStackMirrorInterface)
+		return nil, fmt.Errorf("Invalid stack mirror interface config: %s", flagStackMirrorInterface)
 	}
 	stacking_interfaces := strings.Split(flagStackingInterfaces, ",")
 	log.Debugf("Stacking interfaces: %v", stacking_interfaces)
@@ -906,6 +906,7 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 	if err != nil {
 		return nil, fmt.Errorf("Could not connect to open vswitch")
 	}
+	log.Infof("Connected to open vswitch")
 
 	if usingStacking(d) {
 		stackerr := d.createStackingBridge()
