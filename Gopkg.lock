@@ -13,12 +13,12 @@
   version = "v0.4.14"
 
 [[projects]]
-  digest = "1:36a75ab002c1cfb43bcc5d2ec10fbdc2a1136e9246a65e535f1d827435f28f17"
-  name = "github.com/Sirupsen/logrus"
-  packages = ["."]
+  digest = "1:771809465d2d81b1e2631f0e062b7458647135b2eca9e1cc577e58d1db0d987f"
+  name = "github.com/containerd/containerd"
+  packages = ["errdefs"]
   pruneopts = "UT"
-  revision = "418b41d23a1bf978c06faea5313ba194650ac088"
-  version = "v0.8.7"
+  revision = "8fba4e9a7d01810a393d5d25a3621dc101981175"
+  version = "v1.3.7"
 
 [[projects]]
   digest = "1:17220d24a71d938010a77675bce92f846bc4876e555c26f5976c92deaf55b69a"
@@ -29,18 +29,19 @@
   version = "v22.1.0"
 
 [[projects]]
-  digest = "1:4ddc17aeaa82cb18c5f0a25d7c253a10682f518f4b2558a82869506eec223d76"
+  digest = "1:5d7f88f9487f370e3ae52155465156370fc5798102d811d2d4448d2385ccaf67"
   name = "github.com/docker/distribution"
   packages = [
     "digestset",
     "reference",
+    "registry/api/errcode",
   ]
   pruneopts = "UT"
   revision = "2461543d988979529609e8cb6fca9ca190dc48da"
   version = "v2.7.1"
 
 [[projects]]
-  digest = "1:9843b22280ff2996a98776fc08e597a97d928b3c8e025422bb3166b263f3a090"
+  digest = "1:5c160f70c33b5fb2a223d17b016da84927b11f1423a5f3741059e66675800041"
   name = "github.com/docker/docker"
   packages = [
     "api",
@@ -63,8 +64,9 @@
     "errdefs",
   ]
   pruneopts = "UT"
-  revision = "9552f2b2fddeb0c2537b350f4b159ffe525d7a42"
-  version = "v18.09.9"
+  revision = "9dc6525e6118a25fab2be322d1914740ea842495"
+  source = "https://github.com/docker/engine"
+  version = "v19.03.12"
 
 [[projects]]
   digest = "1:811c86996b1ca46729bad2724d4499014c4b9effd05ef8c71b852aad90deb0ce"
@@ -98,12 +100,12 @@
   version = "v0.4.0"
 
 [[projects]]
-  digest = "1:fdf545ec76ac97175364bccf1ee1e45067b8d4e3a6e57abab318e6437930b88a"
+  branch = "arkodg-update-design-doc"
+  digest = "1:03300b783e7ab4d7fab86089f72647dd731af8682091fdeac567d225719857ae"
   name = "github.com/docker/libnetwork"
   packages = ["iptables"]
   pruneopts = "UT"
-  revision = "1ee720e18fe98dceda6039bdd005ffbcb359d343"
-  version = "v0.5.6"
+  revision = "4f65d685bdf959ae98bc608a073d8e0f578ca42d"
 
 [[projects]]
   digest = "1:75ea251921accab70d09dfd854f8d287224b65ab8d5da23447f0aeb2c0ee906b"
@@ -136,12 +138,12 @@
   version = "v1.4.2"
 
 [[projects]]
-  digest = "1:0e605503429d9a6e7a5b7b32a7c525736cce7d9fff9b46c64f3485ea5c9e0d35"
+  digest = "1:f61a63b29b25eb067d52b64a47152f459e5bdc134e7f24082e8e24168ed7b05e"
   name = "github.com/iqtlabs/faucetconfrpc"
   packages = ["faucetconfrpc"]
   pruneopts = "UT"
-  revision = "5bed706f0888728d46710961295f20743833dea7"
-  version = "v0.15"
+  revision = "e7a05099b39f90ca305ceb6d295d8ac9adcc43de"
+  version = "v0.16"
 
 [[projects]]
   branch = "master"
@@ -179,6 +181,14 @@
   version = "v0.9.1"
 
 [[projects]]
+  digest = "1:36a75ab002c1cfb43bcc5d2ec10fbdc2a1136e9246a65e535f1d827435f28f17"
+  name = "github.com/sirupsen/logrus"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "418b41d23a1bf978c06faea5313ba194650ac088"
+  version = "v0.8.7"
+
+[[projects]]
   digest = "1:1314b5ef1c0b25257ea02e454291bf042478a48407cfe3ffea7e20323bbf5fdf"
   name = "github.com/vishvananda/netlink"
   packages = [
@@ -199,10 +209,9 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f7309a62b78b03e8d5df8029c5704f2fc1af6ff42ee114a832dc7bc2896cc717"
+  digest = "1:132ef243d0e47513285fe34475c13dca629d46f1c31f8a41d75b76eac67565f3"
   name = "golang.org/x/net"
   packages = [
-    "context/ctxhttp",
     "http/httpguts",
     "http2",
     "http2/hpack",
@@ -351,13 +360,13 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/Sirupsen/logrus",
     "github.com/docker/docker/api/types",
     "github.com/docker/docker/client",
     "github.com/docker/go-plugins-helpers/network",
     "github.com/docker/libnetwork/iptables",
     "github.com/iqtlabs/faucetconfrpc/faucetconfrpc",
     "github.com/kenshaw/baseconv",
+    "github.com/sirupsen/logrus",
     "github.com/vishvananda/netlink",
     "google.golang.org/grpc",
     "google.golang.org/grpc/credentials",

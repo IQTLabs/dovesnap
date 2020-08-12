@@ -11,40 +11,45 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	networkplugin "github.com/docker/go-plugins-helpers/network"
 	"github.com/iqtlabs/faucetconfrpc/faucetconfrpc"
 	bc "github.com/kenshaw/baseconv"
+	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
 
 const (
-	DriverName          = "ovs"
-	defaultRoute        = "0.0.0.0/0"
-	ovsPortPrefix       = "ovs-veth0-"
-	bridgePrefix        = "ovsbr-"
-	containerEthName    = "eth"
-	bridgeAddPorts      = "ovs.bridge.add_ports"
-	bridgeDpid          = "ovs.bridge.dpid"
-	bridgeController    = "ovs.bridge.controller"
-	vlanOption          = "ovs.bridge.vlan"
-	mtuOption           = "ovs.bridge.mtu"
-	defaultMTU          = 1500
-	defaultVLAN         = 100
-	bridgeNameOption    = "ovs.bridge.name"
-	bindInterfaceOption = "ovs.bridge.bind_interface"
-	modeOption          = "ovs.bridge.mode"
-	modeNAT             = "nat"
-	modeFlat            = "flat"
-	defaultMode         = modeFlat
-	ovsStartupRetries   = 5
-	dockerRetries       = 3
-	stackDpidPrefix     = "0x0E0F00"
-	ofPortLocal         = 4294967294
+	DriverName              = "ovs"
+	defaultRoute            = "0.0.0.0/0"
+	ovsPortPrefix           = "ovs-veth0-"
+	peerOvsPortPrefix       = "ethc"
+	bridgePrefix            = "ovsbr-"
+	containerEthName        = "eth"
+	bridgeLbPort            = "ovs.bridge.lbport"
+	defaultLbPort           = 99
+	mirrorTunnelVid         = "ovs.bridge.mirror_tunnel_vid"
+	defaultTunnelVLANOffset = 256
+	bridgeAddPorts          = "ovs.bridge.add_ports"
+	bridgeDpid              = "ovs.bridge.dpid"
+	bridgeController        = "ovs.bridge.controller"
+	vlanOption              = "ovs.bridge.vlan"
+	mtuOption               = "ovs.bridge.mtu"
+	defaultMTU              = 1500
+	defaultVLAN             = 100
+	bridgeNameOption        = "ovs.bridge.name"
+	bindInterfaceOption     = "ovs.bridge.bind_interface"
+	modeOption              = "ovs.bridge.mode"
+	modeNAT                 = "nat"
+	modeFlat                = "flat"
+	defaultMode             = modeFlat
+	ovsStartupRetries       = 5
+	dockerRetries           = 3
+	stackDpidPrefix         = "0x0E0F00"
+	ofPortLocal             = 4294967294
 )
 
 var (
@@ -53,6 +58,13 @@ var (
 		modeFlat: true,
 	}
 )
+
+type StackMirrorConfig struct {
+	LbPort           uint32
+	TunnelVid        uint32
+	RemoteDpName     string
+	RemoteMirrorPort uint32
+}
 
 type OFPortMap struct {
 	OFPort     uint
@@ -84,6 +96,7 @@ type Driver struct {
 	stackDefaultControllers string
 	networks                map[string]*NetworkState
 	ofportmapChan           chan OFPortMap
+	stackMirrorConfigs      map[string]StackMirrorConfig
 }
 
 // NetworkState is filled in at network creation time
@@ -98,6 +111,27 @@ type NetworkState struct {
 	Gateway           string
 	GatewayMask       string
 	FlatBindInterface string
+}
+
+func (d *Driver) getStackMirrorConfig(r *networkplugin.CreateNetworkRequest) StackMirrorConfig {
+	lbPort := 0
+	tunnelVid := 0
+	remoteDpName := ""
+	mirrorPort := 0
+
+	if usingStackMirroring(d) {
+		lbPort = mustGetLbPort(r)
+		tunnelVid = mustGetTunnelVid(r)
+		remoteDpName = d.stackMirrorInterface[0]
+		mirrorPort, _ = strconv.Atoi(d.stackMirrorInterface[1])
+	}
+
+	return StackMirrorConfig{
+		LbPort:           uint32(lbPort),
+		TunnelVid:        uint32(tunnelVid),
+		RemoteDpName:     remoteDpName,
+		RemoteMirrorPort: uint32(mirrorPort),
+	}
 }
 
 func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) string {
@@ -299,6 +333,7 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) (err error
 		FlatBindInterface: bindInterface,
 	}
 	d.networks[r.NetworkID] = ns
+	d.stackMirrorConfigs[r.NetworkID] = d.getStackMirrorConfig(r)
 
 	log.Debugf("Initializing bridge for network %s", r.NetworkID)
 
@@ -348,7 +383,7 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 		if err != nil {
 			log.Errorf("Unable to delete patch port between bridges because: %v", err)
 		}
-		if len(d.stackMirrorInterface) > 1 {
+		if usingStackMirroring(d) {
 			lbBridgeName := d.mustGetLoopbackDP()
 			err = d.deletePatchPort(bridgeName, lbBridgeName)
 			if err != nil {
@@ -364,6 +399,7 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 	}
 
 	delete(d.networks, r.NetworkID)
+	delete(d.stackMirrorConfigs, r.NetworkID)
 	return nil
 }
 
@@ -632,22 +668,19 @@ func mustHandleCreate(d *Driver, confclient faucetconfserver.FaucetConfServerCli
 	if err != nil {
 		panic(err)
 	}
-	if usingStacking(d) && len(d.stackMirrorInterface) > 1 {
+	if usingStackMirroring(d) {
 		lbBridgeName := d.mustGetLoopbackDP()
-		lbPort, _ := strconv.Atoi(d.stackMirrorInterface[0])
-		tunnelVid, _ := strconv.Atoi(d.stackMirrorInterface[1])
-		remoteDpName := d.stackMirrorInterface[2]
-		mirrorPort, _ := strconv.Atoi(d.stackMirrorInterface[3])
-		_, _, err = d.addPatchPort(bridgeName, lbBridgeName, uint(lbPort), 0)
+		stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
+		_, _, err = d.addPatchPort(bridgeName, lbBridgeName, uint(stackMirrorConfig.LbPort), 0)
 		if err != nil {
 			panic(err)
 		}
 		req := &faucetconfserver.SetRemoteMirrorPortRequest{
 			DpName:       netInspect.Name,
-			PortNo:       uint32(lbPort),
-			TunnelVid:    uint32(tunnelVid),
-			RemoteDpName: remoteDpName,
-			RemotePortNo: uint32(mirrorPort),
+			PortNo:       stackMirrorConfig.LbPort,
+			TunnelVid:    stackMirrorConfig.TunnelVid,
+			RemoteDpName: stackMirrorConfig.RemoteDpName,
+			RemotePortNo: stackMirrorConfig.RemoteMirrorPort,
 		}
 		_, err = d.faucetclient.SetRemoteMirrorPort(context.Background(), req)
 		if err != nil {
@@ -688,18 +721,6 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 	add_interfaces := fmt.Sprintf("%d: {description: %s, native_vlan: %d, acls_in: [%s]},",
 		mapMsg.OFPort, fmt.Sprintf("%s %s", containerInspect.Name, truncateID(containerInspect.ID)), vlan, portacl)
 
-	mirror, ok := containerInspect.Config.Labels["dovesnap.faucet.mirror"]
-	if ok && usingStacking(d) && len(d.stackMirrorInterface) > 1 {
-		boolMirror, err := strconv.ParseBool(mirror)
-		if err != nil {
-			log.Errorf("Error: mirror is not a bool, ignoring")
-		} else {
-			log.Infof("Mirroring container: %v", boolMirror)
-			lbPort, _ := strconv.Atoi(d.stackMirrorInterface[0])
-			add_interfaces += fmt.Sprintf("%d: {mirror: [%d]}", lbPort, mapMsg.OFPort)
-		}
-	}
-
 	req := &faucetconfserver.SetConfigFileRequest{
 		ConfigYaml: mergeInterfacesYaml(netInspect.Name, intDpid, "OVS Bridge "+bridgeName, add_interfaces),
 		Merge:      true,
@@ -707,6 +728,28 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 	_, err = confclient.SetConfigFile(context.Background(), req)
 	if err != nil {
 		panic(err)
+	}
+
+	mirror, ok := containerInspect.Config.Labels["dovesnap.faucet.mirror"]
+	if ok && usingStackMirroring(d) {
+		boolMirror, err := strconv.ParseBool(mirror)
+		if err != nil {
+			log.Errorf("Error: mirror is not a bool, ignoring")
+		} else {
+			log.Infof("Mirroring container: %v", boolMirror)
+			if boolMirror {
+				stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
+				req := &faucetconfserver.AddPortMirrorRequest{
+					DpName:       netInspect.Name,
+					PortNo:       uint32(mapMsg.OFPort),
+					MirrorPortNo: stackMirrorConfig.LbPort,
+				}
+				_, err := confclient.AddPortMirror(context.Background(), req)
+				if err != nil {
+					log.Errorf("Error mirroring: %v", err)
+				}
+			}
+		}
 	}
 }
 
@@ -724,12 +767,12 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 	log.Debugf("Removing port %d on %s from Faucet config", mapMsg.OFPort, networkName)
 
 	// TODO: faucetconfrpc should clean up the mirror reference.
-	if usingStacking(d) && len(d.stackMirrorInterface) > 1 {
-		lbPort, _ := strconv.Atoi(d.stackMirrorInterface[0])
+	if usingStackMirroring(d) {
+		stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
 		req := &faucetconfserver.RemovePortMirrorRequest{
 			DpName:       networkName,
 			PortNo:       uint32(mapMsg.OFPort),
-			MirrorPortNo: uint32(lbPort),
+			MirrorPortNo: stackMirrorConfig.LbPort,
 		}
 		// TODO: need a way to know if the container was started with mirroring label
 		//       at this point the container is already removed, so can't inspect it
@@ -817,11 +860,15 @@ func usingStacking(d *Driver) bool {
 	return len(d.stackingInterfaces[0]) != 0
 }
 
+func usingStackMirroring(d *Driver) bool {
+	return usingStacking(d) && len(d.stackMirrorInterface) > 1
+}
+
 func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string) (*Driver, error) {
 	// Get interfaces to use for stacking
 	stack_mirror_interface := strings.Split(flagStackMirrorInterface, ":")
-	if len(flagStackMirrorInterface) > 0 && len(stack_mirror_interface) != 4 {
-		return nil, fmt.Errorf("invalid stack mirror interface config: %s", flagStackMirrorInterface)
+	if len(flagStackMirrorInterface) > 0 && len(stack_mirror_interface) != 2 {
+		return nil, fmt.Errorf("Invalid stack mirror interface config: %s", flagStackMirrorInterface)
 	}
 	stacking_interfaces := strings.Split(flagStackingInterfaces, ",")
 	log.Debugf("Stacking interfaces: %v", stacking_interfaces)
@@ -844,6 +891,7 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 		stackDefaultControllers: flagDefaultControllers,
 		networks:                make(map[string]*NetworkState),
 		ofportmapChan:           make(chan OFPortMap, 2),
+		stackMirrorConfigs:      make(map[string]StackMirrorConfig),
 	}
 
 	for i := 0; i < ovsStartupRetries; i++ {
@@ -858,13 +906,14 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 	if err != nil {
 		return nil, fmt.Errorf("Could not connect to open vswitch")
 	}
+	log.Infof("Connected to open vswitch")
 
 	if usingStacking(d) {
 		stackerr := d.createStackingBridge()
 		if stackerr != nil {
 			panic(stackerr)
 		}
-		if len(d.stackMirrorInterface) > 1 {
+		if usingStackMirroring(d) {
 			lberr := d.createLoopbackBridge()
 			if lberr != nil {
 				panic(lberr)
@@ -907,7 +956,7 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 func vethPair(suffix string) *netlink.Veth {
 	return &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{Name: ovsPortPrefix + suffix},
-		PeerName:  "ethc" + suffix,
+		PeerName:  peerOvsPortPrefix + suffix,
 	}
 }
 
@@ -925,16 +974,27 @@ func truncateID(id string) string {
 	return id[:5]
 }
 
-func mustGetBridgeMTU(r *networkplugin.CreateNetworkRequest) int {
-	bridgeMTU := defaultMTU
-	mtu := getGenericOption(r, mtuOption)
-	if mtu != "" {
-		mtu_int, err := strconv.Atoi(mtu)
-		if err != nil {
-			bridgeMTU = mtu_int
+func getGenericIntOption(r *networkplugin.CreateNetworkRequest, optionName string, defaultOption int) int {
+	option := getGenericOption(r, optionName)
+	if option != "" {
+		optionInt, err := strconv.Atoi(option)
+		if err == nil {
+			return optionInt
 		}
 	}
-	return bridgeMTU
+	return defaultOption
+}
+
+func mustGetTunnelVid(r *networkplugin.CreateNetworkRequest) int {
+	return getGenericIntOption(r, mirrorTunnelVid, mustGetBridgeVLAN(r)+defaultTunnelVLANOffset)
+}
+
+func mustGetBridgeMTU(r *networkplugin.CreateNetworkRequest) int {
+	return getGenericIntOption(r, mtuOption, defaultMTU)
+}
+
+func mustGetLbPort(r *networkplugin.CreateNetworkRequest) int {
+	return getGenericIntOption(r, bridgeLbPort, defaultLbPort)
 }
 
 func mustGetBridgeName(r *networkplugin.CreateNetworkRequest) string {
@@ -967,15 +1027,7 @@ func mustGetBridgeDpid(r *networkplugin.CreateNetworkRequest) string {
 }
 
 func mustGetBridgeVLAN(r *networkplugin.CreateNetworkRequest) int {
-	bridgeVLAN := defaultVLAN
-	vlan := getGenericOption(r, vlanOption)
-	if vlan != "" {
-		vlan_int, err := strconv.Atoi(vlan)
-		if err != nil {
-			bridgeVLAN = vlan_int
-		}
-	}
-	return bridgeVLAN
+	return getGenericIntOption(r, vlanOption, defaultVLAN)
 }
 
 func mustGetBridgeAddPorts(r *networkplugin.CreateNetworkRequest) string {

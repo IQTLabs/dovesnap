@@ -1,19 +1,16 @@
 [[constraint]]
-  name = "github.com/Sirupsen/logrus"
-  version = "0.8.7"
-
-[[constraint]]
   branch = "master"
   name = "github.com/docker/go-plugins-helpers"
 
 [[constraint]]
   name = "github.com/iqtlabs/faucetconfrpc"
-  version = "0.15"
+  version = "0.16"
 
 [prune]
   go-tests = true
   unused-packages = true
 
-[[constraint]]
+[[override]]
   name = "github.com/docker/docker"
-  version = "18.9.9"
+  source = "https://github.com/docker/engine"
+  version = "19.03.12"

@@ -18,6 +18,7 @@ services:
     cap_add:
       - NET_ADMIN
     command:
+      - --debug
       - --faucetconfrpc_addr=faucetconfrpc
       - --faucetconfrpc_port=59999
       - --faucetconfrpc_keydir=/faucetconfrpc
