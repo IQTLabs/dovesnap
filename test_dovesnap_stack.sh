@@ -71,7 +71,7 @@ EOGC
 echo creating keys
 mkdir -p /opt/faucetconfrpc || exit 1
 FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up faucet_certstrap || exit 1
-ls -al /opt/faucetconfrpc/client.key || exit 1
+ls -al /opt/faucetconfrpc/faucetconfrpc.key || exit 1
 
 docker-compose build || exit 1
 docker-compose -f docker-compose.yml up -d ovs || exit 1
