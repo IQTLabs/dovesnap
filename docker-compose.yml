@@ -22,6 +22,7 @@ services:
       - --faucetconfrpc_addr=faucetconfrpc
       - --faucetconfrpc_port=59999
       - --faucetconfrpc_keydir=/faucetconfrpc
+      - '--mirror_bridge_in=${MIRROR_BRIDGE_IN}'
       - '--mirror_bridge_out=${MIRROR_BRIDGE_OUT}'
       - '--stack_priority1=${STACK_PRIORITY1}'
       - '--stacking_interfaces=${STACKING_INTERFACES}'
