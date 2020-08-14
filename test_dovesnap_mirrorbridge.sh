@@ -125,7 +125,7 @@ sudo timeout 30s tcpdump -n -c 1 -U -i mirroro -w $MIRROR_PCAP tcp &
 docker exec -t testcon wget -q -O- bing.com || exit 1
 docker rm -f testcon || exit 1
 docker network rm testnet || exit 1
-cat $FAUCET_CONFIG
+sudo cat $FAUCET_CONFIG
 FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml stop
 tcpdump -n -r $MIRROR_PCAP -v | grep TCP || exit 1
 rm -rf $TMPDIR
