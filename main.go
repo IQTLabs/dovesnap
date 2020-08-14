@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	version = "0.1.1"
+	version = "0.2.0"
 )
 
 func main() {
@@ -28,6 +28,10 @@ func main() {
 		"stack_mirror_interface", "", "stack tunnel mirroring configuration [mirrordpname:mirrorport]")
 	flagDefaultControllers := flag.String(
 		"default_ofcontrollers", "", "default OF controllers to use (must be defined if stacking is used)")
+	flagMirrorBridgeIn := flag.String(
+		"mirror_bridge_in", "", "optional input interface from another mirror bridge")
+	flagMirrorBridgeOut := flag.String(
+		"mirror_bridge_out", "", "output interface from mirror bridge")
 	flag.Parse()
 	if *flagDebug {
 		log.SetLevel(log.DebugLevel)
@@ -39,7 +43,9 @@ func main() {
 		*flagStackPriority1,
 		*flagStackingInterfaces,
 		*flagStackMirrorInterface,
-		*flagDefaultControllers)
+		*flagDefaultControllers,
+		*flagMirrorBridgeIn,
+		*flagMirrorBridgeOut)
 	if err != nil {
 		panic(err)
 	}

@@ -50,6 +50,7 @@ const (
 	dockerRetries           = 3
 	stackDpidPrefix         = "0x0E0F00"
 	ofPortLocal             = 4294967294
+	mirrorBridgeName        = "mirrorbr"
 )
 
 var (
@@ -94,6 +95,8 @@ type Driver struct {
 	stackingInterfaces      []string
 	stackMirrorInterface    []string
 	stackDefaultControllers string
+	mirrorBridgeIn          string
+	mirrorBridgeOut         string
 	networks                map[string]*NetworkState
 	ofportmapChan           chan OFPortMap
 	stackMirrorConfigs      map[string]StackMirrorConfig
@@ -114,13 +117,12 @@ type NetworkState struct {
 }
 
 func (d *Driver) getStackMirrorConfig(r *networkplugin.CreateNetworkRequest) StackMirrorConfig {
-	lbPort := 0
+	lbPort := mustGetLbPort(r)
 	tunnelVid := 0
 	remoteDpName := ""
 	mirrorPort := 0
 
 	if usingStackMirroring(d) {
-		lbPort = mustGetLbPort(r)
 		tunnelVid = mustGetTunnelVid(r)
 		remoteDpName = d.stackMirrorInterface[0]
 		mirrorPort, _ = strconv.Atoi(d.stackMirrorInterface[1])
@@ -228,6 +230,24 @@ func (d *Driver) mustGetStackBridgeConfig() (string, string, int, string) {
 		panic(fmt.Errorf("Unable convert dp_id to an int because: %v", err))
 	}
 	return hostname, dpid, intDpid, dpName
+}
+
+func (d *Driver) createMirrorBridge() {
+	_, err := d.ovsdber.bridgeExists(mirrorBridgeName)
+	if err == nil {
+		log.Debugf("mirror bridge already exists")
+		return
+	}
+	log.Debugf("creating mirror bridge")
+	add_ports := d.mirrorBridgeOut
+	if len(d.mirrorBridgeIn) > 0 {
+		add_ports += "," + d.mirrorBridgeIn
+	}
+	err = d.ovsdber.createBridge(mirrorBridgeName, "", "", add_ports, true)
+	if err != nil {
+		panic(err)
+	}
+	d.ovsdber.makeMirrorBridge(mirrorBridgeName, 1)
 }
 
 func (d *Driver) createStackingBridge() error {
@@ -377,9 +397,16 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 		return err
 	}
 
+	if usingMirrorBridge(d) {
+		err := d.deletePatchPort(bridgeName, mirrorBridgeName)
+		if err != nil {
+			log.Errorf("Unable to delete patch port to mirror bridge because: %v", err)
+		}
+	}
+
 	if usingStacking(d) {
 		_, stackDpName, _ := d.getStackDP()
-		err = d.deletePatchPort(bridgeName, stackDpName)
+		err := d.deletePatchPort(bridgeName, stackDpName)
 		if err != nil {
 			log.Errorf("Unable to delete patch port between bridges because: %v", err)
 		}
@@ -637,6 +664,26 @@ func mustHandleCreate(d *Driver, confclient faucetconfserver.FaucetConfServerCli
 		ConfigYaml: mergeInterfacesYaml(netInspect.Name, intDpid, "OVS Bridge "+bridgeName, add_interfaces),
 		Merge:      true,
 	}
+	if usingMirrorBridge(d) {
+		stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
+		ofportNum, mirrorOfportNum, err := d.addPatchPort(bridgeName, mirrorBridgeName, uint(stackMirrorConfig.LbPort), 0)
+		if err != nil {
+			panic(err)
+		}
+		flowStr := fmt.Sprintf("priority=2,in_port=%d,actions=mod_vlan_vid:%d,output:1", mirrorOfportNum, vlan)
+		log.Debugf(flowStr)
+		mustOfCtl("add-flow", mirrorBridgeName, flowStr)
+
+		add_interfaces += fmt.Sprintf("%d: {description: mirror, output_only: true},", ofportNum)
+		req = &faucetconfserver.SetConfigFileRequest{
+			ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %d, description: %s, interfaces: {%s}}}}",
+				netInspect.Name,
+				intDpid,
+				"OVS Bridge "+bridgeName,
+				add_interfaces),
+			Merge: true,
+		}
+	}
 	if usingStacking(d) {
 		_, stackDpName, err := d.getStackDP()
 		if err != nil {
@@ -718,7 +765,7 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 	if ok {
 		log.Infof("Set portacl %s", portacl)
 	}
-	add_interfaces := fmt.Sprintf("%d: {description: %s, native_vlan: %d, acls_in: [%s]},",
+	add_interfaces := fmt.Sprintf("%d: {description: '%s', native_vlan: %d, acls_in: [%s]},",
 		mapMsg.OFPort, fmt.Sprintf("%s %s", containerInspect.Name, truncateID(containerInspect.ID)), vlan, portacl)
 
 	req := &faucetconfserver.SetConfigFileRequest{
@@ -731,7 +778,7 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 	}
 
 	mirror, ok := containerInspect.Config.Labels["dovesnap.faucet.mirror"]
-	if ok && usingStackMirroring(d) {
+	if ok {
 		boolMirror, err := strconv.ParseBool(mirror)
 		if err != nil {
 			log.Errorf("Error: mirror is not a bool, ignoring")
@@ -739,14 +786,16 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 			log.Infof("Mirroring container: %v", boolMirror)
 			if boolMirror {
 				stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
-				req := &faucetconfserver.AddPortMirrorRequest{
-					DpName:       netInspect.Name,
-					PortNo:       uint32(mapMsg.OFPort),
-					MirrorPortNo: stackMirrorConfig.LbPort,
-				}
-				_, err := confclient.AddPortMirror(context.Background(), req)
-				if err != nil {
-					log.Errorf("Error mirroring: %v", err)
+				if usingStackMirroring(d) || usingMirrorBridge(d) {
+					req := &faucetconfserver.AddPortMirrorRequest{
+						DpName:       netInspect.Name,
+						PortNo:       uint32(mapMsg.OFPort),
+						MirrorPortNo: stackMirrorConfig.LbPort,
+					}
+					_, err := confclient.AddPortMirror(context.Background(), req)
+					if err != nil {
+						log.Errorf("Error mirroring: %v", err)
+					}
 				}
 			}
 		}
@@ -767,7 +816,7 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 	log.Debugf("Removing port %d on %s from Faucet config", mapMsg.OFPort, networkName)
 
 	// TODO: faucetconfrpc should clean up the mirror reference.
-	if usingStackMirroring(d) {
+	if usingStackMirroring(d) || usingMirrorBridge(d) {
 		stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
 		req := &faucetconfserver.RemovePortMirrorRequest{
 			DpName:       networkName,
@@ -778,7 +827,7 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 		//       at this point the container is already removed, so can't inspect it
 		_, err := confclient.RemovePortMirror(context.Background(), req)
 		if err != nil {
-			log.Errorf("Error unmirroring: %v", err)
+			log.Errorf("Error unmirroring %v: %v", req, err)
 		}
 	}
 
@@ -860,15 +909,19 @@ func mustGetGRPCClient(flagFaucetconfrpcServerName string, flagFaucetconfrpcServ
 	return confclient
 }
 
+func usingMirrorBridge(d *Driver) bool {
+	return len(d.mirrorBridgeOut) != 0
+}
+
 func usingStacking(d *Driver) bool {
-	return len(d.stackingInterfaces[0]) != 0
+	return !usingMirrorBridge(d) && len(d.stackingInterfaces[0]) != 0
 }
 
 func usingStackMirroring(d *Driver) bool {
 	return usingStacking(d) && len(d.stackMirrorInterface) > 1
 }
 
-func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string) (*Driver, error) {
+func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string, flagMirrorBridgeIn string, flagMirrorBridgeOut string) (*Driver, error) {
 	// Get interfaces to use for stacking
 	stack_mirror_interface := strings.Split(flagStackMirrorInterface, ":")
 	if len(flagStackMirrorInterface) > 0 && len(stack_mirror_interface) != 2 {
@@ -893,6 +946,8 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 		stackingInterfaces:      stacking_interfaces,
 		stackMirrorInterface:    stack_mirror_interface,
 		stackDefaultControllers: flagDefaultControllers,
+		mirrorBridgeIn:          flagMirrorBridgeIn,
+		mirrorBridgeOut:         flagMirrorBridgeOut,
 		networks:                make(map[string]*NetworkState),
 		ofportmapChan:           make(chan OFPortMap, 2),
 		stackMirrorConfigs:      make(map[string]StackMirrorConfig),
@@ -911,6 +966,10 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 		return nil, fmt.Errorf("Could not connect to open vswitch")
 	}
 	log.Infof("Connected to open vswitch")
+
+	if usingMirrorBridge(d) {
+		d.createMirrorBridge()
+	}
 
 	if usingStacking(d) {
 		stackerr := d.createStackingBridge()
