@@ -66,6 +66,11 @@ class FaucetConfRpcClient:
         return self._call(self.stub.RemovePortMirror, faucetconfrpc_pb2.RemovePortMirrorRequest(
             dp_name=dp_name, port_no=port_no, mirror_port_no=mirror_port_no))
 
+    def clear_port_mirror(self, dp_name, mirror_port_no):
+        """Clear all mirroring on port."""
+        return self._call(self.stub.ClearPortMirror, faucetconfrpc_pb2.ClearPortMirrorRequest(
+            dp_name=dp_name, mirror_port_no=mirror_port_no))
+
     def add_port_acl(self, dp_name, port_no, acl):
         """Add port ACL."""
         return self._call(self.stub.AddPortAcl, faucetconfrpc_pb2.AddPortAclRequest(

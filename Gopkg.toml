@@ -4,7 +4,7 @@
 
 [[constraint]]
   name = "github.com/iqtlabs/faucetconfrpc"
-  version = "0.16"
+  version = "0.17"
 
 [prune]
   go-tests = true

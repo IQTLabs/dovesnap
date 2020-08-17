@@ -138,12 +138,12 @@
   version = "v1.4.2"
 
 [[projects]]
-  digest = "1:f61a63b29b25eb067d52b64a47152f459e5bdc134e7f24082e8e24168ed7b05e"
+  digest = "1:180b828c80945f65ca18d72b325e4c6b9defd87ca6fba9e449197df1b92e5bc9"
   name = "github.com/iqtlabs/faucetconfrpc"
   packages = ["faucetconfrpc"]
   pruneopts = "UT"
-  revision = "e7a05099b39f90ca305ceb6d295d8ac9adcc43de"
-  version = "v0.16"
+  revision = "396d48909d3deb8d53e36aef7dadd0d624dadba5"
+  version = "v0.17"
 
 [[projects]]
   branch = "master"
