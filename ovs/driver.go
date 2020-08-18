@@ -810,7 +810,7 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 	}()
 	networkName := d.networks[mapMsg.NetworkID].NetworkName
 	interfaces := &faucetconfserver.InterfaceInfo{
-		PortNo: uint32(mapMsg.OFPort),
+		PortNo: int32(mapMsg.OFPort),
 	}
 
 	log.Debugf("Removing port %d on %s from Faucet config", mapMsg.OFPort, networkName)
