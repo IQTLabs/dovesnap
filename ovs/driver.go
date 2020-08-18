@@ -76,7 +76,7 @@ type OFPortMap struct {
 	Mode       string
 	NetworkID  string
 	EndpointID string
-	UseDHCP	   bool
+	UseDHCP    bool
 	Operation  string
 }
 
@@ -796,7 +796,7 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 		panic(err)
 	}
 	udhcpcCmd := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/udhcpc", "-f", "-R")
-	if (mapMsg.UseDHCP) {
+	if mapMsg.UseDHCP {
 		err = udhcpcCmd.Start()
 		if err != nil {
 			panic(err)
