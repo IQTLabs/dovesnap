@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -38,6 +39,7 @@ const (
 	bridgeController        = "ovs.bridge.controller"
 	vlanOption              = "ovs.bridge.vlan"
 	mtuOption               = "ovs.bridge.mtu"
+	dhcpOption              = "ovs.bridge.dhcp"
 	defaultMTU              = 1500
 	defaultVLAN             = 100
 	bridgeNameOption        = "ovs.bridge.name"
@@ -51,6 +53,7 @@ const (
 	stackDpidPrefix         = "0x0E0F00"
 	ofPortLocal             = 4294967294
 	mirrorBridgeName        = "mirrorbr"
+	netNsPath               = "/var/run/netns"
 )
 
 var (
@@ -85,6 +88,7 @@ type StackingPort struct {
 type OFPortContainer struct {
 	OFPort           uint
 	containerInspect types.ContainerJSON
+	udhcpcCmd        *exec.Cmd
 }
 
 type Driver struct {
@@ -114,6 +118,18 @@ type NetworkState struct {
 	Gateway           string
 	GatewayMask       string
 	FlatBindInterface string
+	UseDHCP           bool
+}
+
+func setFaucetConfigFile(confclient faucetconfserver.FaucetConfServerClient, config_yaml string) {
+	req := &faucetconfserver.SetConfigFileRequest{
+		ConfigYaml: config_yaml,
+		Merge:      true,
+	}
+	_, err := confclient.SetConfigFile(context.Background(), req)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (d *Driver) getStackMirrorConfig(r *networkplugin.CreateNetworkRequest) StackMirrorConfig {
@@ -136,6 +152,14 @@ func (d *Driver) getStackMirrorConfig(r *networkplugin.CreateNetworkRequest) Sta
 	}
 }
 
+func parseBool(optionVal string) bool {
+	boolVal, err := strconv.ParseBool(optionVal)
+	if err != nil {
+		return false
+	}
+	return boolVal
+}
+
 func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) string {
 	if r.Options == nil {
 		return ""
@@ -149,6 +173,10 @@ func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) 
 		return ""
 	}
 	return optionValue
+}
+
+func mustGetUseDHCP(r *networkplugin.CreateNetworkRequest) bool {
+	return parseBool(getGenericOption(r, dhcpOption))
 }
 
 func base36to16(value string) string {
@@ -303,16 +331,7 @@ func (d *Driver) createStackingBridge() error {
 	}
 	stackingConfig += "}}}}"
 
-	req := &faucetconfserver.SetConfigFileRequest{
-		ConfigYaml: stackingConfig,
-		Merge:      true,
-	}
-
-	_, err = d.faucetclient.SetConfigFile(context.Background(), req)
-	if err != nil {
-		log.Errorf("Error while calling SetConfigFileRequest %s: %v", req, err)
-	}
-
+	setFaucetConfigFile(d.faucetclient, stackingConfig)
 	return nil
 }
 
@@ -341,6 +360,7 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) (err error
 	vlan := mustGetBridgeVLAN(r)
 	add_ports := mustGetBridgeAddPorts(r)
 	gateway, mask := mustGetGatewayIP(r)
+	useDHCP := mustGetUseDHCP(r)
 
 	ns := &NetworkState{
 		BridgeName:        bridgeName,
@@ -351,11 +371,13 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) (err error
 		Gateway:           gateway,
 		GatewayMask:       mask,
 		FlatBindInterface: bindInterface,
+		UseDHCP:           useDHCP,
 	}
 	d.networks[r.NetworkID] = ns
 	d.stackMirrorConfigs[r.NetworkID] = d.getStackMirrorConfig(r)
 
 	log.Debugf("Initializing bridge for network %s", r.NetworkID)
+	log.Debugf("useDHCP: %v", useDHCP)
 
 	if err := d.initBridge(r.NetworkID, controller, dpid, add_ports); err != nil {
 		panic(err)
@@ -624,7 +646,7 @@ func mustGetIntDpid(dpid string) int {
 }
 
 func mergeInterfacesYaml(dpName string, intDpid int, description string, addInterfaces string) string {
-	return fmt.Sprintf("{dps: {%s: {dp_id: %d, description: %s, interfaces: {%s}}}}",
+	return fmt.Sprintf("{dps: {%s: {dp_id: %d, description: OVS Bridge %s, interfaces: {%s}}}}",
 		dpName, intDpid, description, addInterfaces)
 }
 
@@ -660,10 +682,7 @@ func mustHandleCreate(d *Driver, confclient faucetconfserver.FaucetConfServerCli
 	if mode == "nat" {
 		add_interfaces += fmt.Sprintf("%d: {description: OVS Port for NAT, native_vlan: %d},", ofPortLocal, vlan)
 	}
-	req := &faucetconfserver.SetConfigFileRequest{
-		ConfigYaml: mergeInterfacesYaml(netInspect.Name, intDpid, "OVS Bridge "+bridgeName, add_interfaces),
-		Merge:      true,
-	}
+	configYaml := mergeInterfacesYaml(netInspect.Name, intDpid, bridgeName, add_interfaces)
 	if usingMirrorBridge(d) {
 		stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
 		ofportNum, mirrorOfportNum, err := d.addPatchPort(bridgeName, mirrorBridgeName, uint(stackMirrorConfig.LbPort), 0)
@@ -671,18 +690,9 @@ func mustHandleCreate(d *Driver, confclient faucetconfserver.FaucetConfServerCli
 			panic(err)
 		}
 		flowStr := fmt.Sprintf("priority=2,in_port=%d,actions=mod_vlan_vid:%d,output:1", mirrorOfportNum, vlan)
-		log.Debugf(flowStr)
 		mustOfCtl("add-flow", mirrorBridgeName, flowStr)
-
 		add_interfaces += fmt.Sprintf("%d: {description: mirror, output_only: true},", ofportNum)
-		req = &faucetconfserver.SetConfigFileRequest{
-			ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %d, description: %s, interfaces: {%s}}}}",
-				netInspect.Name,
-				intDpid,
-				"OVS Bridge "+bridgeName,
-				add_interfaces),
-			Merge: true,
-		}
+		configYaml = mergeInterfacesYaml(netInspect.Name, intDpid, bridgeName, add_interfaces)
 	}
 	if usingStacking(d) {
 		_, stackDpName, err := d.getStackDP()
@@ -693,28 +703,24 @@ func mustHandleCreate(d *Driver, confclient faucetconfserver.FaucetConfServerCli
 		if err != nil {
 			panic(err)
 		}
-		req = &faucetconfserver.SetConfigFileRequest{
-			ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %d, description: %s, interfaces: {%s %d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
-				netInspect.Name,
-				intDpid,
-				"OVS Bridge "+bridgeName,
-				add_interfaces,
-				ofportNum,
-				"Stack link to "+stackDpName,
-				stackDpName,
-				ofportNumPeer,
-				stackDpName,
-				ofportNumPeer,
-				"Stack link to "+netInspect.Name,
-				netInspect.Name,
-				ofportNum),
-			Merge: true,
-		}
+		localDpYaml := fmt.Sprintf("%s: {dp_id: %d, description: %s, interfaces: {%s %d: {description: %s, stack: {dp: %s, port: %d}}}}",
+			netInspect.Name,
+			intDpid,
+			"OVS Bridge "+bridgeName,
+			add_interfaces,
+			ofportNum,
+			"Stack link to "+stackDpName,
+			stackDpName,
+			ofportNumPeer)
+		remoteDpYaml := fmt.Sprintf("%s: {interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}",
+			stackDpName,
+			ofportNumPeer,
+			"Stack link to "+netInspect.Name,
+			netInspect.Name,
+			ofportNum)
+		configYaml = fmt.Sprintf("{dps: {%s, %s}}", localDpYaml, remoteDpYaml)
 	}
-	_, err = d.faucetclient.SetConfigFile(context.Background(), req)
-	if err != nil {
-		panic(err)
-	}
+	setFaucetConfigFile(d.faucetclient, configYaml)
 	if usingStackMirroring(d) {
 		lbBridgeName := d.mustGetLoopbackDP()
 		stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
@@ -751,55 +757,61 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 		panic(err)
 	}
 	intDpid := mustGetIntDpid(dpid)
-	(*OFPorts)[mapMsg.EndpointID] = OFPortContainer{
-		OFPort:           mapMsg.OFPort,
-		containerInspect: containerInspect,
-	}
-	log.Infof("%s now on %s ofport %d", containerInspect.Name, bridgeName, mapMsg.OFPort)
-	log.Debugf("Adding datapath %v to Faucet config", dpid)
+	pid := containerInspect.State.Pid
+	log.Infof("Adding %s (pid %d) on %s DPID %d OFPort %d to Faucet",
+		containerInspect.Name, pid, bridgeName, intDpid, mapMsg.OFPort)
 
-	// TODO: FAUCET seeing mirror + ACL change simultaneously causes the mirror change
-	// not to be implemented.
 	portacl := ""
 	portacl, ok := containerInspect.Config.Labels["dovesnap.faucet.portacl"]
-	if ok {
-		log.Infof("Set portacl %s", portacl)
+	if ok && len(portacl) > 0 {
+		log.Infof("Set portacl %s on %s", portacl, containerInspect.Name)
 	}
 	add_interfaces := fmt.Sprintf("%d: {description: '%s', native_vlan: %d, acls_in: [%s]},",
 		mapMsg.OFPort, fmt.Sprintf("%s %s", containerInspect.Name, truncateID(containerInspect.ID)), vlan, portacl)
 
-	req := &faucetconfserver.SetConfigFileRequest{
-		ConfigYaml: mergeInterfacesYaml(netInspect.Name, intDpid, "OVS Bridge "+bridgeName, add_interfaces),
-		Merge:      true,
-	}
-	_, err = confclient.SetConfigFile(context.Background(), req)
-	if err != nil {
-		panic(err)
-	}
+	setFaucetConfigFile(d.faucetclient, mergeInterfacesYaml(netInspect.Name, intDpid, bridgeName, add_interfaces))
 
 	mirror, ok := containerInspect.Config.Labels["dovesnap.faucet.mirror"]
-	if ok {
-		boolMirror, err := strconv.ParseBool(mirror)
-		if err != nil {
-			log.Errorf("Error: mirror is not a bool, ignoring")
-		} else {
-			log.Infof("Mirroring container: %v", boolMirror)
-			if boolMirror {
-				stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
-				if usingStackMirroring(d) || usingMirrorBridge(d) {
-					req := &faucetconfserver.AddPortMirrorRequest{
-						DpName:       netInspect.Name,
-						PortNo:       uint32(mapMsg.OFPort),
-						MirrorPortNo: stackMirrorConfig.LbPort,
-					}
-					_, err := confclient.AddPortMirror(context.Background(), req)
-					if err != nil {
-						log.Errorf("Error mirroring: %v", err)
-					}
-				}
+	if ok && parseBool(mirror) {
+		log.Infof("Mirroring container %s", containerInspect.Name)
+		stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
+		if usingStackMirroring(d) || usingMirrorBridge(d) {
+			req := &faucetconfserver.AddPortMirrorRequest{
+				DpName:       netInspect.Name,
+				PortNo:       uint32(mapMsg.OFPort),
+				MirrorPortNo: stackMirrorConfig.LbPort,
+			}
+			_, err := confclient.AddPortMirror(context.Background(), req)
+			if err != nil {
+				panic(err)
 			}
 		}
 	}
+
+	procPath := fmt.Sprintf("/proc/%d/ns/net", pid)
+	log.Debugf(procPath)
+	procNetNsPath := fmt.Sprintf("%s/%s", netNsPath, containerInspect.ID)
+	log.Debugf(procNetNsPath)
+	err = os.Symlink(procPath, procNetNsPath)
+	if err != nil {
+		panic(err)
+	}
+	udhcpcCmd := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/udhcpc", "-f", "-R")
+	if d.networks[mapMsg.NetworkID].UseDHCP {
+		err = udhcpcCmd.Start()
+		if err != nil {
+			panic(err)
+		}
+		log.Infof("started udhcpc for %s", containerInspect.ID)
+	} else {
+		udhcpcCmd = nil
+	}
+	containerMap := OFPortContainer{
+		OFPort:           mapMsg.OFPort,
+		containerInspect: containerInspect,
+		udhcpcCmd:        udhcpcCmd,
+	}
+	(*OFPorts)[mapMsg.EndpointID] = containerMap
 }
 
 func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient, mapMsg OFPortMap, OFPorts *map[string]OFPortContainer) {
@@ -808,6 +820,15 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 			log.Errorf("mustHandleRm failed: %v", rerr)
 		}
 	}()
+
+	containerMap := (*OFPorts)[mapMsg.EndpointID]
+	udhcpcCmd := containerMap.udhcpcCmd
+	if udhcpcCmd != nil {
+		log.Infof("Shutting down udhcpc")
+		udhcpcCmd.Process.Kill()
+		udhcpcCmd.Wait()
+	}
+
 	networkName := d.networks[mapMsg.NetworkID].NetworkName
 	interfaces := &faucetconfserver.InterfaceInfo{
 		PortNo: int32(mapMsg.OFPort),
@@ -921,23 +942,75 @@ func usingStackMirroring(d *Driver) bool {
 	return usingStacking(d) && len(d.stackMirrorInterface) > 1
 }
 
-func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string, flagMirrorBridgeIn string, flagMirrorBridgeOut string) (*Driver, error) {
-	// Get interfaces to use for stacking
+func waitForOvs(d *Driver) {
+	for i := 0; i < ovsStartupRetries; i++ {
+		_, err := d.ovsdber.show()
+		if err == nil {
+			break
+		}
+		log.Infof("Waiting for open vswitch")
+		time.Sleep(5 * time.Second)
+	}
+	_, err := d.ovsdber.show()
+	if err != nil {
+		panic(fmt.Errorf("Could not connect to open vswitch"))
+	}
+	log.Infof("Connected to open vswitch")
+}
+
+func restoreNetworks(d *Driver) {
+	netlist, err := d.dockerclient.NetworkList(context.Background(), types.NetworkListOptions{})
+	if err != nil {
+		panic(fmt.Errorf("Could not get docker networks: %s", err))
+	}
+	for _, net := range netlist {
+		if net.Driver == DriverName {
+			netInspect, err := d.dockerclient.NetworkInspect(context.Background(), net.ID, types.NetworkInspectOptions{})
+			if err != nil {
+				panic(fmt.Errorf("Could not inspect docker networks inpect: %s", err))
+			}
+			bridgeName, dpid, vlan, err := getBridgeFromResource(&netInspect)
+			if err != nil {
+				continue
+			}
+			ns := &NetworkState{
+				NetworkName: netInspect.Name,
+				BridgeName:  bridgeName,
+				BridgeDpid:  dpid,
+				BridgeVLAN:  vlan,
+			}
+			d.networks[net.ID] = ns
+			log.Debugf("Existing networks created by this driver: %v", netInspect.Name)
+		}
+	}
+}
+
+func createNetNsDir() {
+	_, err := os.Stat(netNsPath)
+	if os.IsNotExist(err) {
+		err = os.MkdirAll(netNsPath, 0755)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string, flagMirrorBridgeIn string, flagMirrorBridgeOut string) *Driver {
+	createNetNsDir()
+
 	stack_mirror_interface := strings.Split(flagStackMirrorInterface, ":")
 	if len(flagStackMirrorInterface) > 0 && len(stack_mirror_interface) != 2 {
-		return nil, fmt.Errorf("Invalid stack mirror interface config: %s", flagStackMirrorInterface)
+		panic(fmt.Errorf("Invalid stack mirror interface config: %s", flagStackMirrorInterface))
 	}
 	stacking_interfaces := strings.Split(flagStackingInterfaces, ",")
 	log.Debugf("Stacking interfaces: %v", stacking_interfaces)
 	confclient := mustGetGRPCClient(flagFaucetconfrpcServerName, flagFaucetconfrpcServerPort, flagFaucetconfrpcKeydir)
 
-	// Connect to Docker
 	docker, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
-		return nil, fmt.Errorf("Could not connect to docker: %s", err)
+		panic(fmt.Errorf("Could not connect to docker: %s", err))
 	}
 
-	// Create Docker driver
 	d := &Driver{
 		dockerclient:            docker,
 		ovsdber:                 ovsdber{},
@@ -953,19 +1026,7 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 		stackMirrorConfigs:      make(map[string]StackMirrorConfig),
 	}
 
-	for i := 0; i < ovsStartupRetries; i++ {
-		_, err = d.ovsdber.show()
-		if err == nil {
-			break
-		}
-		log.Infof("Waiting for open vswitch")
-		time.Sleep(5 * time.Second)
-	}
-	_, err = d.ovsdber.show()
-	if err != nil {
-		return nil, fmt.Errorf("Could not connect to open vswitch")
-	}
-	log.Infof("Connected to open vswitch")
+	waitForOvs(d)
 
 	if usingMirrorBridge(d) {
 		d.createMirrorBridge()
@@ -986,33 +1047,11 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 		log.Warnf("No stacking interface defined, not stacking DPs or creating a stacking bridge")
 	}
 
+	restoreNetworks(d)
+
 	go consolidateDockerInfo(d, confclient)
 
-	netlist, err := d.dockerclient.NetworkList(context.Background(), types.NetworkListOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("Could not get docker networks: %s", err)
-	}
-	for _, net := range netlist {
-		if net.Driver == DriverName {
-			netInspect, err := d.dockerclient.NetworkInspect(context.Background(), net.ID, types.NetworkInspectOptions{})
-			if err != nil {
-				return nil, fmt.Errorf("Could not inpect docker networks inpect: %s", err)
-			}
-			bridgeName, dpid, vlan, err := getBridgeFromResource(&netInspect)
-			if err != nil {
-				continue
-			}
-			ns := &NetworkState{
-				NetworkName: netInspect.Name,
-				BridgeName:  bridgeName,
-				BridgeDpid:  dpid,
-				BridgeVLAN:  vlan,
-			}
-			d.networks[net.ID] = ns
-			log.Debugf("Existing networks created by this driver: %v", netInspect.Name)
-		}
-	}
-	return d, nil
+	return d
 }
 
 // Create veth pair. Peername is renamed to eth0 in the container
@@ -1117,7 +1156,7 @@ func mustGetGatewayIP(r *networkplugin.CreateNetworkRequest) (string, string) {
 		gatewayIP = ipv4Gw
 	}
 	if gatewayIP == "" {
-		panic(fmt.Errorf("No gateway IP found"))
+		return "", ""
 	}
 	parts := strings.Split(gatewayIP, "/")
 	if len(parts) == 2 && parts[0] != "" && parts[1] != "" {

@@ -11,12 +11,14 @@ services:
       - /usr/local/var/run/openvswitch:/var/run/openvswitch
       - /opt/faucetconfrpc:/faucetconfrpc
     network_mode: host
+    pid: host
     extra_hosts:
       - 'faucetconfrpc:${FAUCETCONFRPC_IP}'
     depends_on:
       - ovs
     cap_add:
       - NET_ADMIN
+    privileged: true
     command:
       - --debug
       - --faucetconfrpc_addr=faucetconfrpc

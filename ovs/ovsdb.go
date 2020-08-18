@@ -14,15 +14,20 @@ const (
 	ovsvsctlDBPath = "unix:/var/run/openvswitch/db.sock"
 )
 
-func VsCtl(args ...string) (string, error) {
-	all := append([]string{fmt.Sprintf("--db=%s", ovsvsctlDBPath)}, args...)
-	output, err := exec.Command(ovsvsctlPath, all...).CombinedOutput()
+func RunCmd(cmd string, args ...string) (string, error) {
+	output, err := exec.Command(cmd, args...).CombinedOutput()
 	if err != nil {
-		log.Debugf("FAILED: %s, %v, %s", ovsvsctlPath, all, output)
+		log.Debugf("FAILED: %v, %s", args, output)
 	} else {
-		log.Debugf("OK: %s, %v", ovsvsctlPath, all)
+		log.Debugf("OK: %v", args)
 	}
 	return strings.TrimSuffix(string(output), "\n"), err
+}
+
+func VsCtl(args ...string) (string, error) {
+	all := append([]string{fmt.Sprintf("--db=%s", ovsvsctlDBPath)}, args...)
+	output, err := RunCmd(ovsvsctlPath, all...)
+	return output, err
 }
 
 func mustVsCtl(args ...string) string {
@@ -33,17 +38,12 @@ func mustVsCtl(args ...string) string {
 	return output
 }
 
-func OfCtl(args ...string) ([]byte, error) {
-	output, err := exec.Command(ovsofctlPath, args...).CombinedOutput()
-	if err != nil {
-		log.Debugf("FAILED: %s, %v, %s", ovsofctlPath, args, output)
-	} else {
-		log.Debugf("OK: %s, %v", ovsofctlPath, args)
-	}
+func OfCtl(args ...string) (string, error) {
+	output, err := RunCmd(ovsofctlPath, args...)
 	return output, err
 }
 
-func mustOfCtl(args ...string) []byte {
+func mustOfCtl(args ...string) string {
 	output, err := OfCtl(args...)
 	if err != nil {
 		panic(err)
