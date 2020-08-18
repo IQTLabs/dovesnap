@@ -751,8 +751,17 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 		OFPort:           mapMsg.OFPort,
 		containerInspect: containerInspect,
 	}
-	log.Infof("Adding %s on %s DPID %d OFPort %d to Faucet",
-		containerInspect.Name, bridgeName, intDpid, mapMsg.OFPort)
+	pid := containerInspect.State.Pid
+	procPath := fmt.Sprintf("/proc/%d/ns/net", pid)
+	log.Debugf(procPath)
+	procNetNsPath := fmt.Sprintf("%s/%s", netNsPath, containerInspect.ID)
+	log.Debugf(procNetNsPath)
+	err = os.Symlink(procPath, procNetNsPath)
+	if err != nil {
+		panic(err)
+	}
+	log.Infof("Adding %s (pid %d) on %s DPID %d OFPort %d to Faucet",
+		containerInspect.Name, pid, bridgeName, intDpid, mapMsg.OFPort)
 
 	portacl := ""
 	portacl, ok := containerInspect.Config.Labels["dovesnap.faucet.portacl"]
