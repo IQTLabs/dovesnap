@@ -76,7 +76,6 @@ type OFPortMap struct {
 	Mode       string
 	NetworkID  string
 	EndpointID string
-	UseDHCP    bool
 	Operation  string
 }
 
@@ -119,6 +118,7 @@ type NetworkState struct {
 	Gateway           string
 	GatewayMask       string
 	FlatBindInterface string
+	UseDHCP    	  bool
 }
 
 func setFaucetConfigFile(confclient faucetconfserver.FaucetConfServerClient, config_yaml string) {
@@ -371,11 +371,14 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) (err error
 		Gateway:           gateway,
 		GatewayMask:       mask,
 		FlatBindInterface: bindInterface,
+		UseDHCP:           useDHCP,
+
 	}
 	d.networks[r.NetworkID] = ns
 	d.stackMirrorConfigs[r.NetworkID] = d.getStackMirrorConfig(r)
 
 	log.Debugf("Initializing bridge for network %s", r.NetworkID)
+	log.Debugf("useDHCP: %v", useDHCP)
 
 	if err := d.initBridge(r.NetworkID, controller, dpid, add_ports); err != nil {
 		panic(err)
@@ -387,7 +390,6 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) (err error
 		Mode:       mode,
 		NetworkID:  r.NetworkID,
 		EndpointID: bridgeName,
-		UseDHCP:    useDHCP,
 		Operation:  "create",
 	}
 
@@ -796,7 +798,7 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 		panic(err)
 	}
 	udhcpcCmd := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/udhcpc", "-f", "-R")
-	if mapMsg.UseDHCP {
+	if d.networks[mapMsg.NetworkID].UseDHCP {
 		err = udhcpcCmd.Start()
 		if err != nil {
 			panic(err)
