@@ -118,7 +118,7 @@ type NetworkState struct {
 	Gateway           string
 	GatewayMask       string
 	FlatBindInterface string
-	UseDHCP    	  bool
+	UseDHCP           bool
 }
 
 func setFaucetConfigFile(confclient faucetconfserver.FaucetConfServerClient, config_yaml string) {
@@ -372,7 +372,6 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) (err error
 		GatewayMask:       mask,
 		FlatBindInterface: bindInterface,
 		UseDHCP:           useDHCP,
-
 	}
 	d.networks[r.NetworkID] = ns
 	d.stackMirrorConfigs[r.NetworkID] = d.getStackMirrorConfig(r)

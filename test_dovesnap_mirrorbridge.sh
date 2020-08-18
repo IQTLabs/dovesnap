@@ -91,7 +91,7 @@ for p in 6653 6654 ; do
 done
 docker ps -a
 echo creating testnet
-docker network create testnet -d ovs -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 || exit 1
+docker network create testnet -d ovs -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 -o ovs.bridge.dhcp=true --ipam-driver null || exit 1
 docker network ls
 echo creating testcon
 # github test runner can't use ping.
