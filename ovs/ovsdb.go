@@ -17,10 +17,10 @@ const (
 func RunCmd(cmd string, args ...string) (string, error) {
 	output, err := exec.Command(cmd, args...).CombinedOutput()
 	if err != nil {
-                log.Debugf("FAILED: %v, %s", args, output)
-        } else {
-                log.Debugf("OK: %v", args)
-        }
+		log.Debugf("FAILED: %v, %s", args, output)
+	} else {
+		log.Debugf("OK: %v", args)
+	}
 	return strings.TrimSuffix(string(output), "\n"), err
 
 }
