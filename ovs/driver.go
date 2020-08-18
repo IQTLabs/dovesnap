@@ -801,6 +801,7 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 		if err != nil {
 			panic(err)
 		}
+		log.Infof("started udhcpc for %s", containerInspect.ID)
 	} else {
 		udhcpcCmd = nil
 	}
