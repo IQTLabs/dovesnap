@@ -22,7 +22,6 @@ func RunCmd(cmd string, args ...string) (string, error) {
 		log.Debugf("OK: %v", args)
 	}
 	return strings.TrimSuffix(string(output), "\n"), err
-
 }
 
 func VsCtl(args ...string) (string, error) {
