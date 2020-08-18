@@ -43,10 +43,13 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
             reply = default_reply
             try:
                 reply = request_handler()
-                logging.info('request %s, reply %s', request, reply)
+                logging.info('request %s: reply %s', request, reply)
                 return reply
-            except _ServerError as err:
-                self._log_error(context, request, err)
+            except (_ServerError, InvalidConfigError) as err:
+                log = 'request %s: error %s' % (str(request), str(err))
+                logging.error(log)
+                context.set_code(grpc.StatusCode.UNKNOWN)
+                context.set_details(log)
             return default_reply
 
     def _yaml_merge(self, yaml_doc_a, yaml_doc_b):
@@ -167,13 +170,6 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
         except (KeyError, ValueError, _ServerError) as err:
             raise _ServerError(err)
 
-    @staticmethod
-    def _log_error(context, request, err):
-        log = '%s: error %s' % (str(request), str(err))
-        logging.error(log)
-        context.set_code(grpc.StatusCode.UNKNOWN)
-        context.set_details(log)
-
     def GetConfigFile(self, request, context):  # pylint: disable=invalid-name
         """Return existing file contents as YAML string."""
 
@@ -287,6 +283,19 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
         return self.request_wrapper(
             remove_port_mirror, context, request, default_reply)
 
+    def ClearPortMirror(self, request, context):  # pylint: disable=invalid-name
+        """Remove all mirroring on port."""
+
+        default_reply = faucetconfrpc_pb2.ClearPortMirrorReply()
+
+        def clear_port_mirror():
+            config_filename = self.default_config
+            self._set_mirror(config_filename, request, [])
+            return default_reply
+
+        return self.request_wrapper(
+            clear_port_mirror, context, request, default_reply)
+
     def _get_port_acls(self, request):
         dps = self._validate_faucet_config(self.config_dir)
         dp = dps[request.dp_name]  # pylint: disable=invalid-name
@@ -341,7 +350,7 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
         def remove_port_acl():
             config_filename = self.default_config
             acls_in = []
-            # If no acls specified, remove all ACLs.
+            # If no ACLs specified, remove all ACLs.
             if request.acl:
                 acls_in = self._get_port_acls(request)
                 if request.acl in acls_in:
@@ -445,6 +454,9 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
 
         default_reply = faucetconfrpc_pb2.SetRemoteMirrorPortReply()
 
+        def make_acl(rules):
+            return [{'rule': rule} for rule in rules]
+
         def set_remote_mirror_port():
             config_filename = self.default_config
             config_yaml = self._get_config_file(config_filename)
@@ -453,11 +465,12 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
                 request.tunnel_vid,
                 request.remote_dp_name,
                 request.remote_port_no)
-            config_yaml['acls'][acl_name] = [
-                {'rule': {
-                    'actions': {'allow': 0},
-                    'vlan_vid': request.tunnel_vid}},
-                {'rule': {
+            config_yaml['acls'][acl_name] = make_acl([
+                {
+                    'vlan_vid': request.tunnel_vid,
+                    'actions': {
+                        'allow': 0}},
+                {
                     'actions': {
                         'allow': 0,
                         'output': {
@@ -465,8 +478,8 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
                                 'dp': request.remote_dp_name,
                                 'port': request.remote_port_no,
                                 'tunnel_id': request.tunnel_vid,
-                                'type': 'vlan'}}}}},
-            ]
+                                'type': 'vlan'}}}},
+            ])
             dp = config_yaml['dps'][request.dp_name]  # pylint: disable=invalid-name
             dp['interfaces'][request.port_no] = {
                 'acls_in': [acl_name],
