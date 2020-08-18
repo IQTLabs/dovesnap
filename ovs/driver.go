@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -52,7 +53,7 @@ const (
 	stackDpidPrefix         = "0x0E0F00"
 	ofPortLocal             = 4294967294
 	mirrorBridgeName        = "mirrorbr"
-	netNsPath		= "/var/run/netns"
+	netNsPath               = "/var/run/netns"
 )
 
 var (
@@ -75,6 +76,7 @@ type OFPortMap struct {
 	Mode       string
 	NetworkID  string
 	EndpointID string
+	UseDHCP	   bool
 	Operation  string
 }
 
@@ -87,6 +89,7 @@ type StackingPort struct {
 type OFPortContainer struct {
 	OFPort           uint
 	containerInspect types.ContainerJSON
+	udhcpcCmd        *exec.Cmd
 }
 
 type Driver struct {
@@ -170,6 +173,10 @@ func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) 
 		return ""
 	}
 	return optionValue
+}
+
+func mustGetUseDHCP(r *networkplugin.CreateNetworkRequest) bool {
+	return parseBool(getGenericOption(r, dhcpOption))
 }
 
 func base36to16(value string) string {
@@ -353,6 +360,7 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) (err error
 	vlan := mustGetBridgeVLAN(r)
 	add_ports := mustGetBridgeAddPorts(r)
 	gateway, mask := mustGetGatewayIP(r)
+	useDHCP := mustGetUseDHCP(r)
 
 	ns := &NetworkState{
 		BridgeName:        bridgeName,
@@ -379,6 +387,7 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) (err error
 		Mode:       mode,
 		NetworkID:  r.NetworkID,
 		EndpointID: bridgeName,
+		UseDHCP:    useDHCP,
 		Operation:  "create",
 	}
 
@@ -747,19 +756,7 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 		panic(err)
 	}
 	intDpid := mustGetIntDpid(dpid)
-	(*OFPorts)[mapMsg.EndpointID] = OFPortContainer{
-		OFPort:           mapMsg.OFPort,
-		containerInspect: containerInspect,
-	}
 	pid := containerInspect.State.Pid
-	procPath := fmt.Sprintf("/proc/%d/ns/net", pid)
-	log.Debugf(procPath)
-	procNetNsPath := fmt.Sprintf("%s/%s", netNsPath, containerInspect.ID)
-	log.Debugf(procNetNsPath)
-	err = os.Symlink(procPath, procNetNsPath)
-	if err != nil {
-		panic(err)
-	}
 	log.Infof("Adding %s (pid %d) on %s DPID %d OFPort %d to Faucet",
 		containerInspect.Name, pid, bridgeName, intDpid, mapMsg.OFPort)
 
@@ -789,6 +786,30 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 			}
 		}
 	}
+
+	procPath := fmt.Sprintf("/proc/%d/ns/net", pid)
+	log.Debugf(procPath)
+	procNetNsPath := fmt.Sprintf("%s/%s", netNsPath, containerInspect.ID)
+	log.Debugf(procNetNsPath)
+	err = os.Symlink(procPath, procNetNsPath)
+	if err != nil {
+		panic(err)
+	}
+	udhcpcCmd := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/udhcpc", "-f", "-R")
+	if (mapMsg.UseDHCP) {
+		err = udhcpcCmd.Start()
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		udhcpcCmd = nil
+	}
+	containerMap := OFPortContainer{
+		OFPort:           mapMsg.OFPort,
+		containerInspect: containerInspect,
+		udhcpcCmd:        udhcpcCmd,
+	}
+	(*OFPorts)[mapMsg.EndpointID] = containerMap
 }
 
 func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient, mapMsg OFPortMap, OFPorts *map[string]OFPortContainer) {
@@ -797,6 +818,15 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 			log.Errorf("mustHandleRm failed: %v", rerr)
 		}
 	}()
+
+	containerMap := (*OFPorts)[mapMsg.EndpointID]
+	udhcpcCmd := containerMap.udhcpcCmd
+	if udhcpcCmd != nil {
+		log.Infof("Shutting down udhcpc")
+		udhcpcCmd.Process.Kill()
+		udhcpcCmd.Wait()
+	}
+
 	networkName := d.networks[mapMsg.NetworkID].NetworkName
 	interfaces := &faucetconfserver.InterfaceInfo{
 		PortNo: int32(mapMsg.OFPort),
