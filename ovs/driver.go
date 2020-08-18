@@ -1120,7 +1120,7 @@ func mustGetGatewayIP(r *networkplugin.CreateNetworkRequest) (string, string) {
 		gatewayIP = ipv4Gw
 	}
 	if gatewayIP == "" {
-		panic(fmt.Errorf("No gateway IP found"))
+		return "", ""
 	}
 	parts := strings.Split(gatewayIP, "/")
 	if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
