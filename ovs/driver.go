@@ -117,6 +117,17 @@ type NetworkState struct {
 	FlatBindInterface string
 }
 
+func setFaucetConfigFile(confclient faucetconfserver.FaucetConfServerClient, config_yaml string) {
+	req := &faucetconfserver.SetConfigFileRequest{
+		ConfigYaml: config_yaml,
+		Merge:      true,
+	}
+	_, err := confclient.SetConfigFile(context.Background(), req)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (d *Driver) getStackMirrorConfig(r *networkplugin.CreateNetworkRequest) StackMirrorConfig {
 	lbPort := mustGetLbPort(r)
 	tunnelVid := 0
@@ -312,16 +323,7 @@ func (d *Driver) createStackingBridge() error {
 	}
 	stackingConfig += "}}}}"
 
-	req := &faucetconfserver.SetConfigFileRequest{
-		ConfigYaml: stackingConfig,
-		Merge:      true,
-	}
-
-	_, err = d.faucetclient.SetConfigFile(context.Background(), req)
-	if err != nil {
-		log.Errorf("Error while calling SetConfigFileRequest %s: %v", req, err)
-	}
-
+	setFaucetConfigFile(d.faucetclient, stackingConfig)
 	return nil
 }
 
@@ -669,10 +671,7 @@ func mustHandleCreate(d *Driver, confclient faucetconfserver.FaucetConfServerCli
 	if mode == "nat" {
 		add_interfaces += fmt.Sprintf("%d: {description: OVS Port for NAT, native_vlan: %d},", ofPortLocal, vlan)
 	}
-	req := &faucetconfserver.SetConfigFileRequest{
-		ConfigYaml: mergeInterfacesYaml(netInspect.Name, intDpid, bridgeName, add_interfaces),
-		Merge:      true,
-	}
+	configYaml := mergeInterfacesYaml(netInspect.Name, intDpid, bridgeName, add_interfaces)
 	if usingMirrorBridge(d) {
 		stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
 		ofportNum, mirrorOfportNum, err := d.addPatchPort(bridgeName, mirrorBridgeName, uint(stackMirrorConfig.LbPort), 0)
@@ -680,14 +679,9 @@ func mustHandleCreate(d *Driver, confclient faucetconfserver.FaucetConfServerCli
 			panic(err)
 		}
 		flowStr := fmt.Sprintf("priority=2,in_port=%d,actions=mod_vlan_vid:%d,output:1", mirrorOfportNum, vlan)
-		log.Debugf(flowStr)
 		mustOfCtl("add-flow", mirrorBridgeName, flowStr)
 		add_interfaces += fmt.Sprintf("%d: {description: mirror, output_only: true},", ofportNum)
-
-		req = &faucetconfserver.SetConfigFileRequest{
-			ConfigYaml: mergeInterfacesYaml(netInspect.Name, intDpid, bridgeName, add_interfaces),
-			Merge:      true,
-		}
+		configYaml = mergeInterfacesYaml(netInspect.Name, intDpid, bridgeName, add_interfaces)
 	}
 	if usingStacking(d) {
 		_, stackDpName, err := d.getStackDP()
@@ -698,28 +692,24 @@ func mustHandleCreate(d *Driver, confclient faucetconfserver.FaucetConfServerCli
 		if err != nil {
 			panic(err)
 		}
-		req = &faucetconfserver.SetConfigFileRequest{
-			ConfigYaml: fmt.Sprintf("{dps: {%s: {dp_id: %d, description: %s, interfaces: {%s %d: {description: %s, stack: {dp: %s, port: %d}}}}, %s: {interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}}}",
-				netInspect.Name,
-				intDpid,
-				"OVS Bridge "+bridgeName,
-				add_interfaces,
-				ofportNum,
-				"Stack link to "+stackDpName,
-				stackDpName,
-				ofportNumPeer,
-				stackDpName,
-				ofportNumPeer,
-				"Stack link to "+netInspect.Name,
-				netInspect.Name,
-				ofportNum),
-			Merge: true,
-		}
+		localDpYaml := fmt.Sprintf("%s: {dp_id: %d, description: %s, interfaces: {%s %d: {description: %s, stack: {dp: %s, port: %d}}}}",
+			netInspect.Name,
+			intDpid,
+			"OVS Bridge "+bridgeName,
+			add_interfaces,
+			ofportNum,
+			"Stack link to "+stackDpName,
+			stackDpName,
+			ofportNumPeer)
+		remoteDpYaml := fmt.Sprintf("%s: {interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}",
+			stackDpName,
+			ofportNumPeer,
+			"Stack link to "+netInspect.Name,
+			netInspect.Name,
+			ofportNum)
+		configYaml = fmt.Sprintf("{dps: {%s, %s}}", localDpYaml, remoteDpYaml)
 	}
-	_, err = d.faucetclient.SetConfigFile(context.Background(), req)
-	if err != nil {
-		panic(err)
-	}
+	setFaucetConfigFile(d.faucetclient, configYaml)
 	if usingStackMirroring(d) {
 		lbBridgeName := d.mustGetLoopbackDP()
 		stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
@@ -761,7 +751,7 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 		containerInspect: containerInspect,
 	}
 	log.Infof("Adding %s on %s DPID %d OFPort %d to Faucet",
-		containerInspect.Name, bridgeName, dpid, mapMsg.OFPort)
+		containerInspect.Name, bridgeName, intDpid, mapMsg.OFPort)
 
 	portacl := ""
 	portacl, ok := containerInspect.Config.Labels["dovesnap.faucet.portacl"]
@@ -771,14 +761,7 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 	add_interfaces := fmt.Sprintf("%d: {description: '%s', native_vlan: %d, acls_in: [%s]},",
 		mapMsg.OFPort, fmt.Sprintf("%s %s", containerInspect.Name, truncateID(containerInspect.ID)), vlan, portacl)
 
-	req := &faucetconfserver.SetConfigFileRequest{
-		ConfigYaml: mergeInterfacesYaml(netInspect.Name, intDpid, bridgeName, add_interfaces),
-		Merge:      true,
-	}
-	_, err = confclient.SetConfigFile(context.Background(), req)
-	if err != nil {
-		panic(err)
-	}
+	setFaucetConfigFile(d.faucetclient, mergeInterfacesYaml(netInspect.Name, intDpid, bridgeName, add_interfaces))
 
 	mirror, ok := containerInspect.Config.Labels["dovesnap.faucet.mirror"]
 	if ok && parseBool(mirror) {
