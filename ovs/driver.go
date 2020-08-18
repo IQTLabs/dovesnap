@@ -52,6 +52,7 @@ const (
 	stackDpidPrefix         = "0x0E0F00"
 	ofPortLocal             = 4294967294
 	mirrorBridgeName        = "mirrorbr"
+	netNsPath		= "/var/run/netns"
 )
 
 var (
@@ -943,8 +944,19 @@ func restoreNetworks(d *Driver) {
 	}
 }
 
+func createNetNsDir() {
+	_, err := os.Stat(netNsPath)
+	if os.IsNotExist(err) {
+		err = os.MkdirAll(netNsPath, 0755)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
 func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string, flagMirrorBridgeIn string, flagMirrorBridgeOut string) *Driver {
-	// Get interfaces to use for stacking
+	createNetNsDir()
+
 	stack_mirror_interface := strings.Split(flagStackMirrorInterface, ":")
 	if len(flagStackMirrorInterface) > 0 && len(stack_mirror_interface) != 2 {
 		panic(fmt.Errorf("Invalid stack mirror interface config: %s", flagStackMirrorInterface))
