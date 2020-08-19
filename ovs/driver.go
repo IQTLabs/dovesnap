@@ -54,6 +54,7 @@ const (
 	ofPortLocal             = 4294967294
 	mirrorBridgeName        = "mirrorbr"
 	netNsPath               = "/var/run/netns"
+	internalOption          = "com.docker.network.internal"
 )
 
 var (
@@ -122,6 +123,7 @@ type NetworkState struct {
 }
 
 func setFaucetConfigFile(confclient faucetconfserver.FaucetConfServerClient, config_yaml string) {
+	log.Debugf("setFaucetConfigFile %s", config_yaml)
 	req := &faucetconfserver.SetConfigFileRequest{
 		ConfigYaml: config_yaml,
 		Merge:      true,
@@ -177,6 +179,13 @@ func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) 
 
 func mustGetUseDHCP(r *networkplugin.CreateNetworkRequest) bool {
 	return parseBool(getGenericOption(r, dhcpOption))
+}
+
+func mustGetInternalOption(r *networkplugin.CreateNetworkRequest) bool {
+	if r.Options == nil {
+		return false
+	}
+	return r.Options[internalOption].(bool)
 }
 
 func base36to16(value string) string {
@@ -362,6 +371,18 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) (err error
 	gateway, mask := mustGetGatewayIP(r)
 	useDHCP := mustGetUseDHCP(r)
 
+	if useDHCP {
+		if mode != "flat" {
+			panic(fmt.Errorf("network must be flat when DHCP in use"))
+		}
+		if gateway != "" {
+			panic(fmt.Errorf("network must not have IP config when DHCP in use"))
+		}
+		if !mustGetInternalOption(r) {
+			panic(fmt.Errorf("network must be internal when DHCP in use"))
+		}
+	}
+
 	ns := &NetworkState{
 		BridgeName:        bridgeName,
 		BridgeDpid:        dpid,
@@ -376,8 +397,7 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) (err error
 	d.networks[r.NetworkID] = ns
 	d.stackMirrorConfigs[r.NetworkID] = d.getStackMirrorConfig(r)
 
-	log.Debugf("Initializing bridge for network %s", r.NetworkID)
-	log.Debugf("useDHCP: %v", useDHCP)
+	log.Infof("creating network with config %v", ns)
 
 	if err := d.initBridge(r.NetworkID, controller, dpid, add_ports); err != nil {
 		panic(err)
@@ -457,7 +477,7 @@ func (d *Driver) CreateEndpoint(r *networkplugin.CreateEndpointRequest) (*networ
 	localVethPair := vethPair(truncateID(r.EndpointID))
 	log.Debugf("Create vethPair")
 	res := &networkplugin.CreateEndpointResponse{Interface: &networkplugin.EndpointInterface{MacAddress: localVethPair.Attrs().HardwareAddr.String()}}
-	log.Debugf("Attached veth5 %+v,", r.Interface)
+	log.Debugf("Attached veth %+v,", r.Interface)
 	return res, nil
 }
 
@@ -749,6 +769,7 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 		}
 	}()
 	containerInspect, netInspect, err := getContainerFromEndpoint(d.dockerclient, mapMsg.EndpointID)
+	log.Debugf("%s", containerInspect)
 	if err != nil {
 		panic(err)
 	}
