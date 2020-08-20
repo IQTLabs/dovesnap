@@ -1,0 +1,394 @@
+package ovs
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
+	networkplugin "github.com/docker/go-plugins-helpers/network"
+	bc "github.com/kenshaw/baseconv"
+	log "github.com/sirupsen/logrus"
+)
+
+const (
+	DriverName = "ovs"
+
+	genericOption  = "com.docker.network.generic"
+	internalOption = "com.docker.network.internal"
+
+	bindInterfaceOption = "ovs.bridge.bind_interface"
+	bridgeAddPorts      = "ovs.bridge.add_ports"
+	bridgeController    = "ovs.bridge.controller"
+	bridgeDpid          = "ovs.bridge.dpid"
+	bridgeLbPort        = "ovs.bridge.lbport"
+	bridgeNameOption    = "ovs.bridge.name"
+	dhcpOption          = "ovs.bridge.dhcp"
+	mirrorTunnelVid     = "ovs.bridge.mirror_tunnel_vid"
+	modeOption          = "ovs.bridge.mode"
+	mtuOption           = "ovs.bridge.mtu"
+	vlanOption          = "ovs.bridge.vlan"
+
+	defaultLbPort           = 99
+	defaultMTU              = 1500
+	defaultMode             = modeFlat
+	defaultRoute            = "0.0.0.0/0"
+	defaultTunnelVLANOffset = 256
+	defaultVLAN             = 100
+
+	modeFlat = "flat"
+	modeNAT  = "nat"
+
+	bridgePrefix      = "ovsbr-"
+	containerEthName  = "eth"
+	mirrorBridgeName  = "mirrorbr"
+	netNsPath         = "/var/run/netns"
+	ofPortLocal       = 4294967294
+	ovsPortPrefix     = "ovs-veth0-"
+	peerOvsPortPrefix = "ethc"
+	stackDpidPrefix   = "0x0E0F00"
+	ovsStartupRetries = 5
+	dockerRetries     = 3
+)
+
+var (
+	validModes = map[string]bool{
+		modeNAT:  true,
+		modeFlat: true,
+	}
+)
+
+type StackMirrorConfig struct {
+	LbPort           uint32
+	TunnelVid        uint32
+	RemoteDpName     string
+	RemoteMirrorPort uint32
+}
+
+func mustGetInternalOption(r *networkplugin.CreateNetworkRequest) bool {
+	if r.Options == nil {
+		return false
+	}
+	return r.Options[internalOption].(bool)
+}
+
+func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) string {
+	if r.Options == nil {
+		return ""
+	}
+	optionsMap, have_options := r.Options[genericOption].(map[string]interface{})
+	if !have_options {
+		return ""
+	}
+	optionValue, have_option := optionsMap[optionName].(string)
+	if !have_option {
+		return ""
+	}
+	return optionValue
+}
+
+func getGenericIntOption(r *networkplugin.CreateNetworkRequest, optionName string, defaultOption int) int {
+	option := getGenericOption(r, optionName)
+	if option != "" {
+		optionInt, err := strconv.Atoi(option)
+		if err == nil {
+			return optionInt
+		}
+	}
+	return defaultOption
+}
+
+func mustGetTunnelVid(r *networkplugin.CreateNetworkRequest) int {
+	return getGenericIntOption(r, mirrorTunnelVid, mustGetBridgeVLAN(r)+defaultTunnelVLANOffset)
+}
+
+func mustGetBridgeMTU(r *networkplugin.CreateNetworkRequest) int {
+	return getGenericIntOption(r, mtuOption, defaultMTU)
+}
+
+func mustGetLbPort(r *networkplugin.CreateNetworkRequest) int {
+	return getGenericIntOption(r, bridgeLbPort, defaultLbPort)
+}
+
+func mustGetBridgeName(r *networkplugin.CreateNetworkRequest) string {
+	bridgeName := bridgePrefix + truncateID(r.NetworkID)
+	name := getGenericOption(r, bridgeNameOption)
+	if name != "" {
+		bridgeName = name
+	}
+	return bridgeName
+}
+
+func mustGetBridgeMode(r *networkplugin.CreateNetworkRequest) string {
+	bridgeMode := defaultMode
+	mode := getGenericOption(r, modeOption)
+	if mode != "" {
+		if _, isValid := validModes[mode]; !isValid {
+			panic(fmt.Errorf("%s is not a valid mode", mode))
+		}
+		bridgeMode = mode
+	}
+	return bridgeMode
+}
+
+func mustGetBridgeController(r *networkplugin.CreateNetworkRequest) string {
+	return getGenericOption(r, bridgeController)
+}
+
+func mustGetBridgeDpid(r *networkplugin.CreateNetworkRequest) string {
+	return getGenericOption(r, bridgeDpid)
+}
+
+func mustGetBridgeVLAN(r *networkplugin.CreateNetworkRequest) int {
+	return getGenericIntOption(r, vlanOption, defaultVLAN)
+}
+
+func mustGetBridgeAddPorts(r *networkplugin.CreateNetworkRequest) string {
+	return getGenericOption(r, bridgeAddPorts)
+}
+
+func mustGetGatewayIPFromData(data []*networkplugin.IPAMData) string {
+	if len(data) > 0 {
+		if data[0] != nil {
+			if data[0].Gateway != "" {
+				return data[0].Gateway
+			}
+		}
+	}
+	return ""
+}
+
+func mustGetGatewayIP(r *networkplugin.CreateNetworkRequest) (string, string) {
+	// Guess gateway IP, prefer IPv4.
+	ipv6Gw := mustGetGatewayIPFromData(r.IPv6Data)
+	ipv4Gw := mustGetGatewayIPFromData(r.IPv4Data)
+	gatewayIP := ipv6Gw
+	if ipv4Gw != "" {
+		gatewayIP = ipv4Gw
+	}
+	if gatewayIP == "" {
+		return "", ""
+	}
+	parts := strings.Split(gatewayIP, "/")
+	if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+		return parts[0], parts[1]
+	}
+	panic(fmt.Errorf("Cannot parse gateway IP: %s", gatewayIP))
+}
+
+func mustGetBindInterface(r *networkplugin.CreateNetworkRequest) string {
+	if r.Options != nil {
+		if mode, ok := r.Options[bindInterfaceOption].(string); ok {
+			return mode
+		}
+	}
+	// As bind interface is optional and has no default, don't return an error
+	return ""
+}
+
+func mustGetBridgeNameFromResource(r *types.NetworkResource) string {
+	return bridgePrefix + truncateID(r.ID)
+}
+
+func mustGetBridgeDpidFromResource(r *types.NetworkResource) string {
+	if r.Options != nil {
+		if dpid, ok := r.Options[bridgeDpid]; ok {
+			return dpid
+		}
+	}
+	panic("No DPID found for this network")
+}
+
+func mustGetBridgeVlanFromResource(r *types.NetworkResource) int {
+	if r.Options != nil {
+		vlan, err := strconv.Atoi(r.Options[vlanOption])
+		if err == nil {
+			return vlan
+		}
+	}
+	log.Infof("No VLAN found for this network, using default: %d", defaultVLAN)
+	return defaultVLAN
+}
+
+func parseBool(optionVal string) bool {
+	boolVal, err := strconv.ParseBool(optionVal)
+	if err != nil {
+		return false
+	}
+	return boolVal
+}
+
+func mustGetUseDHCP(r *networkplugin.CreateNetworkRequest) bool {
+	return parseBool(getGenericOption(r, dhcpOption))
+}
+
+func getContainerFromEndpoint(dockerclient *client.Client, EndpointID string) (types.ContainerJSON, error) {
+	for i := 0; i < dockerRetries; i++ {
+		netlist, _ := dockerclient.NetworkList(context.Background(), types.NetworkListOptions{})
+		for _, net := range netlist {
+			if net.Driver != DriverName {
+				continue
+			}
+			netInspect, err := dockerclient.NetworkInspect(context.Background(), net.ID, types.NetworkInspectOptions{})
+			if err != nil {
+				continue
+			}
+			for containerID, containerInfo := range netInspect.Containers {
+				if containerInfo.EndpointID == EndpointID {
+					containerInspect, err := dockerclient.ContainerInspect(context.Background(), containerID)
+					if err != nil {
+						continue
+					}
+					return containerInspect, nil
+				}
+			}
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return types.ContainerJSON{}, fmt.Errorf("Endpoint %s not found", EndpointID)
+}
+
+func mustGetNetworkNameFromID(dockerclient *client.Client, NetworkID string) string {
+	for i := 0; i < dockerRetries; i++ {
+		netInspect, err := dockerclient.NetworkInspect(context.Background(), NetworkID, types.NetworkInspectOptions{})
+		if err == nil {
+			return netInspect.Name
+		}
+		time.Sleep(1 * time.Second)
+	}
+	panic(fmt.Errorf("Network %s not found", NetworkID))
+}
+
+func mustGetNetworkInspectFromID(dockerclient *client.Client, NetworkID string) types.NetworkResource {
+	for i := 0; i < dockerRetries; i++ {
+		netInspect, err := dockerclient.NetworkInspect(context.Background(), NetworkID, types.NetworkInspectOptions{})
+		if err == nil {
+			return netInspect
+		}
+		time.Sleep(1 * time.Second)
+	}
+	panic(fmt.Errorf("Network %s not found", NetworkID))
+}
+
+func mustGetIntDpid(dpid string) int {
+	strDpid, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
+	intDpid, err := strconv.Atoi(strDpid)
+	if err != nil {
+		panic(fmt.Errorf("Unable convert dp_id to an int because: %v", err))
+	}
+	return intDpid
+}
+
+func truncateID(id string) string {
+	return id[:5]
+}
+
+func (d *Driver) getStackMirrorConfig(r *networkplugin.CreateNetworkRequest) StackMirrorConfig {
+	lbPort := mustGetLbPort(r)
+	tunnelVid := 0
+	remoteDpName := ""
+	mirrorPort := 0
+
+	if usingStackMirroring(d) {
+		tunnelVid = mustGetTunnelVid(r)
+		remoteDpName = d.stackMirrorInterface[0]
+		mirrorPort, _ = strconv.Atoi(d.stackMirrorInterface[1])
+	}
+
+	return StackMirrorConfig{
+		LbPort:           uint32(lbPort),
+		TunnelVid:        uint32(tunnelVid),
+		RemoteDpName:     remoteDpName,
+		RemoteMirrorPort: uint32(mirrorPort),
+	}
+}
+
+func base36to16(value string) string {
+	converted, _ := bc.Convert(strings.ToLower(value), bc.Digits36, bc.DigitsHex)
+	digits := len(converted)
+	for digits < 6 {
+		converted = "0" + converted
+		digits = len(converted)
+	}
+	return strings.ToUpper(converted)
+}
+
+func (d *Driver) getShortEngineID() (string, error) {
+	info, err := d.dockerclient.Info(context.Background())
+	if err != nil {
+		return "", err
+	}
+	log.Debugf("Docker Engine ID %s:", info.ID)
+	engineId := base36to16(strings.Split(info.ID, ":")[0])
+	return engineId, nil
+}
+
+func (d *Driver) getStackDP() (string, string, error) {
+	engineId, err := d.getShortEngineID()
+	if err != nil {
+		return "", "", err
+	}
+	dpid := stackDpidPrefix + engineId
+	dpName := "dovesnap" + engineId
+	return dpid, dpName, nil
+}
+
+func (d *Driver) mustGetLoopbackDP() string {
+	engineId, _ := d.getShortEngineID()
+	return "lb" + engineId
+}
+
+func (d *Driver) mustGetStackingInterface(stackingInterface string) (string, uint64, string) {
+	stackSlice := strings.Split(stackingInterface, ":")
+	remoteDP := stackSlice[0]
+	remotePort, err := strconv.ParseUint(stackSlice[1], 10, 32)
+	if err != nil {
+		panic(fmt.Errorf("Unable to convert remote port to an unsigned integer because: [ %s ]", err))
+	}
+	localInterface := stackSlice[2]
+	if err != nil {
+		panic(fmt.Errorf("Unable to convert local port to an unsigned integer because: [ %s ]", err))
+	}
+	return remoteDP, remotePort, localInterface
+}
+
+func (d *Driver) mustGetStackBridgeConfig() (string, string, int, string) {
+	dpid, dpName, err := d.getStackDP()
+	if err != nil {
+		panic(err)
+	}
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		panic(err)
+	}
+
+	strDpid, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
+	intDpid, err := strconv.Atoi(strDpid)
+	if err != nil {
+		panic(fmt.Errorf("Unable convert dp_id to an int because: %v", err))
+	}
+	return hostname, dpid, intDpid, dpName
+}
+
+func getNetworkStateFromResource(r *types.NetworkResource) (ns NetworkState, err error) {
+	defer func() {
+		err = nil
+		if rerr := recover(); rerr != nil {
+			err = fmt.Errorf("missing bridge info: %v", rerr)
+			ns = NetworkState{}
+		}
+	}()
+	ns = NetworkState{
+		NetworkName:   r.Name,
+		BridgeName:    mustGetBridgeNameFromResource(r),
+		BridgeDpid:    mustGetBridgeDpidFromResource(r),
+		BridgeDpidInt: mustGetIntDpid(mustGetBridgeDpidFromResource(r)),
+		BridgeVLAN:    mustGetBridgeVlanFromResource(r),
+	}
+	return
+}

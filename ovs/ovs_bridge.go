@@ -3,6 +3,7 @@ package ovs
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/docker/libnetwork/iptables"
 	log "github.com/sirupsen/logrus"
@@ -10,6 +11,22 @@ import (
 
 func (ovsdber *ovsdber) show() (string, error) {
 	return VsCtl("show")
+}
+
+func (ovsdber *ovsdber) waitForOvs() {
+	for i := 0; i < ovsStartupRetries; i++ {
+		_, err := ovsdber.show()
+		if err == nil {
+			break
+		}
+		log.Infof("Waiting for open vswitch")
+		time.Sleep(5 * time.Second)
+	}
+	_, err := ovsdber.show()
+	if err != nil {
+		panic(fmt.Errorf("Could not connect to open vswitch"))
+	}
+	log.Infof("Connected to open vswitch")
 }
 
 // checks if a bridge already exists
