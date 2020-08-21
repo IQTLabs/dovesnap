@@ -20,7 +20,7 @@ wait_faucet
 
 docker ps -a
 echo creating testnet
-docker network create testnet -d ovs --internal -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 || exit 1
+docker network create testnet -d ovs --internal --ipam-driver null -o ovs.bridge.dhcp=true -o ovs.bridge.mode=flat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 || exit 1
 docker network ls
 wait_restart_dovesnap
 echo creating testcon
@@ -36,9 +36,8 @@ wait_acl
 wait_mirror
 sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
 echo verifying networking
-sudo timeout 30s tcpdump -n -c 1 -U -i mirroro -w $MIRROR_PCAP tcp &
-docker exec -t testcon wget -q -O- bing.com || exit 1
-sleep 10
-sudo tcpdump -n -r $MIRROR_PCAP -v | grep TCP || exit 1
+sudo timeout 30s tcpdump -n -c 1 -U -i mirroro -w $MIRROR_PCAP udp and port 67 &
+docker exec -t testcon wget -q -O- bing.com
+sudo tcpdump -n -r $MIRROR_PCAP -v | grep -i dhcp || exit 1
 
 clean_dirs

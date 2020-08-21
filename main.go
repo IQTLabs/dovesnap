@@ -36,7 +36,7 @@ func main() {
 	if *flagDebug {
 		log.SetLevel(log.DebugLevel)
 	}
-	d, err := ovs.NewDriver(
+	d := ovs.NewDriver(
 		*flagFaucetconfrpcServerName,
 		*flagFaucetconfrpcServerPort,
 		*flagFaucetconfrpcKeydir,
@@ -46,9 +46,6 @@ func main() {
 		*flagDefaultControllers,
 		*flagMirrorBridgeIn,
 		*flagMirrorBridgeOut)
-	if err != nil {
-		panic(err)
-	}
 	log.Infof("New Docker driver created")
 	h := network.NewHandler(d)
 	log.Infof("Getting ready to serve new Docker driver")
