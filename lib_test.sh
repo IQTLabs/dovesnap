@@ -1,5 +1,19 @@
 #!/bin/sh
 
+restart_wait_dovesnap ()
+{
+	echo waiting for FAUCET config to have testnet
+	DOVESNAPID="$(docker ps -q --filter name=dovesnap_plugin)"
+        TESTNETCOUNT=0
+        while [ "$TESTNETCOUNT" != "1" ] ; do
+                TESTNETCOUNT=$(sudo grep -c testnet: $FAUCET_CONFIG)
+                sleep 1
+        done
+	echo restarting dovesnap
+	docker restart $DOVESNAPID
+	docker logs $DOVESNAPID
+}
+
 init_dirs()
 {
 	export TMPDIR=$(mktemp -d)
