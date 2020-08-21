@@ -1,3 +1,9 @@
+# v0.3.0 (2020-08-21)
+
+- Add option for using DHCP
+- Ability to restart dovesnap and have it recovering existing networks
+- Updated grafana, faucet and gauge
+
 # v0.2.0 (2020-08-14)
 
 - Implement mirroring, stacking, FAUCET configuration via RPC.
