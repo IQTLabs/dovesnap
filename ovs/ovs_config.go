@@ -91,15 +91,17 @@ func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) 
 	return optionValue
 }
 
+func defaultInt(strValue string, defaultValue int) int {
+	intValue, err := strconv.Atoi(strValue)
+	if err == nil {
+		return intValue
+	}
+	return defaultValue
+}
+
 func getGenericIntOption(r *networkplugin.CreateNetworkRequest, optionName string, defaultOption int) int {
 	option := getGenericOption(r, optionName)
-	if option != "" {
-		optionInt, err := strconv.Atoi(option)
-		if err == nil {
-			return optionInt
-		}
-	}
-	return defaultOption
+	return defaultInt(option, defaultOption)
 }
 
 func mustGetTunnelVid(r *networkplugin.CreateNetworkRequest) int {
@@ -181,37 +183,7 @@ func mustGetGatewayIP(r *networkplugin.CreateNetworkRequest) (string, string) {
 }
 
 func mustGetBindInterface(r *networkplugin.CreateNetworkRequest) string {
-	if r.Options != nil {
-		if mode, ok := r.Options[bindInterfaceOption].(string); ok {
-			return mode
-		}
-	}
-	// As bind interface is optional and has no default, don't return an error
-	return ""
-}
-
-func mustGetBridgeNameFromResource(r *types.NetworkResource) string {
-	return bridgePrefix + truncateID(r.ID)
-}
-
-func mustGetBridgeDpidFromResource(r *types.NetworkResource) string {
-	if r.Options != nil {
-		if dpid, ok := r.Options[bridgeDpid]; ok {
-			return dpid
-		}
-	}
-	panic("No DPID found for this network")
-}
-
-func mustGetBridgeVlanFromResource(r *types.NetworkResource) int {
-	if r.Options != nil {
-		vlan, err := strconv.Atoi(r.Options[vlanOption])
-		if err == nil {
-			return vlan
-		}
-	}
-	log.Infof("No VLAN found for this network, using default: %d", defaultVLAN)
-	return defaultVLAN
+	return getGenericOption(r, bindInterfaceOption)
 }
 
 func parseBool(optionVal string) bool {
@@ -276,9 +248,9 @@ func mustGetNetworkInspectFromID(dockerclient *client.Client, NetworkID string) 
 
 func mustGetIntDpid(dpid string) int {
 	strDpid, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
-	intDpid, err := strconv.Atoi(strDpid)
-	if err != nil {
-		panic(fmt.Errorf("Unable convert dp_id to an int because: %v", err))
+	intDpid := defaultInt(strDpid, -1)
+	if intDpid == -1 {
+		panic(fmt.Errorf("Unable convert %s to an int", strDpid))
 	}
 	return intDpid
 }
@@ -296,7 +268,7 @@ func (d *Driver) getStackMirrorConfig(r *networkplugin.CreateNetworkRequest) Sta
 	if usingStackMirroring(d) {
 		tunnelVid = mustGetTunnelVid(r)
 		remoteDpName = d.stackMirrorInterface[0]
-		mirrorPort, _ = strconv.Atoi(d.stackMirrorInterface[1])
+		mirrorPort = defaultInt(d.stackMirrorInterface[1], 0)
 	}
 
 	return StackMirrorConfig{
@@ -367,12 +339,46 @@ func (d *Driver) mustGetStackBridgeConfig() (string, string, int, string) {
 		panic(err)
 	}
 
-	strDpid, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
-	intDpid, err := strconv.Atoi(strDpid)
-	if err != nil {
-		panic(fmt.Errorf("Unable convert dp_id to an int because: %v", err))
-	}
+	intDpid := mustGetIntDpid(dpid)
 	return hostname, dpid, intDpid, dpName
+}
+
+func mustGetBridgeNameFromResource(r *types.NetworkResource) string {
+	return bridgePrefix + truncateID(r.ID)
+}
+
+func getStrOptionFromResource(r *types.NetworkResource, optionName string, defaultOptionValue string) string {
+	if r.Options == nil {
+		return defaultOptionValue
+	}
+	optionValue, have_option := r.Options[optionName]
+	if !have_option {
+		return defaultOptionValue
+	}
+	return optionValue
+}
+
+func getIntOptionFromResource(r *types.NetworkResource, optionName string, defaultOptionValue int) int {
+	optionStrValue := getStrOptionFromResource(r, optionName, "")
+	return defaultInt(optionStrValue, defaultOptionValue)
+}
+
+func mustGetBridgeDpidFromResource(r *types.NetworkResource) (string, int) {
+	dpid := getStrOptionFromResource(r, bridgeDpid, "")
+	intDpid := mustGetIntDpid(dpid)
+	return dpid, intDpid
+}
+
+func getGatewayFromResource(r *types.NetworkResource) (string, string) {
+	if len(r.IPAM.Config) > 0 {
+		config := r.IPAM.Config[0]
+		subnetIP := config.Subnet
+		parts := strings.Split(subnetIP, "/")
+		if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+			return config.Gateway, parts[1]
+		}
+	}
+	return "", ""
 }
 
 func getNetworkStateFromResource(r *types.NetworkResource) (ns NetworkState, err error) {
@@ -383,12 +389,41 @@ func getNetworkStateFromResource(r *types.NetworkResource) (ns NetworkState, err
 			ns = NetworkState{}
 		}
 	}()
+	dpid, intDpid := mustGetBridgeDpidFromResource(r)
+	gateway, mask := getGatewayFromResource(r)
 	ns = NetworkState{
-		NetworkName:   r.Name,
-		BridgeName:    mustGetBridgeNameFromResource(r),
-		BridgeDpid:    mustGetBridgeDpidFromResource(r),
-		BridgeDpidInt: mustGetIntDpid(mustGetBridgeDpidFromResource(r)),
-		BridgeVLAN:    mustGetBridgeVlanFromResource(r),
+		NetworkName:       r.Name,
+		BridgeName:        mustGetBridgeNameFromResource(r),
+		BridgeDpid:        dpid,
+		BridgeDpidInt:     intDpid,
+		BridgeVLAN:        getIntOptionFromResource(r, vlanOption, defaultVLAN),
+		MTU:               getIntOptionFromResource(r, mtuOption, defaultMTU),
+		Mode:              getStrOptionFromResource(r, modeOption, defaultMode),
+		FlatBindInterface: getStrOptionFromResource(r, bindInterfaceOption, ""),
+		UseDHCP:           parseBool(getStrOptionFromResource(r, dhcpOption, "")),
+		Gateway:           gateway,
+		GatewayMask:       mask,
 	}
 	return
+}
+
+func (d *Driver) getStackMirrorConfigFromResource(r *types.NetworkResource) StackMirrorConfig {
+	lbPort := getIntOptionFromResource(r, bridgeLbPort, defaultLbPort)
+	tunnelVid := 0
+	remoteDpName := ""
+	mirrorPort := 0
+
+	if usingStackMirroring(d) {
+		vlan := getIntOptionFromResource(r, vlanOption, defaultVLAN)
+		tunnelVid = getIntOptionFromResource(r, mirrorTunnelVid, vlan+defaultTunnelVLANOffset)
+		remoteDpName = d.stackMirrorInterface[0]
+		mirrorPort = defaultInt(d.stackMirrorInterface[1], 0)
+	}
+
+	return StackMirrorConfig{
+		LbPort:           uint32(lbPort),
+		TunnelVid:        uint32(tunnelVid),
+		RemoteDpName:     remoteDpName,
+		RemoteMirrorPort: uint32(mirrorPort),
+	}
 }

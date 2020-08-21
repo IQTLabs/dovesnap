@@ -446,17 +446,6 @@ func mergeInterfacesYaml(dpName string, intDpid int, description string, addInte
 		dpName, intDpid, description, addInterfaces)
 }
 
-func mustHandleReCreate(d *Driver, mapMsg OFPortMap) {
-	defer func() {
-		if rerr := recover(); rerr != nil {
-			log.Errorf("mustHandleReCreate failed: %v", rerr)
-		}
-	}()
-	log.Debugf("network ID: %s", mapMsg.NetworkID)
-	//netInspect := mustGetNetworkInspectFromID(d.dockerclient, mapMsg.NetworkID)
-	//d.networks[mapMsg.NetworkID].NetworkName = netInspect.Name
-}
-
 func mustHandleCreate(d *Driver, confclient faucetconfserver.FaucetConfServerClient, mapMsg OFPortMap) {
 	defer func() {
 		if rerr := recover(); rerr != nil {
@@ -684,8 +673,6 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 		switch mapMsg.Operation {
 		case "create":
 			mustHandleCreate(d, confclient, mapMsg)
-		case "recreate":
-			mustHandleReCreate(d, mapMsg)
 		case "add":
 			mustHandleAdd(d, confclient, mapMsg, &OFPorts)
 		case "rm":
@@ -763,7 +750,11 @@ func restoreNetworks(d *Driver) {
 			if parseerr != nil {
 				panic(parseerr)
 			}
+			// TODO: verify dovesnap was restarted with the same arguments when restoring existing networks.
 			d.networks[net.ID] = ns
+			sc := d.getStackMirrorConfigFromResource(&netInspect)
+			d.stackMirrorConfigs[net.ID] = sc
+			log.Infof("restoring network %+v, %+v", ns, sc)
 		}
 	}
 }
