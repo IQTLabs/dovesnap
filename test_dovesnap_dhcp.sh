@@ -38,6 +38,12 @@ sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
 echo verifying networking
 sudo timeout 30s tcpdump -n -c 1 -U -i mirroro -w $MIRROR_PCAP udp and port 67 &
 docker exec -t testcon wget -q -O- bing.com
-sudo tcpdump -n -r $MIRROR_PCAP -v | grep -i dhcp || exit 1
+PCAPMATCH=DHCP
+wait_for_pcap_match
+docker restart testcon
+sudo timeout 30s tcpdump -n -c 1 -U -i mirroro -w $MIRROR_PCAP udp and port 67 &
+docker exec -t testcon wget -q -O- bing.com
+PCAPMATCH=DHCP
+wait_for_pcap_match
 
 clean_dirs
