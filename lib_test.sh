@@ -150,3 +150,20 @@ init_ovs ()
 	done
 	docker exec -t $OVSID /bin/sh -c 'for i in `ovs-vsctl list-br` ; do ovs-vsctl del-br $i ; done' || exit 1
 }
+
+wait_for_pcap_match ()
+{
+	i=0
+	OUT=""
+	while [ "$OUT" == "" ] && [ i != 30 ] ; do
+		echo waiting for pcap match $PCAPMATCH: $i
+		OUT=$(sudo tcpdump -n -r $MIRROR_PCAP -v | grep $PCAPMATCH)
+		((i=i+1))
+		sleep 1
+	done
+	if [ "$OUT" == "" ] ; then
+		echo $PCAPMATCH not found in pcap
+		exit 1
+	fi
+	echo $PCAPMATCH
+}
