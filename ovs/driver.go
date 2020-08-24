@@ -587,8 +587,8 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 
 	_, err = os.Stat(procNetNsPath)
 	if err == nil {
-		err = os.Remove(procNetNsPath);
-		if (err != nil) {
+		err = os.Remove(procNetNsPath)
+		if err != nil {
 			panic(err)
 		}
 	}
