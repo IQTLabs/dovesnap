@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 restart_wait_dovesnap ()
 {
