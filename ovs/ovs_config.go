@@ -43,16 +43,16 @@ const (
 	modeFlat = "flat"
 	modeNAT  = "nat"
 
-	bridgePrefix      = "ovsbr-"
-	containerEthName  = "eth"
-	mirrorBridgeName  = "mirrorbr"
-	netNsPath         = "/var/run/netns"
-	ofPortLocal       = 4294967294
-	ovsPortPrefix     = "ovs-veth0-"
-	peerOvsPortPrefix = "ethc"
-	stackDpidPrefix   = "0x0E0F00"
-	ovsStartupRetries = 5
-	dockerRetries     = 3
+	bridgePrefix            = "ovsbr-"
+	containerEthName        = "eth"
+	mirrorBridgeName        = "mirrorbr"
+	netNsPath               = "/var/run/netns"
+	ofPortLocal       int64 = 4294967294
+	ovsPortPrefix           = "ovs-veth0-"
+	peerOvsPortPrefix       = "ethc"
+	stackDpidPrefix         = "0x0E0F00"
+	ovsStartupRetries       = 5
+	dockerRetries           = 3
 )
 
 var (
