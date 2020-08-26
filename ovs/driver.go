@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -481,6 +482,7 @@ func mustHandleCreate(d *Driver, confclient faucetconfserver.FaucetConfServerCli
 	}
 	configYaml := mergeInterfacesYaml(ns.NetworkName, ns.BridgeDpidInt, ns.BridgeName, add_interfaces)
 	if usingMirrorBridge(d) {
+		log.Debugf("configuring mirror bridge port for %s", ns.BridgeName)
 		stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
 		ofportNum, mirrorOfportNum, err := d.addPatchPort(ns.BridgeName, mirrorBridgeName, uint(stackMirrorConfig.LbPort), 0)
 		if err != nil {
@@ -673,20 +675,60 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 	delete(*OFPorts, mapMsg.EndpointID)
 }
 
+func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint]string) {
+	for id, ns := range d.networks {
+		stackMirrorConfig := d.stackMirrorConfigs[id]
+		newPortDesc := make(map[uint]string)
+		err := scrapePortDesc(ns.BridgeName, &newPortDesc)
+		if err != nil {
+			continue
+		}
+		portDesc, have_port_desc := (*allPortDesc)[id]
+		if have_port_desc {
+			if reflect.DeepEqual(newPortDesc, portDesc) {
+				continue
+			}
+			log.Debugf("portDesc for %s updated", ns.BridgeName)
+		} else {
+			log.Debugf("new portDesc for %s", ns.BridgeName)
+		}
+
+		for ofport, desc := range newPortDesc {
+			if uint32(ofport) == ofPortLocal {
+				continue
+			}
+			if uint32(ofport) == stackMirrorConfig.LbPort {
+				continue
+			}
+			if strings.HasPrefix(desc, ovsPortPrefix) {
+				continue
+			}
+			log.Debugf("non container port: %s %s %d %s", id, ns.BridgeName, ofport, desc)
+		}
+		(*allPortDesc)[id] = newPortDesc
+	}
+}
+
 func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServerClient) {
 	OFPorts := make(map[string]OFPortContainer)
+	AllPortDesc := make(map[string]map[uint]string)
 
 	for {
-		mapMsg := <-d.ofportmapChan
-		switch mapMsg.Operation {
-		case "create":
-			mustHandleCreate(d, confclient, mapMsg)
-		case "add":
-			mustHandleAdd(d, confclient, mapMsg, &OFPorts)
-		case "rm":
-			mustHandleRm(d, confclient, mapMsg, &OFPorts)
+		select {
+		case mapMsg := <-d.ofportmapChan:
+			switch mapMsg.Operation {
+			case "create":
+				mustHandleCreate(d, confclient, mapMsg)
+			case "add":
+				mustHandleAdd(d, confclient, mapMsg, &OFPorts)
+			case "rm":
+				mustHandleRm(d, confclient, mapMsg, &OFPorts)
+			default:
+				log.Errorf("Unknown consolidation message: %s", mapMsg)
+			}
 		default:
-			log.Errorf("Unknown consolidation message: %s", mapMsg)
+			reconcileOvs(d, &AllPortDesc)
+			time.Sleep(3 * time.Second)
 		}
 	}
 }

@@ -12,19 +12,31 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-func (ovsdber *ovsdber) lowestFreePortOnBridge(bridgeName string) (lowestFreePort uint, err error) {
+func scrapePortDesc(bridgeName string, portDesc *map[uint]string) error {
 	output, err := OfCtl("dump-ports-desc", bridgeName)
 	if err != nil {
-		return 0, err
+		return err
 	}
-	var ofportNumberDump = regexp.MustCompile(`^\s*(\d+)\(\S+\).+$`)
-	existingOfPorts := []int{}
+	ofportNumberDump := regexp.MustCompile(`^\s*(\d+)\((\S+)\).+$`)
 	for _, line := range strings.Split(string(output), "\n") {
 		match := ofportNumberDump.FindAllStringSubmatch(line, -1)
 		if len(match) > 0 {
 			ofport, _ := strconv.Atoi(match[0][1])
-			existingOfPorts = append(existingOfPorts, ofport)
+			(*portDesc)[uint(ofport)] = match[0][2]
 		}
+	}
+	return nil
+}
+
+func (ovsdber *ovsdber) lowestFreePortOnBridge(bridgeName string) (lowestFreePort uint, err error) {
+	portDesc := make(map[uint]string)
+	err = scrapePortDesc(bridgeName, &portDesc)
+	if err != nil {
+		return 0, err
+	}
+	existingOfPorts := []int{}
+	for ofport, _ := range portDesc {
+		existingOfPorts = append(existingOfPorts, int(ofport))
 	}
 	sort.Ints(existingOfPorts)
 	intLowestFreePort := 1
