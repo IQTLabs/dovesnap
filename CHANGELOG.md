@@ -1,3 +1,9 @@
+# v0.4.0 (2020-08-27)
+
+- add/remove non-dovesnap managed ports to bridges to FAUCET
+- ARM compatibility
+- Updated grafana, faucetconfrpc
+
 # v0.3.0 (2020-08-21)
 
 - Add option for using DHCP
