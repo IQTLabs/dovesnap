@@ -1,17 +1,23 @@
 #!/bin/bash
 
+restart_dovesnap ()
+{
+        echo restarting dovesnap
+	DOVESNAPID="$(docker ps -q --filter name=dovesnap_plugin)"
+        docker logs $DOVESNAPID
+        docker restart $DOVESNAPID
+        docker logs $DOVESNAPID
+}
+
 restart_wait_dovesnap ()
 {
-	echo waiting for FAUCET config to have testnet
-	DOVESNAPID="$(docker ps -q --filter name=dovesnap_plugin)"
+	echo waiting for FAUCET config to have testnet mirror port
         TESTNETCOUNT=0
         while [ "$TESTNETCOUNT" != "1" ] ; do
-                TESTNETCOUNT=$(sudo grep -c testnet: $FAUCET_CONFIG)
+                TESTNETCOUNT=$(sudo grep -c 99: $FAUCET_CONFIG)
                 sleep 1
         done
-	echo restarting dovesnap
-	docker restart $DOVESNAPID
-	docker logs $DOVESNAPID
+	restart_dovesnap
 }
 
 init_dirs()

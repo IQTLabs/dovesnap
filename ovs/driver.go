@@ -481,6 +481,7 @@ func mustHandleCreate(d *Driver, confclient faucetconfserver.FaucetConfServerCli
 	}
 	configYaml := mergeInterfacesYaml(ns.NetworkName, ns.BridgeDpidInt, ns.BridgeName, add_interfaces)
 	if usingMirrorBridge(d) {
+		log.Debugf("configuring mirror bridge port for %s", ns.BridgeName)
 		stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
 		ofportNum, mirrorOfportNum, err := d.addPatchPort(ns.BridgeName, mirrorBridgeName, uint(stackMirrorConfig.LbPort), 0)
 		if err != nil {
@@ -673,20 +674,48 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 	delete(*OFPorts, mapMsg.EndpointID)
 }
 
+func reconcileOvs(d *Driver) {
+	for id, ns := range d.networks {
+		stackMirrorConfig := d.stackMirrorConfigs[id]
+		portDesc := make(map[uint]string)
+		err := scrapePortDesc(ns.BridgeName, &portDesc)
+		if err != nil {
+			continue
+		}
+		for ofport, desc := range portDesc {
+			if uint32(ofport) == ofPortLocal {
+				continue
+			}
+			if uint32(ofport) == stackMirrorConfig.LbPort {
+				continue
+			}
+			if strings.HasPrefix(desc, ovsPortPrefix) {
+				continue
+			}
+			log.Debugf("non container port: %s %s %d %s", id, ns.BridgeName, ofport, desc)
+		}
+	}
+}
+
 func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServerClient) {
 	OFPorts := make(map[string]OFPortContainer)
 
 	for {
-		mapMsg := <-d.ofportmapChan
-		switch mapMsg.Operation {
-		case "create":
-			mustHandleCreate(d, confclient, mapMsg)
-		case "add":
-			mustHandleAdd(d, confclient, mapMsg, &OFPorts)
-		case "rm":
-			mustHandleRm(d, confclient, mapMsg, &OFPorts)
+		select {
+		case mapMsg := <-d.ofportmapChan:
+			switch mapMsg.Operation {
+			case "create":
+				mustHandleCreate(d, confclient, mapMsg)
+			case "add":
+				mustHandleAdd(d, confclient, mapMsg, &OFPorts)
+			case "rm":
+				mustHandleRm(d, confclient, mapMsg, &OFPorts)
+			default:
+				log.Errorf("Unknown consolidation message: %s", mapMsg)
+			}
 		default:
-			log.Errorf("Unknown consolidation message: %s", mapMsg)
+			reconcileOvs(d)
+			time.Sleep(3 * time.Second)
 		}
 	}
 }
