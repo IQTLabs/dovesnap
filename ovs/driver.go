@@ -723,11 +723,6 @@ func mustGetGRPCClient(flagFaucetconfrpcServerName string, flagFaucetconfrpcServ
 	}
 	log.Debugf("Connected to RPC server")
 	confclient := faucetconfserver.NewFaucetConfServerClient(conn)
-	_, err = confclient.GetConfigFile(context.Background(), &faucetconfserver.GetConfigFileRequest{})
-	if err != nil {
-		panic(err)
-	}
-	log.Debugf("Successfully retrieved Faucet config")
 	return confclient
 }
 
