@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -674,15 +675,25 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 	delete(*OFPorts, mapMsg.EndpointID)
 }
 
-func reconcileOvs(d *Driver) {
+func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint]string) {
 	for id, ns := range d.networks {
 		stackMirrorConfig := d.stackMirrorConfigs[id]
-		portDesc := make(map[uint]string)
-		err := scrapePortDesc(ns.BridgeName, &portDesc)
+		newPortDesc := make(map[uint]string)
+		err := scrapePortDesc(ns.BridgeName, &newPortDesc)
 		if err != nil {
 			continue
 		}
-		for ofport, desc := range portDesc {
+		portDesc, have_port_desc := (*allPortDesc)[id]
+		if have_port_desc {
+			if reflect.DeepEqual(newPortDesc, portDesc) {
+				continue
+			}
+			log.Debugf("portDesc for %s updated", ns.BridgeName)
+		} else {
+			log.Debugf("new portDesc for %s", ns.BridgeName)
+		}
+
+		for ofport, desc := range newPortDesc {
 			if uint32(ofport) == ofPortLocal {
 				continue
 			}
@@ -694,11 +705,13 @@ func reconcileOvs(d *Driver) {
 			}
 			log.Debugf("non container port: %s %s %d %s", id, ns.BridgeName, ofport, desc)
 		}
+		(*allPortDesc)[id] = newPortDesc
 	}
 }
 
 func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServerClient) {
 	OFPorts := make(map[string]OFPortContainer)
+	AllPortDesc := make(map[string]map[uint]string)
 
 	for {
 		select {
@@ -714,7 +727,7 @@ func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServ
 				log.Errorf("Unknown consolidation message: %s", mapMsg)
 			}
 		default:
-			reconcileOvs(d)
+			reconcileOvs(d, &AllPortDesc)
 			time.Sleep(3 * time.Second)
 		}
 	}
