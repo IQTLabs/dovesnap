@@ -583,9 +583,17 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 	}
 
 	procPath := fmt.Sprintf("/proc/%d/ns/net", pid)
-	log.Debugf(procPath)
 	procNetNsPath := fmt.Sprintf("%s/%s", netNsPath, containerInspect.ID)
-	log.Debugf(procNetNsPath)
+
+	_, err = os.Lstat(procNetNsPath)
+	if err == nil {
+		log.Debugf("Remove existing %s", procNetNsPath)
+		err = os.Remove(procNetNsPath)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	err = os.Symlink(procPath, procNetNsPath)
 	if err != nil {
 		panic(err)
