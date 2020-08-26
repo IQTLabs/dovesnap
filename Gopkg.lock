@@ -138,12 +138,20 @@
   version = "v1.4.2"
 
 [[projects]]
-  digest = "1:180b828c80945f65ca18d72b325e4c6b9defd87ca6fba9e449197df1b92e5bc9"
+  digest = "1:6a4271130d5a5856fa87115d1cd25ca1c1c9ada910ba1753ada8b324f44efdb7"
   name = "github.com/iqtlabs/faucetconfrpc"
   packages = ["faucetconfrpc"]
   pruneopts = "UT"
-  revision = "396d48909d3deb8d53e36aef7dadd0d624dadba5"
-  version = "v0.17"
+  revision = "fdfad7ac14a0891f4e005f1d1c609591f71e4793"
+  version = "v0.20"
+
+[[projects]]
+  digest = "1:2b7adfde806a216220edb82348de19ea774379c46b8062a8a79f0e591ce7ec7d"
+  name = "github.com/kare/base62"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "b85cb792a24dec30071a48431465dea64496a534"
+  version = "v0.1.0"
 
 [[projects]]
   branch = "master"
@@ -365,6 +373,7 @@
     "github.com/docker/go-plugins-helpers/network",
     "github.com/docker/libnetwork/iptables",
     "github.com/iqtlabs/faucetconfrpc/faucetconfrpc",
+    "github.com/kare/base62",
     "github.com/kenshaw/baseconv",
     "github.com/sirupsen/logrus",
     "github.com/vishvananda/netlink",

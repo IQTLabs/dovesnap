@@ -161,7 +161,7 @@ wait_for_pcap_match ()
 {
 	i=0
 	OUT=""
-	while [ "$OUT" == "" ] && [ i != 30 ] ; do
+	while [ "$OUT" == "" ] && [ "$i" != 30 ] ; do
 		echo waiting for pcap match $PCAPMATCH: $i
 		OUT=$(sudo tcpdump -n -r $MIRROR_PCAP -v | grep $PCAPMATCH)
 		((i=i+1))

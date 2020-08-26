@@ -3,11 +3,18 @@
 """Manage FAUCET config files via RPC (client)."""
 
 import argparse
+import inspect
 from faucetconfrpc.faucetconfrpc_client_lib import FaucetConfRpcClient
 
 
 class ClientError(Exception):
     """Exceptions for client."""
+
+
+def get_attributes(cls):
+    """Get available RPCs via attrs"""
+    boring = dir(type('dummy', (object,), {}))
+    return [item for item in inspect.getmembers(cls) if item[0] not in boring]
 
 
 def main():
@@ -23,10 +30,10 @@ def main():
         '--cacert', help='CA public cert', action='store',
         default='ca.crt')
     parser.add_argument(
-        '--port', help='port to serve rpc requests', action='store',
+        '--port', help='port of rpc server', action='store',
         default=59999, type=int)
     parser.add_argument(
-        '--host', help='host address to serve rpc requests',
+        '--host', help='host address of rpc server',
         default='localhost')
     parser.add_argument(
         'commands', type=str, nargs='+',
@@ -34,6 +41,14 @@ def main():
     args = parser.parse_args()
     server_addr = '%s:%u' % (args.host, args.port)
     client = FaucetConfRpcClient(args.key, args.cert, args.cacert, server_addr)
+
+    if args.commands[0] == 'list_rpcs':
+        attributes = get_attributes(client)
+        for attribute in attributes:
+            if not attribute[0].startswith('_'):
+                print(attribute[0])
+        return
+
     command = getattr(client, args.commands[0], None)
     if not command:
         raise ClientError('no such rpc: %s' % args.commands[0])

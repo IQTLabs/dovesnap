@@ -49,6 +49,7 @@ const (
 	netNsPath                = "/var/run/netns"
 	ofPortLocal       uint32 = 4294967294
 	ovsPortPrefix            = "ovs-veth0-"
+	patchPrefix              = "ovp"
 	peerOvsPortPrefix        = "ethc"
 	stackDpidPrefix          = "0x0E0F00"
 	ovsStartupRetries        = 5
@@ -400,6 +401,7 @@ func getNetworkStateFromResource(r *types.NetworkResource) (ns NetworkState, err
 		MTU:               getIntOptionFromResource(r, mtuOption, defaultMTU),
 		Mode:              getStrOptionFromResource(r, modeOption, defaultMode),
 		FlatBindInterface: getStrOptionFromResource(r, bindInterfaceOption, ""),
+		AddPorts:          getStrOptionFromResource(r, bridgeAddPorts, ""),
 		UseDHCP:           parseBool(getStrOptionFromResource(r, dhcpOption, "")),
 		Gateway:           gateway,
 		GatewayMask:       mask,

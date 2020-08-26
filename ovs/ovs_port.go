@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	base62 "github.com/kare/base62"
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
@@ -39,6 +40,7 @@ func (ovsdber *ovsdber) lowestFreePortOnBridge(bridgeName string) (lowestFreePor
 		existingOfPorts = append(existingOfPorts, int(ofport))
 	}
 	sort.Ints(existingOfPorts)
+	log.Debugf("existing ports on %s: %+v", bridgeName, existingOfPorts)
 	intLowestFreePort := 1
 	for _, existingPort := range existingOfPorts {
 		if existingPort != intLowestFreePort {
@@ -63,11 +65,15 @@ func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag 
 }
 
 func patchStr(a string) string {
-	return strconv.FormatUint(uint64(crc32.ChecksumIEEE([]byte(a))), 36)
+	return base62.Encode(int64(crc32.ChecksumIEEE([]byte(a))))
 }
 
 func patchName(a string, b string) string {
-	return patchStr(a) + patchStr(b)
+	name := patchPrefix + patchStr(a) + patchStr(b)
+	if len(name) > 15 {
+		panic(fmt.Errorf("%s too long for ifName", name))
+	}
+	return name
 }
 
 func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, port uint, portPeer uint) (uint, uint, error) {
