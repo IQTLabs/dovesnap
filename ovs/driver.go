@@ -69,6 +69,7 @@ type NetworkState struct {
 	BridgeVLAN        int
 	MTU               int
 	Mode              string
+	AddPorts          string
 	Gateway           string
 	GatewayMask       string
 	FlatBindInterface string
@@ -224,6 +225,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		BridgeVLAN:        vlan,
 		MTU:               mtu,
 		Mode:              mode,
+		AddPorts:          add_ports,
 		Gateway:           gateway,
 		GatewayMask:       mask,
 		FlatBindInterface: bindInterface,
@@ -618,6 +620,28 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 	(*OFPorts)[mapMsg.EndpointID] = containerMap
 }
 
+func deleteDpInterface(confclient faucetconfserver.FaucetConfServerClient, dpName string, ofport uint32) {
+	interfaces := &faucetconfserver.InterfaceInfo{
+		PortNo: uint32(ofport),
+	}
+	interfacesConf := []*faucetconfserver.DpInfo{
+		{
+			Name:       dpName,
+			Interfaces: []*faucetconfserver.InterfaceInfo{interfaces},
+		},
+	}
+
+	req := &faucetconfserver.DelDpInterfacesRequest{
+		InterfacesConfig: interfacesConf,
+		DeleteEmptyDp:    true,
+	}
+
+	_, err := confclient.DelDpInterfaces(context.Background(), req)
+	if err != nil {
+		log.Errorf("Error while calling DelDpInterfaces RPC %s: %v", req, err)
+	}
+}
+
 func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient, mapMsg OFPortMap, OFPorts *map[string]OFPortContainer) {
 	defer func() {
 		if rerr := recover(); rerr != nil {
@@ -632,9 +656,11 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 		udhcpcCmd.Process.Kill()
 		udhcpcCmd.Wait()
 	}
-	ns := d.networks[mapMsg.NetworkID]
-	interfaces := &faucetconfserver.InterfaceInfo{
-		PortNo: int32(mapMsg.OFPort),
+	ns, have_network := d.networks[mapMsg.NetworkID]
+	if !have_network {
+		log.Debugf("Network %s already gone", mapMsg.NetworkID)
+		delete(*OFPorts, mapMsg.EndpointID)
+		return
 	}
 
 	log.Debugf("Removing port %d on %s from Faucet config", mapMsg.OFPort, ns.NetworkName)
@@ -655,21 +681,7 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 		}
 	}
 
-	interfacesConf := []*faucetconfserver.DpInfo{
-		{
-			Name:       ns.NetworkName,
-			Interfaces: []*faucetconfserver.InterfaceInfo{interfaces},
-		},
-	}
-
-	req := &faucetconfserver.DelDpInterfacesRequest{
-		InterfacesConfig: interfacesConf,
-		DeleteEmptyDp:    true,
-	}
-	_, err := confclient.DelDpInterfaces(context.Background(), req)
-	if err != nil {
-		log.Errorf("Error while calling DelDpInterfaces RPC %s: %v", req, err)
-	}
+	deleteDpInterface(confclient, ns.NetworkName, uint32(mapMsg.OFPort))
 
 	// The container will be gone by the time we query docker.
 	delete(*OFPorts, mapMsg.EndpointID)
@@ -683,28 +695,57 @@ func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint]string) {
 		if err != nil {
 			continue
 		}
+		addPorts := make(map[string]uint32)
+		d.ovsdber.parseAddPorts(ns.AddPorts, &addPorts)
+
 		portDesc, have_port_desc := (*allPortDesc)[id]
 		if have_port_desc {
 			if reflect.DeepEqual(newPortDesc, portDesc) {
 				continue
 			}
 			log.Debugf("portDesc for %s updated", ns.BridgeName)
+
+			for ofport, desc := range portDesc {
+				_, have_new_port_desc := newPortDesc[ofport]
+				if have_new_port_desc {
+					continue
+				}
+				// Ignore container ports
+				if strings.HasPrefix(desc, ovsPortPrefix) {
+					continue
+				}
+				log.Infof("removing non dovesnap port: %s %s %d %s", id, ns.BridgeName, ofport, desc)
+				deleteDpInterface(d.faucetclient, ns.NetworkName, uint32(ofport))
+			}
 		} else {
 			log.Debugf("new portDesc for %s", ns.BridgeName)
 		}
 
+		add_interfaces := ""
+
 		for ofport, desc := range newPortDesc {
-			if uint32(ofport) == ofPortLocal {
+			// Ignore NAT and mirror port
+			if uint32(ofport) == ofPortLocal || uint32(ofport) == stackMirrorConfig.LbPort {
 				continue
 			}
-			if uint32(ofport) == stackMirrorConfig.LbPort {
+			// Ignore container and patch ports.
+			if strings.HasPrefix(desc, ovsPortPrefix) || strings.HasPrefix(desc, patchPrefix) {
 				continue
 			}
-			if strings.HasPrefix(desc, ovsPortPrefix) {
+			// Skip ports that were added at creation time.
+			_, have_add_port := addPorts[desc]
+			if have_add_port {
 				continue
 			}
-			log.Debugf("non container port: %s %s %d %s", id, ns.BridgeName, ofport, desc)
+			log.Infof("adding non dovesnap port: %s %s %d %s", id, ns.BridgeName, ofport, desc)
+			add_interfaces += fmt.Sprintf("%d: {description: %s, native_vlan: %d},", ofport, "Physical interface "+desc, ns.BridgeVLAN)
 		}
+
+		if add_interfaces != "" {
+			configYaml := mergeInterfacesYaml(ns.NetworkName, ns.BridgeDpidInt, ns.BridgeName, add_interfaces)
+			setFaucetConfigFile(d.faucetclient, configYaml)
+		}
+
 		(*allPortDesc)[id] = newPortDesc
 	}
 }

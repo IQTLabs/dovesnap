@@ -37,6 +37,7 @@ wait_mirror
 sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
 echo verifying networking
 sudo timeout 30s tcpdump -n -c 1 -U -i mirroro -w $MIRROR_PCAP tcp &
+sleep 3
 docker exec -t testcon wget -q -O- bing.com || exit 1
 PCAPMATCH=TCP
 wait_for_pcap_match
