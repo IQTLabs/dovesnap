@@ -45,7 +45,18 @@ conf_faucet()
 	echo configuring faucet
 	sudo rm -f $FAUCET_CONFIG
 cat >$FAUCET_CONFIG <<EOFC || exit 1
+meters:
+  lossymeter:
+    meter_id: 1
+    entry:
+        flags: "KBPS"
+        bands: [{type: "DROP", rate: 100}]
 acls:
+  ratelimitit:
+  - rule:
+      actions:
+        meter: lossymeter
+        allow: 1
   allowall:
   - rule:
       actions:
@@ -128,7 +139,7 @@ wait_acl ()
 	while [ "$ACLCOUNT" != "2" ] ; do
 		docker logs $DOVESNAPID
 		sudo cat $FAUCET_CONFIG
-		ACLCOUNT=$(sudo grep -c allowall $FAUCET_CONFIG)
+		ACLCOUNT=$(sudo grep -c ratelimitit $FAUCET_CONFIG)
 		sleep 1
 	done
 }
