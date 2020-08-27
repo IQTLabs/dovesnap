@@ -74,6 +74,7 @@ type NetworkState struct {
 	GatewayMask       string
 	FlatBindInterface string
 	UseDHCP           bool
+	Userspace         bool
 }
 
 func setFaucetConfigFile(confclient faucetconfserver.FaucetConfServerClient, config_yaml string) {
@@ -112,7 +113,7 @@ func (d *Driver) createMirrorBridge() {
 	if len(d.mirrorBridgeIn) > 0 {
 		add_ports += "," + d.mirrorBridgeIn
 	}
-	err = d.ovsdber.createBridge(mirrorBridgeName, "", "", add_ports, true)
+	err = d.ovsdber.createBridge(mirrorBridgeName, "", "", add_ports, true, false)
 	if err != nil {
 		panic(err)
 	}
@@ -134,7 +135,7 @@ func (d *Driver) createStackingBridge() error {
 		log.Infof("Stacking bridge doesn't exist, creating one now")
 	}
 
-	err = d.ovsdber.createBridge(dpName, d.stackDefaultControllers, dpid, "", true)
+	err = d.ovsdber.createBridge(dpName, d.stackDefaultControllers, dpid, "", true, false)
 	if err != nil {
 		log.Errorf("Unable to create stacking bridge because: [ %s ]", err)
 	}
@@ -205,6 +206,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 	add_ports := mustGetBridgeAddPorts(r)
 	gateway, mask := mustGetGatewayIP(r)
 	useDHCP := mustGetUseDHCP(r)
+	useUserspace := mustGetUserspace(r)
 
 	if useDHCP {
 		if mode != "flat" {
@@ -230,13 +232,14 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		GatewayMask:       mask,
 		FlatBindInterface: bindInterface,
 		UseDHCP:           useDHCP,
+		Userspace:         useUserspace,
 	}
 
 	d.networks[r.NetworkID] = ns
 	d.stackMirrorConfigs[r.NetworkID] = d.getStackMirrorConfig(r)
 
 	if operation == "create" {
-		if err := d.initBridge(r.NetworkID, controller, dpid, add_ports); err != nil {
+		if err := d.initBridge(r.NetworkID, controller, dpid, add_ports, useUserspace); err != nil {
 			panic(err)
 		}
 	}
