@@ -47,29 +47,35 @@ class GraphDovesnap:
         (dump_exit, output) = container[0].exec_run(cmd)
         if dump_exit != 0:
             raise GraphDovesnapException('%s: %s', cmd, output)
-        return [line.decode('UTF-8') for line in output.splitlines()]
+        return output.splitlines()
+
+    def _get_matching_lines(self, lines, re_str):
+        match_re = re.compile(re_str)
+        matching_lines = []
+        for line in lines:
+            match = match_re.match(line.decode('UTF-8'))
+            if match:
+                matching_lines.append(match)
+        return matching_lines
 
     def _scrape_container_iface(self, name):
         lines = self._scrape_container_cmd(name, ['ip', '-o', 'link', 'show'])
-        if_re = re.compile(r'^(\d+):\s+([^\@]+)\@if(\d+):.+link\/ether\s+(\S+).+$')
+        matching_lines = self._get_matching_lines(
+            lines, r'^(\d+):\s+([^\@]+)\@if(\d+):.+link\/ether\s+(\S+).+$')
         results = []
-        for line in lines:
-            match = if_re.match(line)
-            if match:
-                iflink = int(match[1])
-                ifname = match[2]
-                peeriflink = int(match[3])
-                mac = match[4]
-                results.append((ifname, mac, iflink, peeriflink))
+        for match in matching_lines:
+            iflink = int(match[1])
+            ifname = match[2]
+            peeriflink = int(match[3])
+            mac = match[4]
+            results.append((ifname, mac, iflink, peeriflink))
         return results
 
     def _scrape_container_ip(self, name, iflink):
         lines = self._scrape_container_cmd(name, ['ip', '-o', 'addr'])
-        if_re = re.compile(r'^%u:.+inet\s+(\S+).+$' % iflink)
-        for line in lines:
-            match = if_re.match(line)
-            if match:
-                return match[1]
+        matching_lines = self._get_matching_lines(lines, r'^%u:.+inet\s+(\S+).+$' % iflink)
+        for match in matching_lines:
+            return match[1]
         return None
 
     def _scrape_bridge_interfaces(self, network):
@@ -77,32 +83,30 @@ class GraphDovesnap:
         bridge_name = self._dovesnap_bridgename(network_id)
         lines = self._scrape_container_cmd(
             self.OVS_NAME, ['ovs-ofctl', 'dump-ports-desc', bridge_name])
+        matching_lines = self._get_matching_lines(
+            lines, r'^\s*(\d+|LOCAL)\((\S+)\).+$')
         port_desc = {}
-        port_desc_re = re.compile(r'^\s*(\d+|LOCAL)\((\S+)\).+$')
-        for line in lines:
-            match = port_desc_re.match(line)
-            if match:
-                port = match[1]
-                desc = match[2]
-                if port == 'LOCAL':
-                    port = self.OFP_LOCAL
-                port = int(port)
-                port_desc[desc] = port
+        for match in matching_lines:
+            port = match[1]
+            desc = match[2]
+            if port == 'LOCAL':
+                port = self.OFP_LOCAL
+            port = int(port)
+            port_desc[desc] = port
         return port_desc
 
     def _scrape_host_veths(self):
         host_veths = {}
         process = subprocess.Popen(
             ['ip', '-o', 'link', 'show', 'type', 'veth'], stdout=subprocess.PIPE)
-        if_re = re.compile(
+        matching_lines = self._get_matching_lines(
+            process.stdout.readlines(),
             r'^(\d+):\s+([^\@]+)\@.+link\/ether\s+(\S+).+link-netnsid\s+(\d+).*$')
-        for line in process.stdout.readlines():
-            match = if_re.match(line.decode('UTF-8'))
-            if match:
-                iflink = int(match[1])
-                ifname = match[2]
-                mac = match[3]
-                host_veths[iflink] = (ifname, mac)
+        for match in matching_lines:
+            iflink = int(match[1])
+            ifname = match[2]
+            mac = match[3]
+            host_veths[iflink] = (ifname, mac)
         return host_veths
 
     def build_graph(self):
