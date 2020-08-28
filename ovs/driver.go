@@ -605,7 +605,8 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 	if err != nil {
 		panic(err)
 	}
-	udhcpcCmd := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/udhcpc", "-f", "-R")
+	defaultInterface := "eth0"
+	udhcpcCmd := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/udhcpc", "-f", "-R", "-i", defaultInterface)
 	if ns.UseDHCP {
 		err = udhcpcCmd.Start()
 		if err != nil {
@@ -614,6 +615,13 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 		log.Infof("started udhcpc for %s", containerInspect.ID)
 	} else {
 		udhcpcCmd = nil
+	}
+	if ns.Userspace {
+		output, err := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/ethtool", "-K", defaultInterface, "tx", "off").CombinedOutput()
+		log.Debugf("%s", output)
+		if err != nil {
+			panic(err)
+		}
 	}
 	containerMap := OFPortContainer{
 		OFPort:           mapMsg.OFPort,
