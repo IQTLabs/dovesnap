@@ -140,6 +140,17 @@ class GraphDovesnap:
     def _get_lb_port(self, network):
         return network['Options'].get('ovs.bridge.lbport', 99)
 
+    def _get_container_args(self, container_inspect):
+        args = {}
+        for arg_str in container_inspect['Config']['Cmd']:
+            arg_str = arg_str.lstrip('-')
+            arg_l = arg_str.split('=')
+            if len(arg_l) > 1:
+                args[arg_l[0]] = arg_l[1]
+            else:
+                args[arg_l[0]] = ""
+        return args
+
     def build_graph(self):
         dot = Digraph()
         client = docker.APIClient(base_url=self.DOCKER_URL)
@@ -148,6 +159,8 @@ class GraphDovesnap:
         dovesnap = self._get_named_container(client, self.DOVESNAP_NAME)
         if not dovesnap:
             raise GraphDovesnapException('cannot find dovesnap container')
+        dovesnap_inspect = client.inspect_container(dovesnap['Id'])
+        dovesnap_args = self._get_container_args(dovesnap_inspect)
         networks = self._get_dovesnap_networks(client)
         container_veths = self._scrape_container_veths()
         patch_veths = self._scrape_patch_veths()
@@ -215,7 +228,11 @@ class GraphDovesnap:
             for br_desc, ofport in all_port_desc[bridgename].items():
                 if ofport == self.OFP_LOCAL:
                     continue
-                if br_desc not in patch_veths:
+                if br_desc in patch_veths:
+                    continue
+                if br_desc == dovesnap_args.get('mirror_bridge_out', ''):
+                    dot.edge(br_desc, bridgename, str(ofport))
+                else:
                     dot.edge(bridgename, br_desc, str(ofport))
 
         dot.format = 'png'
