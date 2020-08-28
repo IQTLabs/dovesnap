@@ -95,8 +95,8 @@ class GraphDovesnap:
             port_desc[desc] = port
         return port_desc
 
-    def _scrape_host_veths(self):
-        host_veths = {}
+    def _scrape_container_veths(self):
+        container_veths = {}
         process = subprocess.Popen(
             ['ip', '-o', 'link', 'show', 'type', 'veth'], stdout=subprocess.PIPE)
         matching_lines = self._get_matching_lines(
@@ -106,11 +106,14 @@ class GraphDovesnap:
             iflink = int(match[1])
             ifname = match[2]
             mac = match[3]
-            host_veths[iflink] = (ifname, mac)
-        return host_veths
+            container_veths[iflink] = (ifname, mac)
+        return container_veths
 
     def _get_network_mode(self, network):
         return network['Options'].get('ovs.bridge.mode', 'flat')
+
+    def _is_patch_link(self, desc):
+        return desc.startswith('ovp')
 
     def build_graph(self):
         dot = Digraph()
@@ -121,7 +124,7 @@ class GraphDovesnap:
         if not dovesnap:
             raise GraphDovesnapException('cannot find dovesnap container')
         networks = self._get_dovesnap_networks(client)
-        host_veths = self._scrape_host_veths()
+        container_veths = self._scrape_container_veths()
         all_port_desc = {}
         for network in networks:
             network_id = network['Id']
@@ -138,8 +141,8 @@ class GraphDovesnap:
                 container_name = container['Name']
                 container_inspect = client.inspect_container(container_id)
                 for ifname, mac, iflink, peeriflink in self._scrape_container_iface(container_name):
-                    if peeriflink in host_veths:
-                        br_ifname, _ = host_veths[peeriflink]
+                    if peeriflink in container_veths:
+                        br_ifname, _ = container_veths[peeriflink]
                         labels = ['%s: %s' % (label.split('.')[-1], labelval)
                             for label, labelval in container_inspect['Config']['Labels'].items()]
                         host_label = [container_name, ifname, mac]
