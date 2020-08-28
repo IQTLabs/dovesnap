@@ -40,6 +40,6 @@ services:
     cap_add:
       - NET_ADMIN
     # TODO: Userspace bridges require OVS to be privileged.
-    privileged: true
+    # privileged: true
 volumes:
   ovs-data:
