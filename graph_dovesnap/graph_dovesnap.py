@@ -112,8 +112,8 @@ class GraphDovesnap:
     def _get_network_mode(self, network):
         return network['Options'].get('ovs.bridge.mode', 'flat')
 
-    def _is_patch_link(self, desc):
-        return desc.startswith('ovp')
+    def _get_lb_port(self, network):
+        return network['Options'].get('ovs.bridge.lbport', 99)
 
     def build_graph(self):
         dot = Digraph()
@@ -157,11 +157,15 @@ class GraphDovesnap:
                         dot.edge(network_id, container_id, edge_label)
                         break
             mode = self._get_network_mode(network)
+            lbport = self._get_lb_port(network)
             for br_desc, ofport in all_port_desc[network_id].items():
                 if ofport in container_ports:
                     continue
-                if ofport == self.OFP_LOCAL and mode == 'nat':
-                    dot.edge(network_id, 'NAT')
+                if ofport == self.OFP_LOCAL:
+                    if mode == 'nat':
+                        dot.edge(network_id, 'NAT')
+                elif ofport == lbport:
+                    dot.edge(network_id, br_desc, 'mirror: %u' % lbport)
                 else:
                     dot.edge(network_id, br_desc, str(ofport))
         dot.format = 'png'
