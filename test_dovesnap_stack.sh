@@ -8,7 +8,18 @@ conf_keys
 
 sudo rm -f $FAUCET_CONFIG
 cat >$FAUCET_CONFIG <<EOFC || exit 1
+meters:
+  lossymeter:
+    meter_id: 1
+    entry:
+        flags: "KBPS"
+        bands: [{type: "DROP", rate: 100}]
 acls:
+  ratelimitit:
+  - rule:
+      actions:
+        meter: lossymeter
+        allow: 1
   allowall:
   - rule:
       actions:
@@ -72,7 +83,7 @@ restart_wait_dovesnap
 echo creating testcon
 # github test runner can't use ping.
 docker pull busybox
-docker run -d --label="dovesnap.faucet.portacl=allowall" --label="dovesnap.faucet.mirror=true" --net=testnet --rm --name=testcon busybox sleep 1h
+docker run -d --label="dovesnap.faucet.portacl=ratelimitit" --label="dovesnap.faucet.mirror=true" --net=testnet --rm --name=testcon busybox sleep 1h
 RET=$?
 if [ "$RET" != "0" ] ; then
 	echo testcon container creation returned: $RET

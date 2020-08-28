@@ -2,6 +2,7 @@ package ovs
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -69,7 +70,27 @@ func (ovsdber *ovsdber) makeLoopbackBridge(bridgeName string) (err error) {
 	return err
 }
 
-func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid string, add_ports string, exists bool) error {
+func (ovsdber *ovsdber) parseAddPorts(add_ports string, addPorts *map[string]uint32) {
+	if add_ports == "" {
+		return
+	}
+	for _, add_port_number_str := range strings.Split(add_ports, ",") {
+		add_port_number := strings.Split(add_port_number_str, "/")
+		add_port := add_port_number[0]
+		if len(add_port_number) == 2 {
+			number, err := strconv.ParseUint(add_port_number[1], 10, 32)
+			if err != nil {
+				panic(err)
+			}
+			(*addPorts)[add_port] = uint32(number)
+		} else {
+			(*addPorts)[add_port] = 0
+		}
+	}
+	return
+}
+
+func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid string, add_ports string, exists bool, userspace bool) error {
 	if exists {
 		if _, err := ovsdber.addBridgeExists(bridgeName); err != nil {
 			log.Errorf("Error creating ovs bridge [ %s ] : [ %s ]", bridgeName, err)
@@ -83,6 +104,10 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 	}
 	var ovsConfigCmds [][]string
 
+	if userspace {
+		ovsConfigCmds = append(ovsConfigCmds, []string{"set", "bridge", bridgeName, "datapath_type=netdev"})
+	}
+
 	if dpid != "" {
 		ovsConfigCmds = append(ovsConfigCmds, []string{"set", "bridge", bridgeName, fmt.Sprintf("other-config:datapath-id=%s", dpid)})
 	}
@@ -94,12 +119,11 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 	}
 
 	if add_ports != "" {
-		for _, add_port_number_str := range strings.Split(add_ports, ",") {
-			add_port_number := strings.Split(add_port_number_str, "/")
-			add_port := add_port_number[0]
-			if len(add_port_number) == 2 {
-				number := add_port_number[1]
-				ovsConfigCmds = append(ovsConfigCmds, []string{"add-port", bridgeName, add_port, "--", "set", "Interface", add_port, fmt.Sprintf("ofport_request=%s", number)})
+		addPorts := make(map[string]uint32)
+		ovsdber.parseAddPorts(add_ports, &addPorts)
+		for add_port, number := range addPorts {
+			if number > 0 {
+				ovsConfigCmds = append(ovsConfigCmds, []string{"add-port", bridgeName, add_port, "--", "set", "Interface", add_port, fmt.Sprintf("ofport_request=%d", number)})
 			} else {
 				ovsConfigCmds = append(ovsConfigCmds, []string{"add-port", bridgeName, add_port})
 			}
@@ -125,9 +149,9 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 }
 
 //  setup bridge, if bridge does not exist create it.
-func (d *Driver) initBridge(id string, controller string, dpid string, add_ports string) error {
+func (d *Driver) initBridge(id string, controller string, dpid string, add_ports string, userspace bool) error {
 	bridgeName := d.networks[id].BridgeName
-	err := d.ovsdber.createBridge(bridgeName, controller, dpid, add_ports, false)
+	err := d.ovsdber.createBridge(bridgeName, controller, dpid, add_ports, false, userspace)
 	if err != nil {
 		log.Errorf("Error creating bridge: %s", err)
 		return err

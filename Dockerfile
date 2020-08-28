@@ -4,7 +4,7 @@ RUN update-alternatives --set iptables /usr/sbin/iptables-legacy
 RUN apt-get update && apt-get install -y \
     openvswitch-common \
     openvswitch-switch \
-    udhcpc
+    udhcpc ethtool
 COPY . /go/src/dovesnap
 WORKDIR /go/src/dovesnap
 RUN dep ensure

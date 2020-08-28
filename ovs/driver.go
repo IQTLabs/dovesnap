@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -68,10 +69,12 @@ type NetworkState struct {
 	BridgeVLAN        int
 	MTU               int
 	Mode              string
+	AddPorts          string
 	Gateway           string
 	GatewayMask       string
 	FlatBindInterface string
 	UseDHCP           bool
+	Userspace         bool
 }
 
 func setFaucetConfigFile(confclient faucetconfserver.FaucetConfServerClient, config_yaml string) {
@@ -110,7 +113,7 @@ func (d *Driver) createMirrorBridge() {
 	if len(d.mirrorBridgeIn) > 0 {
 		add_ports += "," + d.mirrorBridgeIn
 	}
-	err = d.ovsdber.createBridge(mirrorBridgeName, "", "", add_ports, true)
+	err = d.ovsdber.createBridge(mirrorBridgeName, "", "", add_ports, true, false)
 	if err != nil {
 		panic(err)
 	}
@@ -132,7 +135,7 @@ func (d *Driver) createStackingBridge() error {
 		log.Infof("Stacking bridge doesn't exist, creating one now")
 	}
 
-	err = d.ovsdber.createBridge(dpName, d.stackDefaultControllers, dpid, "", true)
+	err = d.ovsdber.createBridge(dpName, d.stackDefaultControllers, dpid, "", true, false)
 	if err != nil {
 		log.Errorf("Unable to create stacking bridge because: [ %s ]", err)
 	}
@@ -203,6 +206,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 	add_ports := mustGetBridgeAddPorts(r)
 	gateway, mask := mustGetGatewayIP(r)
 	useDHCP := mustGetUseDHCP(r)
+	useUserspace := mustGetUserspace(r)
 
 	if useDHCP {
 		if mode != "flat" {
@@ -223,17 +227,19 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		BridgeVLAN:        vlan,
 		MTU:               mtu,
 		Mode:              mode,
+		AddPorts:          add_ports,
 		Gateway:           gateway,
 		GatewayMask:       mask,
 		FlatBindInterface: bindInterface,
 		UseDHCP:           useDHCP,
+		Userspace:         useUserspace,
 	}
 
 	d.networks[r.NetworkID] = ns
 	d.stackMirrorConfigs[r.NetworkID] = d.getStackMirrorConfig(r)
 
 	if operation == "create" {
-		if err := d.initBridge(r.NetworkID, controller, dpid, add_ports); err != nil {
+		if err := d.initBridge(r.NetworkID, controller, dpid, add_ports, useUserspace); err != nil {
 			panic(err)
 		}
 	}
@@ -481,6 +487,7 @@ func mustHandleCreate(d *Driver, confclient faucetconfserver.FaucetConfServerCli
 	}
 	configYaml := mergeInterfacesYaml(ns.NetworkName, ns.BridgeDpidInt, ns.BridgeName, add_interfaces)
 	if usingMirrorBridge(d) {
+		log.Debugf("configuring mirror bridge port for %s", ns.BridgeName)
 		stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
 		ofportNum, mirrorOfportNum, err := d.addPatchPort(ns.BridgeName, mirrorBridgeName, uint(stackMirrorConfig.LbPort), 0)
 		if err != nil {
@@ -598,7 +605,8 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 	if err != nil {
 		panic(err)
 	}
-	udhcpcCmd := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/udhcpc", "-f", "-R")
+	defaultInterface := "eth0"
+	udhcpcCmd := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/udhcpc", "-f", "-R", "-i", defaultInterface)
 	if ns.UseDHCP {
 		err = udhcpcCmd.Start()
 		if err != nil {
@@ -608,12 +616,41 @@ func mustHandleAdd(d *Driver, confclient faucetconfserver.FaucetConfServerClient
 	} else {
 		udhcpcCmd = nil
 	}
+	if ns.Userspace {
+		output, err := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/ethtool", "-K", defaultInterface, "tx", "off").CombinedOutput()
+		log.Debugf("%s", output)
+		if err != nil {
+			panic(err)
+		}
+	}
 	containerMap := OFPortContainer{
 		OFPort:           mapMsg.OFPort,
 		containerInspect: containerInspect,
 		udhcpcCmd:        udhcpcCmd,
 	}
 	(*OFPorts)[mapMsg.EndpointID] = containerMap
+}
+
+func deleteDpInterface(confclient faucetconfserver.FaucetConfServerClient, dpName string, ofport uint32) {
+	interfaces := &faucetconfserver.InterfaceInfo{
+		PortNo: uint32(ofport),
+	}
+	interfacesConf := []*faucetconfserver.DpInfo{
+		{
+			Name:       dpName,
+			Interfaces: []*faucetconfserver.InterfaceInfo{interfaces},
+		},
+	}
+
+	req := &faucetconfserver.DelDpInterfacesRequest{
+		InterfacesConfig: interfacesConf,
+		DeleteEmptyDp:    true,
+	}
+
+	_, err := confclient.DelDpInterfaces(context.Background(), req)
+	if err != nil {
+		log.Errorf("Error while calling DelDpInterfaces RPC %s: %v", req, err)
+	}
 }
 
 func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient, mapMsg OFPortMap, OFPorts *map[string]OFPortContainer) {
@@ -630,9 +667,11 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 		udhcpcCmd.Process.Kill()
 		udhcpcCmd.Wait()
 	}
-	ns := d.networks[mapMsg.NetworkID]
-	interfaces := &faucetconfserver.InterfaceInfo{
-		PortNo: int32(mapMsg.OFPort),
+	ns, have_network := d.networks[mapMsg.NetworkID]
+	if !have_network {
+		log.Debugf("Network %s already gone", mapMsg.NetworkID)
+		delete(*OFPorts, mapMsg.EndpointID)
+		return
 	}
 
 	log.Debugf("Removing port %d on %s from Faucet config", mapMsg.OFPort, ns.NetworkName)
@@ -653,40 +692,95 @@ func mustHandleRm(d *Driver, confclient faucetconfserver.FaucetConfServerClient,
 		}
 	}
 
-	interfacesConf := []*faucetconfserver.DpInfo{
-		{
-			Name:       ns.NetworkName,
-			Interfaces: []*faucetconfserver.InterfaceInfo{interfaces},
-		},
-	}
-
-	req := &faucetconfserver.DelDpInterfacesRequest{
-		InterfacesConfig: interfacesConf,
-		DeleteEmptyDp:    true,
-	}
-	_, err := confclient.DelDpInterfaces(context.Background(), req)
-	if err != nil {
-		log.Errorf("Error while calling DelDpInterfaces RPC %s: %v", req, err)
-	}
+	deleteDpInterface(confclient, ns.NetworkName, uint32(mapMsg.OFPort))
 
 	// The container will be gone by the time we query docker.
 	delete(*OFPorts, mapMsg.EndpointID)
 }
 
+func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint]string) {
+	for id, ns := range d.networks {
+		stackMirrorConfig := d.stackMirrorConfigs[id]
+		newPortDesc := make(map[uint]string)
+		err := scrapePortDesc(ns.BridgeName, &newPortDesc)
+		if err != nil {
+			continue
+		}
+		addPorts := make(map[string]uint32)
+		d.ovsdber.parseAddPorts(ns.AddPorts, &addPorts)
+
+		portDesc, have_port_desc := (*allPortDesc)[id]
+		if have_port_desc {
+			if reflect.DeepEqual(newPortDesc, portDesc) {
+				continue
+			}
+			log.Debugf("portDesc for %s updated", ns.BridgeName)
+
+			for ofport, desc := range portDesc {
+				_, have_new_port_desc := newPortDesc[ofport]
+				if have_new_port_desc {
+					continue
+				}
+				// Ignore container ports
+				if strings.HasPrefix(desc, ovsPortPrefix) {
+					continue
+				}
+				log.Infof("removing non dovesnap port: %s %s %d %s", id, ns.BridgeName, ofport, desc)
+				deleteDpInterface(d.faucetclient, ns.NetworkName, uint32(ofport))
+			}
+		} else {
+			log.Debugf("new portDesc for %s", ns.BridgeName)
+		}
+
+		add_interfaces := ""
+
+		for ofport, desc := range newPortDesc {
+			// Ignore NAT and mirror port
+			if uint32(ofport) == ofPortLocal || uint32(ofport) == stackMirrorConfig.LbPort {
+				continue
+			}
+			// Ignore container and patch ports.
+			if strings.HasPrefix(desc, ovsPortPrefix) || strings.HasPrefix(desc, patchPrefix) {
+				continue
+			}
+			// Skip ports that were added at creation time.
+			_, have_add_port := addPorts[desc]
+			if have_add_port {
+				continue
+			}
+			log.Infof("adding non dovesnap port: %s %s %d %s", id, ns.BridgeName, ofport, desc)
+			add_interfaces += fmt.Sprintf("%d: {description: %s, native_vlan: %d},", ofport, "Physical interface "+desc, ns.BridgeVLAN)
+		}
+
+		if add_interfaces != "" {
+			configYaml := mergeInterfacesYaml(ns.NetworkName, ns.BridgeDpidInt, ns.BridgeName, add_interfaces)
+			setFaucetConfigFile(d.faucetclient, configYaml)
+		}
+
+		(*allPortDesc)[id] = newPortDesc
+	}
+}
+
 func consolidateDockerInfo(d *Driver, confclient faucetconfserver.FaucetConfServerClient) {
 	OFPorts := make(map[string]OFPortContainer)
+	AllPortDesc := make(map[string]map[uint]string)
 
 	for {
-		mapMsg := <-d.ofportmapChan
-		switch mapMsg.Operation {
-		case "create":
-			mustHandleCreate(d, confclient, mapMsg)
-		case "add":
-			mustHandleAdd(d, confclient, mapMsg, &OFPorts)
-		case "rm":
-			mustHandleRm(d, confclient, mapMsg, &OFPorts)
+		select {
+		case mapMsg := <-d.ofportmapChan:
+			switch mapMsg.Operation {
+			case "create":
+				mustHandleCreate(d, confclient, mapMsg)
+			case "add":
+				mustHandleAdd(d, confclient, mapMsg, &OFPorts)
+			case "rm":
+				mustHandleRm(d, confclient, mapMsg, &OFPorts)
+			default:
+				log.Errorf("Unknown consolidation message: %s", mapMsg)
+			}
 		default:
-			log.Errorf("Unknown consolidation message: %s", mapMsg)
+			reconcileOvs(d, &AllPortDesc)
+			time.Sleep(3 * time.Second)
 		}
 	}
 }

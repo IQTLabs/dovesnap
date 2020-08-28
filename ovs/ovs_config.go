@@ -32,6 +32,7 @@ const (
 	modeOption          = "ovs.bridge.mode"
 	mtuOption           = "ovs.bridge.mtu"
 	vlanOption          = "ovs.bridge.vlan"
+	userspaceOption     = "ovs.bridge.userspace"
 
 	defaultLbPort           = 99
 	defaultMTU              = 1500
@@ -43,16 +44,17 @@ const (
 	modeFlat = "flat"
 	modeNAT  = "nat"
 
-	bridgePrefix            = "ovsbr-"
-	containerEthName        = "eth"
-	mirrorBridgeName        = "mirrorbr"
-	netNsPath               = "/var/run/netns"
-	ofPortLocal       int64 = 4294967294
-	ovsPortPrefix           = "ovs-veth0-"
-	peerOvsPortPrefix       = "ethc"
-	stackDpidPrefix         = "0x0E0F00"
-	ovsStartupRetries       = 5
-	dockerRetries           = 3
+	bridgePrefix             = "ovsbr-"
+	containerEthName         = "eth"
+	mirrorBridgeName         = "mirrorbr"
+	netNsPath                = "/var/run/netns"
+	ofPortLocal       uint32 = 4294967294
+	ovsPortPrefix            = "ovs-veth0-"
+	patchPrefix              = "ovp"
+	peerOvsPortPrefix        = "ethc"
+	stackDpidPrefix          = "0x0E0F00"
+	ovsStartupRetries        = 5
+	dockerRetries            = 3
 )
 
 var (
@@ -196,6 +198,10 @@ func parseBool(optionVal string) bool {
 
 func mustGetUseDHCP(r *networkplugin.CreateNetworkRequest) bool {
 	return parseBool(getGenericOption(r, dhcpOption))
+}
+
+func mustGetUserspace(r *networkplugin.CreateNetworkRequest) bool {
+	return parseBool(getGenericOption(r, userspaceOption))
 }
 
 func getContainerFromEndpoint(dockerclient *client.Client, EndpointID string) (types.ContainerJSON, error) {
@@ -400,7 +406,9 @@ func getNetworkStateFromResource(r *types.NetworkResource) (ns NetworkState, err
 		MTU:               getIntOptionFromResource(r, mtuOption, defaultMTU),
 		Mode:              getStrOptionFromResource(r, modeOption, defaultMode),
 		FlatBindInterface: getStrOptionFromResource(r, bindInterfaceOption, ""),
+		AddPorts:          getStrOptionFromResource(r, bridgeAddPorts, ""),
 		UseDHCP:           parseBool(getStrOptionFromResource(r, dhcpOption, "")),
+		Userspace:         parseBool(getStrOptionFromResource(r, userspaceOption, "")),
 		Gateway:           gateway,
 		GatewayMask:       mask,
 	}

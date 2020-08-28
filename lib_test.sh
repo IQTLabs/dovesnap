@@ -1,17 +1,23 @@
 #!/bin/bash
 
+restart_dovesnap ()
+{
+        echo restarting dovesnap
+	DOVESNAPID="$(docker ps -q --filter name=dovesnap_plugin)"
+        docker logs $DOVESNAPID
+        docker restart $DOVESNAPID
+        docker logs $DOVESNAPID
+}
+
 restart_wait_dovesnap ()
 {
-	echo waiting for FAUCET config to have testnet
-	DOVESNAPID="$(docker ps -q --filter name=dovesnap_plugin)"
+	echo waiting for FAUCET config to have testnet mirror port
         TESTNETCOUNT=0
         while [ "$TESTNETCOUNT" != "1" ] ; do
-                TESTNETCOUNT=$(sudo grep -c testnet: $FAUCET_CONFIG)
+                TESTNETCOUNT=$(sudo grep -c 99: $FAUCET_CONFIG)
                 sleep 1
         done
-	echo restarting dovesnap
-	docker restart $DOVESNAPID
-	docker logs $DOVESNAPID
+	restart_dovesnap
 }
 
 init_dirs()
@@ -28,6 +34,7 @@ init_dirs()
 
 clean_dirs()
 {
+	./graph_dovesnap/graph_dovesnap.py || exit 1
 	docker rm -f testcon || exit 1
 	docker network rm testnet || exit 1
 	FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml stop
@@ -39,7 +46,18 @@ conf_faucet()
 	echo configuring faucet
 	sudo rm -f $FAUCET_CONFIG
 cat >$FAUCET_CONFIG <<EOFC || exit 1
+meters:
+  lossymeter:
+    meter_id: 1
+    entry:
+        flags: "KBPS"
+        bands: [{type: "DROP", rate: 100}]
 acls:
+  ratelimitit:
+  - rule:
+      actions:
+        meter: lossymeter
+        allow: 1
   allowall:
   - rule:
       actions:
@@ -122,7 +140,7 @@ wait_acl ()
 	while [ "$ACLCOUNT" != "2" ] ; do
 		docker logs $DOVESNAPID
 		sudo cat $FAUCET_CONFIG
-		ACLCOUNT=$(sudo grep -c allowall $FAUCET_CONFIG)
+		ACLCOUNT=$(sudo grep -c ratelimitit $FAUCET_CONFIG)
 		sleep 1
 	done
 }
@@ -155,7 +173,7 @@ wait_for_pcap_match ()
 {
 	i=0
 	OUT=""
-	while [ "$OUT" == "" ] && [ i != 30 ] ; do
+	while [ "$OUT" == "" ] && [ "$i" != 30 ] ; do
 		echo waiting for pcap match $PCAPMATCH: $i
 		OUT=$(sudo tcpdump -n -r $MIRROR_PCAP -v | grep $PCAPMATCH)
 		((i=i+1))

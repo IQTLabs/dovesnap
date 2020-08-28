@@ -85,6 +85,21 @@ class FaucetConfServerStub(object):
                 request_serializer=faucetconfrpc_dot_faucetconfrpc__pb2.SetRemoteMirrorPortRequest.SerializeToString,
                 response_deserializer=faucetconfrpc_dot_faucetconfrpc__pb2.SetRemoteMirrorPortReply.FromString,
                 )
+        self.GetDpNames = channel.unary_unary(
+                '/faucetconfserver.FaucetConfServer/GetDpNames',
+                request_serializer=faucetconfrpc_dot_faucetconfrpc__pb2.GetDpNamesRequest.SerializeToString,
+                response_deserializer=faucetconfrpc_dot_faucetconfrpc__pb2.GetDpNamesReply.FromString,
+                )
+        self.GetDpIDs = channel.unary_unary(
+                '/faucetconfserver.FaucetConfServer/GetDpIDs',
+                request_serializer=faucetconfrpc_dot_faucetconfrpc__pb2.GetDpIDsRequest.SerializeToString,
+                response_deserializer=faucetconfrpc_dot_faucetconfrpc__pb2.GetDpIDsReply.FromString,
+                )
+        self.GetAclNames = channel.unary_unary(
+                '/faucetconfserver.FaucetConfServer/GetAclNames',
+                request_serializer=faucetconfrpc_dot_faucetconfrpc__pb2.GetAclNamesRequest.SerializeToString,
+                response_deserializer=faucetconfrpc_dot_faucetconfrpc__pb2.GetAclNamesReply.FromString,
+                )
 
 
 class FaucetConfServerServicer(object):
@@ -176,6 +191,24 @@ class FaucetConfServerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetDpNames(self, request, context):
+        """Missing associated documentation comment in .proto file"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetDpIDs(self, request, context):
+        """Missing associated documentation comment in .proto file"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetAclNames(self, request, context):
+        """Missing associated documentation comment in .proto file"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_FaucetConfServerServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -248,6 +281,21 @@ def add_FaucetConfServerServicer_to_server(servicer, server):
                     servicer.SetRemoteMirrorPort,
                     request_deserializer=faucetconfrpc_dot_faucetconfrpc__pb2.SetRemoteMirrorPortRequest.FromString,
                     response_serializer=faucetconfrpc_dot_faucetconfrpc__pb2.SetRemoteMirrorPortReply.SerializeToString,
+            ),
+            'GetDpNames': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetDpNames,
+                    request_deserializer=faucetconfrpc_dot_faucetconfrpc__pb2.GetDpNamesRequest.FromString,
+                    response_serializer=faucetconfrpc_dot_faucetconfrpc__pb2.GetDpNamesReply.SerializeToString,
+            ),
+            'GetDpIDs': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetDpIDs,
+                    request_deserializer=faucetconfrpc_dot_faucetconfrpc__pb2.GetDpIDsRequest.FromString,
+                    response_serializer=faucetconfrpc_dot_faucetconfrpc__pb2.GetDpIDsReply.SerializeToString,
+            ),
+            'GetAclNames': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetAclNames,
+                    request_deserializer=faucetconfrpc_dot_faucetconfrpc__pb2.GetAclNamesRequest.FromString,
+                    response_serializer=faucetconfrpc_dot_faucetconfrpc__pb2.GetAclNamesReply.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -482,5 +530,53 @@ class FaucetConfServer(object):
         return grpc.experimental.unary_unary(request, target, '/faucetconfserver.FaucetConfServer/SetRemoteMirrorPort',
             faucetconfrpc_dot_faucetconfrpc__pb2.SetRemoteMirrorPortRequest.SerializeToString,
             faucetconfrpc_dot_faucetconfrpc__pb2.SetRemoteMirrorPortReply.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetDpNames(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/faucetconfserver.FaucetConfServer/GetDpNames',
+            faucetconfrpc_dot_faucetconfrpc__pb2.GetDpNamesRequest.SerializeToString,
+            faucetconfrpc_dot_faucetconfrpc__pb2.GetDpNamesReply.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetDpIDs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/faucetconfserver.FaucetConfServer/GetDpIDs',
+            faucetconfrpc_dot_faucetconfrpc__pb2.GetDpIDsRequest.SerializeToString,
+            faucetconfrpc_dot_faucetconfrpc__pb2.GetDpIDsReply.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetAclNames(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/faucetconfserver.FaucetConfServer/GetAclNames',
+            faucetconfrpc_dot_faucetconfrpc__pb2.GetAclNamesRequest.SerializeToString,
+            faucetconfrpc_dot_faucetconfrpc__pb2.GetAclNamesReply.FromString,
             options, channel_credentials,
             call_credentials, compression, wait_for_ready, timeout, metadata)

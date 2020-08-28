@@ -86,7 +86,7 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
                 raise InvalidConfigError('no DPs defined')
             return dps_conf
         except InvalidConfigError as err:
-            raise _ServerError(err)
+            raise _ServerError('Invalid config: %s' % err)  # pylint: disable=raise-missing-from
 
     def _validate_config_tree(self, config_filename, config_yaml):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -112,14 +112,14 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
         try:
             return yaml.safe_load(config_yaml_str)
         except (yaml.constructor.ConstructorError, yaml.parser.ParserError) as err:
-            raise _ServerError('YAML error: %s' % err)
+            raise _ServerError(f'YAML error: {err}')  # pylint: disable=raise-missing-from
 
     def _get_config_file(self, config_filename):
         try:
             with open(self._validate_filename(config_filename)) as config_file:
                 return self._yaml_parse(config_file.read())
         except (FileNotFoundError, PermissionError) as err:
-            raise _ServerError(err)
+            raise _ServerError(f'Error: {err}')  # pylint: disable=raise-missing-from
 
     def _replace_config_file(self, config_filename, config_yaml, config_dir=None):
         if config_dir is None:
@@ -145,7 +145,7 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
             self._validate_config_tree(config_filename, new_config_yaml)
             self._replace_config_file(config_filename, new_config_yaml)
         except (FileNotFoundError, PermissionError, _ServerError) as err:
-            raise _ServerError(err)
+            raise _ServerError('Cannot set FAUCET config: %s' % err)   # pylint: disable=raise-missing-from
 
     def _del_keys_from_yaml(self, config_yaml_keys, new_config_yaml):
         config_yaml_keys = self._yaml_parse(config_yaml_keys)
@@ -168,7 +168,7 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
             self._validate_config_tree(config_filename, new_config_yaml)
             self._replace_config_file(config_filename, new_config_yaml)
         except (KeyError, ValueError, _ServerError) as err:
-            raise _ServerError(err)
+            raise _ServerError(f'Unable to find key in the config: {err}')  # pylint: disable=raise-missing-from
 
     def GetConfigFile(self, request, context):  # pylint: disable=invalid-name
         """Return existing file contents as YAML string."""
@@ -494,6 +494,48 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
 
         return self.request_wrapper(
             set_remote_mirror_port, request, context, default_reply)
+
+    def GetDpNames(self, request, context):  # pylint: disable=invalid-name
+
+        default_reply = faucetconfrpc_pb2.GetDpNamesReply()
+
+        def get_dp_names():
+            config_filename = self.default_config
+            config_yaml = self._get_config_file(config_filename)
+            dp_names = config_yaml['dps'].keys()
+            default_reply.dp_name[:] = dp_names  # pylint: disable=no-member
+            return default_reply
+
+        return self.request_wrapper(
+            get_dp_names, request, context, default_reply)
+
+    def GetDpIDs(self, request, context):  # pylint: disable=invalid-name
+
+        default_reply = faucetconfrpc_pb2.GetDpIDsReply()
+
+        def get_dp_ids():
+            config_filename = self.default_config
+            config_yaml = self._get_config_file(config_filename)
+            dp_names = [dp['dp_id'] for dp in config_yaml['dps'].values()]
+            default_reply.dp_id[:] = dp_names  # pylint: disable=no-member
+            return default_reply
+
+        return self.request_wrapper(
+            get_dp_ids, request, context, default_reply)
+
+    def GetAclNames(self, request, context):  # pylint: disable=invalid-name
+
+        default_reply = faucetconfrpc_pb2.GetAclNamesReply()
+
+        def get_acl_names():
+            config_filename = self.default_config
+            config_yaml = self._get_config_file(config_filename)
+            acl_names = config_yaml.get('acls', {}).keys()
+            default_reply.acl_name[:] = acl_names  # pylint: disable=no-member
+            return default_reply
+
+        return self.request_wrapper(
+            get_acl_names, request, context, default_reply)
 
 
 def serve():
