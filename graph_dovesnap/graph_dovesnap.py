@@ -230,7 +230,7 @@ class GraphDovesnap:
                     continue
                 if br_desc in patch_veths:
                     continue
-                if br_desc == dovesnap_args.get('mirror_bridge_out', ''):
+                if br_desc == dovesnap_args.get('mirror_bridge_in', ''):
                     dot.edge(br_desc, bridgename, str(ofport))
                 else:
                     dot.edge(bridgename, br_desc, str(ofport))
