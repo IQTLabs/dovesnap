@@ -109,6 +109,9 @@ class GraphDovesnap:
             host_veths[iflink] = (ifname, mac)
         return host_veths
 
+    def _get_network_mode(self, network):
+        return network['Options'].get('ovs.bridge.mode', 'flat')
+
     def build_graph(self):
         dot = Digraph()
         client = docker.APIClient(base_url=self.DOCKER_URL)
@@ -150,10 +153,11 @@ class GraphDovesnap:
                         dot.node(container_id, '\n'.join(host_label))
                         dot.edge(network_id, container_id, edge_label)
                         break
+            mode = self._get_network_mode(network)
             for br_desc, ofport in all_port_desc[network_id].items():
                 if ofport in container_ports:
                     continue
-                if ofport == self.OFP_LOCAL:
+                if ofport == self.OFP_LOCAL and mode == 'nat':
                     dot.edge(network_id, 'NAT')
                 else:
                     dot.edge(network_id, br_desc, str(ofport))
