@@ -1,2 +1,3 @@
 docker
+faucetconfrpc
 graphviz
