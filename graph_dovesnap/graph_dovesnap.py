@@ -23,6 +23,7 @@ class GraphDovesnap:
     OUTPUT_FILE = 'dovesnapviz'
     PATCH_PREFIX = 'ovp'
     VM_PREFIX = 'vnet'
+    DOVESNAP_MIRROR = '99'
 
     def __init__(self, args):
         self.args = args
@@ -46,8 +47,18 @@ class GraphDovesnap:
     def _dovesnap_bridgename(self, net_id):
         return 'ovsbr-%s' % net_id[:5]
 
+    def _get_vm_options(self, network, ofport):
+        vm_options = []
+        client = FaucetConfRpcClient(self.args.key, self.args.cert, self.args.ca, self.args.server+":"+self.args.port)
+        conf = client.get_config_file()
+        if 'acls_in' in conf['dps'][network]['interfaces'][ofport]:
+            vm_options.append("portacl: "+','.join(conf['dps'][network]['interfaces'][ofport]['acls_in']))
+        if self.DOVESNAP_MIRROR in conf['dps'][network]['interfaces'] and 'mirror' in conf['dps'][network]['interfaces'][self.DOVESNAP_MIRROR] and ofport in conf['dps'][network]['interfaces'][self.DOVESNAP_MIRROR]['mirror']:
+            vm_options.append("mirror: true")
+        return '\n'.join(vm_options)
+
     def _scrape_external_iface(self, name):
-        desc = [name]
+        desc = [name, "", "External Interface"]
         iface = subprocess.check_output(['ifconfig', name])
         ether = iface.decode('utf-8').split('\n')[1]
         mac = ether.split()[1]
@@ -62,7 +73,7 @@ class GraphDovesnap:
         return hostname, address
 
     def _scrape_vm_iface(self, name):
-        desc = [name]
+        desc = ["", "Virtual Machine", name]
         vm_list = subprocess.check_output(['virsh', 'list'])
         vm_names = vm_list.decode('utf-8').split('\n')[2:-2]
         for vm_list in vm_names:
@@ -175,7 +186,7 @@ class GraphDovesnap:
         return network['Options'].get('ovs.bridge.mode', 'flat')
 
     def _get_lb_port(self, network):
-        return network['Options'].get('ovs.bridge.lbport', 99)
+        return network['Options'].get('ovs.bridge.lbport', self.DOVESNAP_MIRROR)
 
     def _get_container_args(self, container_inspect):
         args = {}
@@ -223,7 +234,7 @@ class GraphDovesnap:
                         br_ifname, _ = container_veths[peeriflink]
                         labels = ['%s: %s' % (label.split('.')[-1], labelval)
                             for label, labelval in container_inspect['Config']['Labels'].items()]
-                        host_label = [container_name, ifname, mac]
+                        host_label = [container_name, "", "Container", ifname, mac]
                         ip = self._scrape_container_ip(container_name, iflink)
                         if ip:
                             host_label.append(ip)
@@ -246,6 +257,8 @@ class GraphDovesnap:
                 else:
                     if br_desc.startswith(self.VM_PREFIX):
                         vm_desc = self._scrape_vm_iface(br_desc)
+                        vm_options = self._get_vm_options(network['Name'], ofport)
+                        vm_desc += '\n'+vm_options
                         dot.node(br_desc, vm_desc)
                     else:
                         external_desc = self._scrape_external_iface(br_desc)
