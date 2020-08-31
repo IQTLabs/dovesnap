@@ -1,9 +1,11 @@
 #!/usr/bin/python3
 
+import argparse
 import re
 import os
 import subprocess
 import docker
+from faucetconfrpc.faucetconfrpc_client_lib import FaucetConfRpcClient
 from graphviz import Digraph
 
 
@@ -20,8 +22,10 @@ class GraphDovesnap:
     DOCKER_URL = 'unix://var/run/docker.sock'
     OUTPUT_FILE = 'dovesnapviz'
     PATCH_PREFIX = 'ovp'
+    VM_PREFIX = 'vnet'
 
-    def __init__(self):
+    def __init__(self, args):
+        self.args = args
         return
 
     def _get_named_container(self, client, name):
@@ -41,6 +45,39 @@ class GraphDovesnap:
 
     def _dovesnap_bridgename(self, net_id):
         return 'ovsbr-%s' % net_id[:5]
+
+    def _scrape_external_iface(self, name):
+        desc = [name]
+        iface = subprocess.check_output(['ifconfig', name])
+        ether = iface.decode('utf-8').split('\n')[1]
+        mac = ether.split()[1]
+        desc.append(mac)
+        return '\n'.join(desc)
+
+    def _network_lookup(self, name):
+        lookup = subprocess.check_output(['nslookup', name])
+        hostname, address = lookup.decode('utf-8').split('\n')[4:-2]
+        hostname = hostname.split('\t')[1]
+        address = address.split(': ')[1]
+        return hostname, address
+
+    def _scrape_vm_iface(self, name):
+        desc = [name]
+        vm_list = subprocess.check_output(['virsh', 'list'])
+        vm_names = vm_list.decode('utf-8').split('\n')[2:-2]
+        for vm_list in vm_names:
+            vm_name = vm_list.split()[1]
+            vm_iflist = subprocess.check_output(['virsh', 'domiflist', vm_name])
+            ifaces = vm_iflist.decode('utf-8').split('\n')[2:-2]
+            for iface in ifaces:
+                mac = iface.split()[4]
+                iface = iface.split()[0]
+                if iface == name:
+                    hostname, address = self._network_lookup(vm_name)
+                    desc.insert(0, hostname)
+                    desc.append(mac)
+                    desc.append(f'{address}/24')
+        return '\n'.join(desc)
 
     def _scrape_container_cmd(self, name, cmd):
         client_hi = docker.DockerClient(base_url=self.DOCKER_URL)
@@ -207,6 +244,12 @@ class GraphDovesnap:
                 elif br_desc in patch_veths:
                     unresolved_links.append((bridgename, br_desc, ofport))
                 else:
+                    if br_desc.startswith(self.VM_PREFIX):
+                        vm_desc = self._scrape_vm_iface(br_desc)
+                        dot.node(br_desc, vm_desc)
+                    else:
+                        external_desc = self._scrape_external_iface(br_desc)
+                        dot.node(br_desc, external_desc)
                     dot.edge(network_id, br_desc, str(ofport))
 
         non_container_bridges = set()
@@ -240,6 +283,23 @@ class GraphDovesnap:
         # leave only PNG
         os.remove(self.OUTPUT_FILE)
 
+def main():
+    parser = argparse.ArgumentParser(
+        description='Dovesnap Graph - A dot file output graph of VMs, containers, and networks controlled by Dovesnap')
+    parser.add_argument('--ca', '-a', default='/opt/faucetconfrpc/faucetconfrpc-ca.crt',
+                        help='FaucetConfRPC server certificate authority file')
+    parser.add_argument('--cert', '-c', default='/opt/faucetconfrpc/faucetconfrpc.crt',
+                        help='FaucetConfRPC server cert file')
+    parser.add_argument('--key', '-k', default='/opt/faucetconfrpc/faucetconfrpc.key',
+                        help='FaucetConfRPC server key file')
+    parser.add_argument('--port', '-p', default='59999',
+                        help='FaucetConfRPC server port')
+    parser.add_argument('--server', '-s', default='faucetconfrpc',
+                        help='FaucetConfRPC server name')
+    args = parser.parse_args()
+    g = GraphDovesnap(args)
+    g.build_graph()
 
-g = GraphDovesnap()
-g.build_graph()
+
+if __name__ == "__main__":
+    main()
