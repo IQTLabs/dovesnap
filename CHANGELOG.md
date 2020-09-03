@@ -1,3 +1,9 @@
+# v0.5.0 (2020-09-04)
+
+- update faucetconfrpc, certstrap
+- graph_dovesnap vizualization script
+- support OVS userspace mode
+
 # v0.4.0 (2020-08-27)
 
 - add/remove non-dovesnap managed ports to bridges to FAUCET
