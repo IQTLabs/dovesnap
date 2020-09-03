@@ -13,12 +13,12 @@
   version = "v0.4.14"
 
 [[projects]]
-  digest = "1:771809465d2d81b1e2631f0e062b7458647135b2eca9e1cc577e58d1db0d987f"
+  digest = "1:0d85482cde79eed8573a1e547f68f73e7e7bb4ce8e8d166c60d934bbfe1b0d3d"
   name = "github.com/containerd/containerd"
   packages = ["errdefs"]
   pruneopts = "UT"
-  revision = "8fba4e9a7d01810a393d5d25a3621dc101981175"
-  version = "v1.3.7"
+  revision = "09814d48d50816305a8e6c1a4ae3e2bcc4ba725a"
+  version = "v1.4.0"
 
 [[projects]]
   digest = "1:17220d24a71d938010a77675bce92f846bc4876e555c26f5976c92deaf55b69a"
@@ -162,6 +162,14 @@
   revision = "5ac6a1b7584c87afde1a974bdc313149489ec173"
 
 [[projects]]
+  digest = "1:09cb61dc19af93deae01587e2fdb1c081e0bf48f1a5ad5fa24f48750dc57dce8"
+  name = "github.com/konsorten/go-windows-terminal-sequences"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "edb144dfd453055e1e49a3d8b410a660b5a87613"
+  version = "v1.0.3"
+
+[[projects]]
   digest = "1:52891c539dfacbcaf8f204ad46c201c702d7210eab162085ee3676914bf3b269"
   name = "github.com/opencontainers/go-digest"
   packages = ["."]
@@ -189,12 +197,12 @@
   version = "v0.9.1"
 
 [[projects]]
-  digest = "1:36a75ab002c1cfb43bcc5d2ec10fbdc2a1136e9246a65e535f1d827435f28f17"
+  digest = "1:05eebdd5727fea23083fce0d98d307d70c86baed644178e81608aaa9f09ea469"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
   pruneopts = "UT"
-  revision = "418b41d23a1bf978c06faea5313ba194650ac088"
-  version = "v0.8.7"
+  revision = "60c74ad9be0d874af0ab0daef6ab07c5c5911f0d"
+  version = "v1.6.0"
 
 [[projects]]
   digest = "1:1314b5ef1c0b25257ea02e454291bf042478a48407cfe3ffea7e20323bbf5fdf"
@@ -209,15 +217,15 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:d908ab19780234808ae28f4325672723316908a05ff5347ba37f6ecaccc18df4"
+  digest = "1:f4426574338c0a0518623550d8c06355cbec9ba21ea5a6187b818aa3d3ed3b47"
   name = "github.com/vishvananda/netns"
   packages = ["."]
   pruneopts = "UT"
-  revision = "52d707b772fe9481fde11266d26560bd2be7a780"
+  revision = "db3c7e526aae966c4ccfa6c8189b693d6ac5d202"
 
 [[projects]]
   branch = "master"
-  digest = "1:132ef243d0e47513285fe34475c13dca629d46f1c31f8a41d75b76eac67565f3"
+  digest = "1:43ce36a35927e1fdd463da607cd7fb4b2633d33e5945edb67de01e7bf463486a"
   name = "golang.org/x/net"
   packages = [
     "http/httpguts",
@@ -230,11 +238,11 @@
     "trace",
   ]
   pruneopts = "UT"
-  revision = "ab34263943818b32f575efc978a3d24e80b04bd7"
+  revision = "c89045814202410a2d67ec20ecf177ec77ceae7f"
 
 [[projects]]
   branch = "master"
-  digest = "1:4e8a5dc258b2e5c19310815eb2073938d2a32f474325936c600b43d4b51dcb03"
+  digest = "1:293da8cc7f3132376e686e3b0c79207f8baf4e0a3fe6ac983cc8282cbebd68bb"
   name = "golang.org/x/sys"
   packages = [
     "internal/unsafeheader",
@@ -242,7 +250,7 @@
     "windows",
   ]
   pruneopts = "UT"
-  revision = "76b94024e4b621e672466e8db3d7f084e7ddcad2"
+  revision = "196b9ba8737a10c9253b04174f25881e562da5b8"
 
 [[projects]]
   digest = "1:fa940333c48808b0d86ef21f412ffcfd0e5084a82f13905c028a404803b1908f"
@@ -271,14 +279,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:38a535c0a08f69883a9b411d8a3407ec2a0edf0e7dfb12e5f7000f41197d8441"
+  digest = "1:7339759b4869e4b12e0ab4848f0f5edaa3c045b9b1cfe1d22af121605322490c"
   name = "google.golang.org/genproto"
   packages = ["googleapis/rpc/status"]
   pruneopts = "UT"
-  revision = "88e341933a542e6f21b9ad041696148fee087ab1"
+  revision = "9bfcb5116336e731461424615adb22247a135f4a"
 
 [[projects]]
-  digest = "1:bb13817ff92653da1e69c2a031ab43da3a09e4e3512301c99358565855489782"
+  digest = "1:a78dd0bc72e72dcb8275f39d3cc9c3b4ff82c801dc39e27773b285a6b043ddd7"
   name = "google.golang.org/grpc"
   packages = [
     ".",
@@ -302,6 +310,7 @@
     "internal/binarylog",
     "internal/buffer",
     "internal/channelz",
+    "internal/credentials",
     "internal/envconfig",
     "internal/grpclog",
     "internal/grpcrand",
@@ -323,8 +332,8 @@
     "tap",
   ]
   pruneopts = "UT"
-  revision = "1f47ba4663831f2a9c28a62a7de3ff8bc45078f0"
-  version = "v1.30.0"
+  revision = "39ef2aaf62df775b9c54a59957d113a0495cae73"
+  version = "v1.31.1"
 
 [[projects]]
   digest = "1:fd328c5b52e433ea3ffc891bcc4f94469a82bf478558208db2b386aad8a304a1"
