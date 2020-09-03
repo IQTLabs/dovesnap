@@ -1,7 +1,8 @@
 # v0.5.0 (2020-09-04)
 
-- update faucetconfrpc
+- update faucetconfrpc, certstrap
 - graph_dovesnap vizualization script
+- support OVS userspace mode
 
 # v0.4.0 (2020-08-27)
 
