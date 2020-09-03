@@ -27,19 +27,34 @@ class GraphDovesnap:
 
     def __init__(self, args):
         self.args = args
-        return
 
-    def _get_named_container(self, client, name):
-        container = client.containers(filters={'name': name})
-        if container:
-            return container[0]
+    def _get_named_container(self, client, name, strict=True):
+        for container in client.containers(filters={'name': name}):
+            if not strict:
+                return container
+            for container_name in container['Names']:
+                if name in container_name:
+                    return container
         return None
 
-    def _get_named_container_hi(self, client_hi, name):
-        container = client_hi.containers.list(filters={'name': name})
-        if container:
-            return container[0]
+    def _get_named_container_hi(self, client_hi, name, strict=True):
+        for container in client_hi.containers.list(filters={'name': name}):
+            if not strict:
+                return container
+            if container.name == name:
+                return container
         return None
+
+    def _scrape_container_cmd(self, name, cmd, strict=True):
+        client_hi = docker.DockerClient(base_url=self.DOCKER_URL)
+        container = self._get_named_container_hi(client_hi, name, strict=strict)
+        (dump_exit, output) = container.exec_run(cmd)
+        if dump_exit != 0:
+            raise GraphDovesnapException('%s: %s', cmd, output)
+        return output.splitlines()
+
+    def _scrape_ovs(self, cmd):
+        return self._scrape_container_cmd(self.OVS_NAME, cmd, strict=False)
 
     def _get_dovesnap_networks(self, client):
         return client.networks(filters={'driver': self.DRIVER_NAME})
@@ -90,14 +105,6 @@ class GraphDovesnap:
                     desc.append(f'{address}/24')
         return '\n'.join(desc)
 
-    def _scrape_container_cmd(self, name, cmd):
-        client_hi = docker.DockerClient(base_url=self.DOCKER_URL)
-        container = client_hi.containers.list(filters={'name': name})
-        (dump_exit, output) = container[0].exec_run(cmd)
-        if dump_exit != 0:
-            raise GraphDovesnapException('%s: %s', cmd, output)
-        return output.splitlines()
-
     def _get_matching_lines(self, lines, re_str):
         match_re = re.compile(re_str)
         matching_lines = []
@@ -128,8 +135,7 @@ class GraphDovesnap:
         return None
 
     def _scrape_bridge_ports(self, bridgename):
-        lines = self._scrape_container_cmd(
-            self.OVS_NAME, ['ovs-ofctl', 'dump-ports-desc', bridgename])
+        lines = self._scrape_ovs(['ovs-ofctl', 'dump-ports-desc', bridgename])
         matching_lines = self._get_matching_lines(
             lines, r'^\s*(\d+|LOCAL)\((\S+)\).+$')
         port_desc = {}
@@ -144,8 +150,7 @@ class GraphDovesnap:
 
     def _scrape_all_bridge_ports(self):
         all_port_desc = {}
-        lines = self._scrape_container_cmd(
-            self.OVS_NAME, ['ovs-vsctl', 'list-br'])
+        lines = self._scrape_ovs(['ovs-vsctl', 'list-br'])
         matching_lines = self._get_matching_lines(
             lines, r'^(\S+)$')
         for match in matching_lines:
