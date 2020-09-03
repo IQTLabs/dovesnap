@@ -1,3 +1,8 @@
+# v0.5.0 (2020-09-04)
+
+- update faucetconfrpc
+- graph_dovesnap vizualization script
+
 # v0.4.0 (2020-08-27)
 
 - add/remove non-dovesnap managed ports to bridges to FAUCET
