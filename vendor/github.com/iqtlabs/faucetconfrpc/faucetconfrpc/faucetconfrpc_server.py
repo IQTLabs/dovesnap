@@ -76,15 +76,17 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
         logname = os.devnull
         try:
             root_config = os.path.join(config_dir, self.default_config)
-            _, _, dps, _ = dp_parser(root_config, logname)
+            _, _, dps, top_confs = dp_parser(root_config, logname)
             dps_conf = None
             valve_cls = None
+            acls_conf = None
             if dps is not None:
                 dps_conf = {dp.name: dp for dp in dps}
                 valve_cls = [valve.valve_factory(dp) for dp in dps]
+                acls_conf = top_confs.get('acls', {})
             if not dps_conf or not valve_cls:
                 raise InvalidConfigError('no DPs defined')
-            return dps_conf
+            return (dps_conf, acls_conf)
         except InvalidConfigError as err:
             raise _ServerError('Invalid config: %s' % err)  # pylint: disable=raise-missing-from
 
@@ -234,7 +236,7 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
             set_config_file, context, request, default_reply)
 
     def _get_mirror(self, request):
-        dps = self._validate_faucet_config(self.config_dir)
+        dps, _ = self._validate_faucet_config(self.config_dir)
         dp = dps[request.dp_name]  # pylint: disable=invalid-name
         port = dp.ports[request.port_no]
         mirror_port = dp.ports[request.mirror_port_no]
@@ -297,7 +299,7 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
             clear_port_mirror, context, request, default_reply)
 
     def _get_port_acls(self, request):
-        dps = self._validate_faucet_config(self.config_dir)
+        dps, _ = self._validate_faucet_config(self.config_dir)
         dp = dps[request.dp_name]  # pylint: disable=invalid-name
         port = dp.ports[request.port_no]
         acls_in = []
@@ -431,24 +433,23 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
             config_filename = self.default_config
             config_yaml = self._get_config_file(config_filename)
             for dp_info in request.interfaces_config:
-                dp_port_nos = []
+                dp_port_nos = set()
+                dp_interfaces = config_yaml['dps'][dp_info.name]['interfaces']
                 for interface_info in dp_info.interfaces:
                     try:
-                        del config_yaml['dps'][dp_info.name]['interfaces'][interface_info.port_no]
-                        dp_port_nos.append(interface_info.port_no)
+                        del dp_interfaces[interface_info.port_no]
+                        dp_port_nos.add(interface_info.port_no)
                     except KeyError:
                         continue
                 # second pass to clean up any mirroring
-                for interface in config_yaml['dps'][dp_info.name]['interfaces']:
-                    port_mirror = config_yaml['dps'][dp_info.name]['interfaces'][interface].get('mirror', None)  # pylint: disable=line-too-long
+                for interface in dp_interfaces:
+                    port_mirror = set(dp_interfaces[interface].get('mirror', []))
                     if port_mirror:
-                        for port in dp_port_nos:
-                            if port in config_yaml['dps'][dp_info.name]['interfaces'][interface]['mirror']:  # pylint: disable=line-too-long
-                                config_yaml['dps'][dp_info.name]['interfaces'][interface]['mirror'].remove(port)  # pylint: disable=line-too-long
+                        dp_interfaces[interface]['mirror'] = list(port_mirror - dp_port_nos)
             if request.delete_empty_dp:
                 for dp_info in request.interfaces_config:
                     try:
-                        if not config_yaml['dps'][dp_info.name]['interfaces']:
+                        if not dp_interfaces:
                             self._del_dp(dp_info.name, config_yaml)
                     except KeyError:
                         continue
@@ -537,9 +538,8 @@ class Server(faucetconfrpc_pb2_grpc.FaucetConfServerServicer):  # pylint: disabl
         default_reply = faucetconfrpc_pb2.GetAclNamesReply()
 
         def get_acl_names():
-            config_filename = self.default_config
-            config_yaml = self._get_config_file(config_filename)
-            acl_names = config_yaml.get('acls', {}).keys()
+            _, acls_conf = self._validate_faucet_config(self.config_dir)
+            acl_names = acls_conf.keys()
             default_reply.acl_name[:] = acl_names  # pylint: disable=no-member
             return default_reply
 
