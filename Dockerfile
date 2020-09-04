@@ -7,6 +7,5 @@ RUN apt-get update && apt-get install -y \
     udhcpc ethtool
 COPY . /go/src/dovesnap
 WORKDIR /go/src/dovesnap
-RUN dep ensure
 RUN go install -v
 ENTRYPOINT ["dovesnap"]
