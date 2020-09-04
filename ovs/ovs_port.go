@@ -3,15 +3,38 @@ package ovs
 import (
 	"fmt"
 	"hash/crc32"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
-	base62 "github.com/kare/base62"
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
+
+const (
+	b62alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+)
+
+func b62Encode(n int64) string {
+	if n == 0 {
+		return "0"
+	}
+
+	b := make([]byte, 0, 512)
+	base := int64(len(b62alphabet))
+	for n > 0 {
+		r := math.Mod(float64(n), float64(base))
+		n /= base
+		b = append([]byte{b62alphabet[int(r)]}, b...)
+	}
+	return string(b)
+}
+
+func patchStr(a string) string {
+	return b62Encode(int64(crc32.ChecksumIEEE([]byte(a))))
+}
 
 func scrapePortDesc(bridgeName string, portDesc *map[uint]string) error {
 	output, err := OfCtl("dump-ports-desc", bridgeName)
@@ -62,10 +85,6 @@ func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag 
 	}
 	value, err := VsCtl("add-port", bridgeName, portName, "--", "set", "Interface", portName, fmt.Sprintf("ofport_request=%d", lowestFreePort))
 	return lowestFreePort, value, err
-}
-
-func patchStr(a string) string {
-	return base62.Encode(int64(crc32.ChecksumIEEE([]byte(a))))
 }
 
 func patchName(a string, b string) string {

@@ -179,5 +179,3 @@ gotest.tools v2.2.0+incompatible h1:VsBPFP1AI068pPrMxtb/S8Zkgf9xEmTLJjfM+P5UIEo=
 gotest.tools v2.2.0+incompatible/go.mod h1:DsYFclhRJ6vuDpmuTbkuFWG+y2sxOXAzmJt81HFBacw=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
-kkn.fi/base62 v0.1.0 h1:84f0Eg6at+bMpH8KSYV+d8Flhhk/UP1Vv1HFw1Ip8rE=
-kkn.fi/base62 v0.1.0/go.mod h1:XmoaKDs2MGh2uO4uUBkgP1EcIoN8cO7uJUJqBFGNEI0=

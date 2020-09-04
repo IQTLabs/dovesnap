@@ -19,7 +19,6 @@ require (
 	github.com/google/go-cmp v0.5.2 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/iqtlabs/faucetconfrpc v0.22.1
-	github.com/kare/base62 v0.1.0
 	github.com/kenshaw/baseconv v0.0.0-20180401001559-5ac6a1b7584c
 	github.com/kr/text v0.2.0 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
