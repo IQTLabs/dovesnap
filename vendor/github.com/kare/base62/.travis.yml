@@ -1,6 +1,0 @@
-language: go
-go_import_path: kkn.fi/base62
-script: make test
-go:
-    - 1.13
-    - tip
