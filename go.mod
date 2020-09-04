@@ -43,6 +43,4 @@ require (
 	gotest.tools v2.2.0+incompatible // indirect
 )
 
-replace github.com/docker/docker v17.12.0-ce-rc1.0.20200618181300-9dc6525e6118+incompatible => github.com/docker/engine v17.12.0-ce-rc1.0.20200618181300-9dc6525e6118+incompatible
-
-replace github.com/kare/base62 v0.1.0 => kkn.fi/base62 v0.1.0
+replace github.com/docker/docker v17.12.0-ce-rc4+incompatible => github.com/docker/engine v17.12.0-ce-rc4+incompatible
