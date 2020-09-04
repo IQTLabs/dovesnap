@@ -3,6 +3,7 @@ package ovs
 import (
 	"fmt"
 	"hash/crc32"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
