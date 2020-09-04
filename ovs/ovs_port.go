@@ -10,7 +10,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-	base62 "kkn.fi/base62"
+	base62 "github.com/kare/base62"
 )
 
 func scrapePortDesc(bridgeName string, portDesc *map[uint]string) error {
