@@ -146,14 +146,6 @@
   version = "v0.22"
 
 [[projects]]
-  digest = "1:2b7adfde806a216220edb82348de19ea774379c46b8062a8a79f0e591ce7ec7d"
-  name = "github.com/kare/base62"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "b85cb792a24dec30071a48431465dea64496a534"
-  version = "v0.1.0"
-
-[[projects]]
   branch = "master"
   digest = "1:9be343da58dccf03f750add204216b9d3d8e61dd8e5e1e57a1098f778c6e417a"
   name = "github.com/kenshaw/baseconv"
@@ -373,6 +365,14 @@
   revision = "3f7a61f89bb6813f89d981d1870ed68da0b3c3f1"
   version = "v1.25.0"
 
+[[projects]]
+  digest = "1:2b7adfde806a216220edb82348de19ea774379c46b8062a8a79f0e591ce7ec7d"
+  name = "kkn.fi/base62"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "b85cb792a24dec30071a48431465dea64496a534"
+  version = "v0.1.0"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -382,12 +382,12 @@
     "github.com/docker/go-plugins-helpers/network",
     "github.com/docker/libnetwork/iptables",
     "github.com/iqtlabs/faucetconfrpc/faucetconfrpc",
-    "github.com/kare/base62",
     "github.com/kenshaw/baseconv",
     "github.com/sirupsen/logrus",
     "github.com/vishvananda/netlink",
     "google.golang.org/grpc",
     "google.golang.org/grpc/credentials",
+    "kkn.fi/base62",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

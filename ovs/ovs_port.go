@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	base62 "github.com/kare/base62"
+	base62 "kkn.fi/base62"
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
