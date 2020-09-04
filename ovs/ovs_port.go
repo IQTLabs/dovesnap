@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	base62 "kkn.fi/base62"
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	base62 "kkn.fi/base62"
 )
 
 func scrapePortDesc(bridgeName string, portDesc *map[uint]string) error {
