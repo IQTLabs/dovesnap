@@ -17,6 +17,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/docker/distribution v2.7.1+incompatible h1:a5mlkVzth6W5A4fOsS3D2EO5BUmsJpcB+cRlLU7cSug=
 github.com/docker/distribution v2.7.1+incompatible/go.mod h1:J2gT2udsDAN96Uj4KfcMRqY0/ypR+oyYUYmja8H+y+w=
+github.com/docker/docker v17.12.0-ce-rc4+incompatible h1:Ss5I4ql8p4fM6iP5bY6Jy1AaaGzjy4TXCkiRYQDsFvQ=
+github.com/docker/docker v17.12.0-ce-rc4+incompatible/go.mod h1:eEKB0N0r5NX/I1kEveEz05bcu8tLC/8azJZsviup8Sk=
 github.com/docker/engine v17.12.0-ce-rc1.0.20200618181300-9dc6525e6118+incompatible h1:48gTDD/jgoKQ0Y9BSGgb0b+eO7Vuw8Cd7oChOGgzbNY=
 github.com/docker/engine v17.12.0-ce-rc1.0.20200618181300-9dc6525e6118+incompatible/go.mod h1:3CPr2caMgTHxxIAZgEMd3uLYPDlRvPqCpyeRf6ncPcY=
 github.com/docker/go-connections v0.4.0 h1:El9xVISelRB7BuFusrZozjnkIM5YnzCViNKohAFqRJQ=
@@ -60,6 +62,8 @@ github.com/gorilla/mux v1.8.0 h1:i40aqfkR1h2SlN9hojwV5ZA91wcXFOvkdNIeFDP5koI=
 github.com/gorilla/mux v1.8.0/go.mod h1:DVbg23sWSpFRCP0SfiEN6jmj59UnW/n46BH5rLB71So=
 github.com/iqtlabs/faucetconfrpc v0.0.0-20200903043621-1a2ead1c5e2e h1:2BDifKksHNn7mM4XInc6O4qfz+OUao2Xgfrm1cDM79o=
 github.com/iqtlabs/faucetconfrpc v0.0.0-20200903043621-1a2ead1c5e2e/go.mod h1:Ovi12f0sV1UrXzTXxdWYYJhZhs11LD03z1NYa9F9Fzc=
+github.com/iqtlabs/faucetconfrpc v0.22.1 h1:HgYZ/nuMs3hUP63dyHkAVSpu8KCipNMX5EHq3pZHma4=
+github.com/iqtlabs/faucetconfrpc v0.22.1/go.mod h1:Ovi12f0sV1UrXzTXxdWYYJhZhs11LD03z1NYa9F9Fzc=
 github.com/kenshaw/baseconv v0.0.0-20180401001559-5ac6a1b7584c h1:Uct0wp6cyJPNXJd9c+4w3YZDWTNFdeZ7lMXU7l04o/o=
 github.com/kenshaw/baseconv v0.0.0-20180401001559-5ac6a1b7584c/go.mod h1:6Xm0q6lS6lk3O+LPxFG+3nhL7ydQ9oAMYW3Ooa1fUXM=
 github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQLJ+jE2L00=

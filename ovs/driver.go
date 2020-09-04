@@ -877,7 +877,9 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 	log.Debugf("Stacking interfaces: %v", stacking_interfaces)
 	confclient := mustGetGRPCClient(flagFaucetconfrpcServerName, flagFaucetconfrpcServerPort, flagFaucetconfrpcKeydir)
 
-	docker, err := client.NewClientWithOpts(client.FromEnv)
+	// docker, err := client.NewClientWithOpts(client.FromEnv)
+	// TODO: https://github.com/moby/moby/issues/40185
+	docker, err := client.NewEnvClient()
 	if err != nil {
 		panic(fmt.Errorf("Could not connect to docker: %s", err))
 	}
