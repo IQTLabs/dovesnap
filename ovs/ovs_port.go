@@ -2,8 +2,6 @@ package ovs
 
 import (
 	"fmt"
-	"hash/crc32"
-	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -13,27 +11,12 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-const (
-	b62alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-)
-
-func b62Encode(n int64) string {
-	if n == 0 {
-		return "0"
+func patchName(a string, b string) string {
+	name := patchPrefix + patchStr(a) + patchStr(b)
+	if len(name) > 15 {
+		panic(fmt.Errorf("%s too long for ifName", name))
 	}
-
-	b := make([]byte, 0, 512)
-	base := int64(len(b62alphabet))
-	for n > 0 {
-		r := math.Mod(float64(n), float64(base))
-		n /= base
-		b = append([]byte{b62alphabet[int(r)]}, b...)
-	}
-	return string(b)
-}
-
-func patchStr(a string) string {
-	return b62Encode(int64(crc32.ChecksumIEEE([]byte(a))))
+	return name
 }
 
 func scrapePortDesc(bridgeName string, portDesc *map[uint]string) error {
@@ -45,7 +28,7 @@ func scrapePortDesc(bridgeName string, portDesc *map[uint]string) error {
 	for _, line := range strings.Split(string(output), "\n") {
 		match := ofportNumberDump.FindAllStringSubmatch(line, -1)
 		if len(match) > 0 {
-			ofport, _ := strconv.Atoi(match[0][1])
+			ofport, _ := strconv.ParseUint(match[0][1], 10, 32)
 			(*portDesc)[uint(ofport)] = match[0][2]
 		}
 	}
@@ -85,14 +68,6 @@ func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag 
 	}
 	value, err := VsCtl("add-port", bridgeName, portName, "--", "set", "Interface", portName, fmt.Sprintf("ofport_request=%d", lowestFreePort))
 	return lowestFreePort, value, err
-}
-
-func patchName(a string, b string) string {
-	name := patchPrefix + patchStr(a) + patchStr(b)
-	if len(name) > 15 {
-		panic(fmt.Errorf("%s too long for ifName", name))
-	}
-	return name
 }
 
 func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, port uint, portPeer uint) (uint, uint, error) {
