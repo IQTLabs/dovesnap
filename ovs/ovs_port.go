@@ -2,8 +2,6 @@ package ovs
 
 import (
 	"fmt"
-	"hash/crc32"
-	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -13,30 +11,15 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-const (
-	b62alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-)
-
-func b62Encode(n int64) string {
-	if n == 0 {
-		return "0"
+func patchName(a string, b string) string {
+	name := patchPrefix + patchStr(a) + patchStr(b)
+	if len(name) > 15 {
+		panic(fmt.Errorf("%s too long for ifName", name))
 	}
-
-	b := make([]byte, 0, 512)
-	base := int64(len(b62alphabet))
-	for n > 0 {
-		r := math.Mod(float64(n), float64(base))
-		n /= base
-		b = append([]byte{b62alphabet[int(r)]}, b...)
-	}
-	return string(b)
+	return name
 }
 
-func patchStr(a string) string {
-	return b62Encode(int64(crc32.ChecksumIEEE([]byte(a))))
-}
-
-func scrapePortDesc(bridgeName string, portDesc *map[uint]string) error {
+func scrapePortDesc(bridgeName string, portDesc *map[uint32]string) error {
 	output, err := OfCtl("dump-ports-desc", bridgeName)
 	if err != nil {
 		return err
@@ -45,15 +28,15 @@ func scrapePortDesc(bridgeName string, portDesc *map[uint]string) error {
 	for _, line := range strings.Split(string(output), "\n") {
 		match := ofportNumberDump.FindAllStringSubmatch(line, -1)
 		if len(match) > 0 {
-			ofport, _ := strconv.Atoi(match[0][1])
-			(*portDesc)[uint(ofport)] = match[0][2]
+			ofport, _ := strconv.ParseUint(match[0][1], 10, 32)
+			(*portDesc)[uint32(ofport)] = match[0][2]
 		}
 	}
 	return nil
 }
 
-func (ovsdber *ovsdber) lowestFreePortOnBridge(bridgeName string) (lowestFreePort uint, err error) {
-	portDesc := make(map[uint]string)
+func (ovsdber *ovsdber) lowestFreePortOnBridge(bridgeName string) (lowestFreePort uint32, err error) {
+	portDesc := make(map[uint32]string)
 	err = scrapePortDesc(bridgeName, &portDesc)
 	if err != nil {
 		return 0, err
@@ -71,10 +54,10 @@ func (ovsdber *ovsdber) lowestFreePortOnBridge(bridgeName string) (lowestFreePor
 		}
 		intLowestFreePort++
 	}
-	return uint(intLowestFreePort), nil
+	return uint32(intLowestFreePort), nil
 }
 
-func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag uint) (uint, string, error) {
+func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag uint) (uint32, string, error) {
 	lowestFreePort, err := ovsdber.lowestFreePortOnBridge(bridgeName)
 	if err != nil {
 		return lowestFreePort, "", err
@@ -87,15 +70,7 @@ func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag 
 	return lowestFreePort, value, err
 }
 
-func patchName(a string, b string) string {
-	name := patchPrefix + patchStr(a) + patchStr(b)
-	if len(name) > 15 {
-		panic(fmt.Errorf("%s too long for ifName", name))
-	}
-	return name
-}
-
-func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, port uint, portPeer uint) (uint, uint, error) {
+func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, port uint32, portPeer uint32) (uint32, uint32, error) {
 	var err error = nil
 	if port == 0 {
 		port, err = ovsdber.lowestFreePortOnBridge(bridgeName)
@@ -149,7 +124,7 @@ func (ovsdber *ovsdber) deletePort(bridgeName string, portName string) error {
 	return err
 }
 
-func (ovsdber *ovsdber) getOfPortNumber(portName string) (uint, error) {
+func (ovsdber *ovsdber) getOfPortNumber(portName string) (uint32, error) {
 	ofport, err := VsCtl("get", "Interface", portName, "ofport")
 	if err != nil {
 		log.Errorf("Unable to get interface %s ofport number because: %v", portName, err)
@@ -160,7 +135,7 @@ func (ovsdber *ovsdber) getOfPortNumber(portName string) (uint, error) {
 		log.Errorf("Unable to convert ofport number %v to an unsigned integer because: %v", ofport, err)
 		return 0, err
 	}
-	return uint(ofportNum), nil
+	return uint32(ofportNum), nil
 }
 
 func (ovsdber *ovsdber) addVxlanPort(bridgeName string, portName string, peerAddress string) (string, error) {
