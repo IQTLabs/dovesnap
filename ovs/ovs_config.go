@@ -250,7 +250,7 @@ func (d *Driver) mustGetLoopbackDP() string {
 	return "lb" + engineId
 }
 
-func (d *Driver) mustGetStackingInterface(stackingInterface string) (string, uint64, string) {
+func (d *Driver) mustGetStackingInterface(stackingInterface string) (string, uint32, string) {
 	stackSlice := strings.Split(stackingInterface, ":")
 	remoteDP := stackSlice[0]
 	remotePort, err := strconv.ParseUint(stackSlice[1], 10, 32)
@@ -261,7 +261,7 @@ func (d *Driver) mustGetStackingInterface(stackingInterface string) (string, uin
 	if err != nil {
 		panic(fmt.Errorf("Unable to convert local port to an unsigned integer because: [ %s ]", err))
 	}
-	return remoteDP, remotePort, localInterface
+	return remoteDP, uint32(remotePort), localInterface
 }
 
 func (d *Driver) mustGetStackBridgeConfig() (string, string, int, string) {

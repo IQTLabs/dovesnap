@@ -13,7 +13,7 @@ import (
 )
 
 type OFPortMap struct {
-	OFPort     uint
+	OFPort     uint32
 	AddPorts   string
 	Mode       string
 	NetworkID  string
@@ -22,13 +22,13 @@ type OFPortMap struct {
 }
 
 type StackingPort struct {
-	OFPort     uint
+	OFPort     uint32
 	RemoteDP   string
-	RemotePort uint64
+	RemotePort uint32
 }
 
 type OFPortContainer struct {
-	OFPort           uint
+	OFPort           uint32
 	containerInspect types.ContainerJSON
 	udhcpcCmd        *exec.Cmd
 }
@@ -442,7 +442,7 @@ func mustHandleCreate(d *Driver, mapMsg OFPortMap) {
 	if usingMirrorBridge(d) {
 		log.Debugf("configuring mirror bridge port for %s", ns.BridgeName)
 		stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
-		ofportNum, mirrorOfportNum, err := d.addPatchPort(ns.BridgeName, mirrorBridgeName, uint(stackMirrorConfig.LbPort), 0)
+		ofportNum, mirrorOfportNum, err := d.addPatchPort(ns.BridgeName, mirrorBridgeName, stackMirrorConfig.LbPort, 0)
 		if err != nil {
 			panic(err)
 		}
@@ -481,7 +481,7 @@ func mustHandleCreate(d *Driver, mapMsg OFPortMap) {
 	if usingStackMirroring(d) {
 		lbBridgeName := d.mustGetLoopbackDP()
 		stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
-		_, _, err = d.addPatchPort(ns.BridgeName, lbBridgeName, uint(stackMirrorConfig.LbPort), 0)
+		_, _, err = d.addPatchPort(ns.BridgeName, lbBridgeName, stackMirrorConfig.LbPort, 0)
 		if err != nil {
 			panic(err)
 		}
@@ -581,10 +581,10 @@ func mustHandleRm(d *Driver, mapMsg OFPortMap, OFPorts *map[string]OFPortContain
 	delete(*OFPorts, mapMsg.EndpointID)
 }
 
-func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint]string) {
+func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint32]string) {
 	for id, ns := range d.networks {
 		stackMirrorConfig := d.stackMirrorConfigs[id]
-		newPortDesc := make(map[uint]string)
+		newPortDesc := make(map[uint32]string)
 		err := scrapePortDesc(ns.BridgeName, &newPortDesc)
 		if err != nil {
 			continue
@@ -619,7 +619,7 @@ func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint]string) {
 
 		for ofport, desc := range newPortDesc {
 			// Ignore NAT and mirror port
-			if uint32(ofport) == ofPortLocal || uint32(ofport) == stackMirrorConfig.LbPort {
+			if ofport == ofPortLocal || ofport == stackMirrorConfig.LbPort {
 				continue
 			}
 			// Ignore container and patch ports.
@@ -646,7 +646,7 @@ func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint]string) {
 
 func consolidateDockerInfo(d *Driver) {
 	OFPorts := make(map[string]OFPortContainer)
-	AllPortDesc := make(map[string]map[uint]string)
+	AllPortDesc := make(map[string]map[uint32]string)
 
 	for {
 		select {
