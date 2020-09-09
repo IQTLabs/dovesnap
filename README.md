@@ -1,32 +1,39 @@
 dovesnap
 =================
 
+dovesnap is a docker network provider, that works with FAUCET and OVS. This allows docker networks to make use of FAUCET's features, such as mirroring, ACLs, and Prometheus based monitoring.
+
+Thanks to the folks who wrote the orginal [docker-ovs-plugin](https://github.com/gopher-net/docker-ovs-plugin) which is what this project was forked from.
+
 ### QuickStart Instructions
 
-The quickstart instructions describe how to start the plugin. There are two modes, **nat** and **flat** described in the following section. At the moment, flat mode is the default.
+These instructions describe the most basic use of dovesnap - creating a docker network with Internet access. See below for more advanced usage.
 
 **1.** Make sure you are using Docker 1.10 or later
 
-**2.** You need to `modprobe openvswitch` on the machine where the Docker Daemon is located
+**2.** You need to `modprobe openvswitch` on the machine where the Docker Daemon is located. Make sure that while the module is loaded, OVS is not running.
 
+**3.** Create a directory for FAUCET to store its configuration:
+
+```
+sudo mkdir /etc/faucet
 ```
 $ sudo modprobe openvswitch
 ```
 
-**3.** `docker-compose up -d --build`
+**4.** `docker-compose build && FAUCET_PREFIX=/etc/faucet docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d`
 
-**4.** Now you are ready to create a new network
-
-```
-$ docker network create --internal -d ovs mynet
-```
-
-**5.** Test it out!
+**5.** Now you are ready to create a new network
 
 ```
-$ docker run -itd --net=mynet --name=web nginx
+$ docker network create mynet -d ovs --internal -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654
+```
 
-$ docker run -it --rm --net=mynet busybox wget -qO- http://web
+**6.** Test it out!
+
+```
+
+
 ```
 
 ### Modes
@@ -71,6 +78,5 @@ e0de2079-66f0-4279-a1c8-46ba0672426e
 
 **Flat Mode Note:** Hosts will only be able to ping one another unless you add an ethernet interface to the `docker-ovsbr0` bridge with something like `ovs-vsctl add-port <bridge_name> <port_name>`. NAT mode will masquerade around that issue. It is an inherent hassle of bridges that is unavoidable. This is a reason bridgeless implementation [gopher-net/ipvlan-docker-plugin](https://github.com/gopher-net/ipvlan-docker-plugin) and [gopher-net/macvlan-docker-plugin](https://github.com/gopher-net/macvlan-docker-plugin) can be attractive.
 
-### Thanks
 
-Thanks to the folks who wrote the orginal [docker-ovs-plugin](https://github.com/gopher-net/docker-ovs-plugin) which is what this project was forked from.
+
