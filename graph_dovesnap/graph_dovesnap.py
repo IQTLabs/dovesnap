@@ -94,7 +94,7 @@ class GraphDovesnap:
     def _network_lookup(self, name):
         output = self._scrape_cmd(['nslookup', name])
         if output:
-            hostname, address = output[4:-2]
+            hostname, address = output[4:-1]
             hostname = hostname.split('\t')[1]
             address = address.split(': ')[1]
             return hostname, address
@@ -104,11 +104,11 @@ class GraphDovesnap:
         desc = ['', 'Virtual Machine', name]
         output = self._scrape_cmd(['virsh', 'list'])
         if output:
-            vm_names = output[2:-2]
+            vm_names = output[2:-1]
             for vm_list in vm_names:
                 vm_name = vm_list.split()[1]
                 vm_iflist = self._scrape_cmd(['virsh', 'domiflist', vm_name])
-                ifaces = vm_iflist[2:-2]
+                ifaces = vm_iflist[2:-1]
                 iface_macs = {iface.split()[0]: iface.split()[4] for iface in ifaces}
                 mac = iface_macs.get(name, None)
                 if mac:
