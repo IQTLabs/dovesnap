@@ -20,7 +20,6 @@ class GraphDovesnap:
     DRIVER_NAME = 'ovs'
     OFP_LOCAL = 4294967294
     DOCKER_URL = 'unix://var/run/docker.sock'
-    OUTPUT_FILE = 'dovesnapviz'
     PATCH_PREFIX = 'ovp'
     VM_PREFIX = 'vnet'
     DOVESNAP_MIRROR = '99'
@@ -53,6 +52,13 @@ class GraphDovesnap:
             raise GraphDovesnapException('%s: %s', cmd, output)
         return output.splitlines()
 
+    def _scrape_cmd(self, cmd):
+        try:
+            output = subprocess.check_output(cmd)
+            return output.decode('utf-8').splitlines()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return []
+
     def _scrape_ovs(self, cmd):
         return self._scrape_container_cmd(self.OVS_NAME, cmd, strict=False)
 
@@ -62,47 +68,55 @@ class GraphDovesnap:
     def _dovesnap_bridgename(self, net_id):
         return 'ovsbr-%s' % net_id[:5]
 
-    def _get_vm_options(self, network, ofport):
+    def _get_vm_options(self, faucetconfrpc_client, network, ofport):
         vm_options = []
-        client = FaucetConfRpcClient(self.args.key, self.args.cert, self.args.ca, self.args.server+":"+self.args.port)
-        conf = client.get_config_file()
-        if 'acls_in' in conf['dps'][network]['interfaces'][ofport]:
-            vm_options.append("portacl: "+','.join(conf['dps'][network]['interfaces'][ofport]['acls_in']))
-        if self.DOVESNAP_MIRROR in conf['dps'][network]['interfaces'] and 'mirror' in conf['dps'][network]['interfaces'][self.DOVESNAP_MIRROR] and ofport in conf['dps'][network]['interfaces'][self.DOVESNAP_MIRROR]['mirror']:
-            vm_options.append("mirror: true")
+        conf = faucetconfrpc_client.get_config_file()
+        interfaces = conf['dps'][network]['interfaces']
+        interface = interfaces[ofport]
+        acls_in = interface.get('acls_in', None)
+        if acls_in:
+            vm_options.append('portacl: %s' % ','.join(acls_in))
+        mirror_interface = interfaces.get(self.DOVESNAP_MIRROR, None)
+        if mirror_interface:
+            mirrored_ports = mirror_interface.get('mirror', [])
+            if ofport in mirrored_ports:
+                vm_options.append('mirror: true')
         return '\n'.join(vm_options)
 
     def _scrape_external_iface(self, name):
-        desc = [name, "", "External Interface"]
-        iface = subprocess.check_output(['ifconfig', name])
-        ether = iface.decode('utf-8').split('\n')[1]
-        mac = ether.split()[1]
-        desc.append(mac)
+        desc = [name, '', 'External Interface']
+        output = self._scrape_cmd(['ifconfig', name])
+        if output:
+            mac = output[1].split()[1]
+            desc.append(mac)
         return '\n'.join(desc)
 
     def _network_lookup(self, name):
-        lookup = subprocess.check_output(['nslookup', name])
-        hostname, address = lookup.decode('utf-8').split('\n')[4:-2]
-        hostname = hostname.split('\t')[1]
-        address = address.split(': ')[1]
-        return hostname, address
+        output = self._scrape_cmd(['nslookup', name])
+        if output:
+            hostname, address = output[4:-2]
+            hostname = hostname.split('\t')[1]
+            address = address.split(': ')[1]
+            return hostname, address
+        return None, None
 
     def _scrape_vm_iface(self, name):
-        desc = ["", "Virtual Machine", name]
-        vm_list = subprocess.check_output(['virsh', 'list'])
-        vm_names = vm_list.decode('utf-8').split('\n')[2:-2]
-        for vm_list in vm_names:
-            vm_name = vm_list.split()[1]
-            vm_iflist = subprocess.check_output(['virsh', 'domiflist', vm_name])
-            ifaces = vm_iflist.decode('utf-8').split('\n')[2:-2]
-            for iface in ifaces:
-                mac = iface.split()[4]
-                iface = iface.split()[0]
-                if iface == name:
+        desc = ['', 'Virtual Machine', name]
+        output = self._scrape_cmd(['virsh', 'list'])
+        if output:
+            vm_names = output[2:-2]
+            for vm_list in vm_names:
+                vm_name = vm_list.split()[1]
+                vm_iflist = self._scrape_cmd(['virsh', 'domiflist', vm_name])
+                ifaces = vm_iflist[2:-2]
+                iface_macs = {iface.split()[0]: iface.split()[4] for iface in ifaces}
+                mac = iface_macs.get(name, None)
+                if mac:
                     hostname, address = self._network_lookup(vm_name)
                     desc.insert(0, hostname)
                     desc.append(mac)
                     desc.append(f'{address}/24')
+                    break
         return '\n'.join(desc)
 
     def _get_matching_lines(self, lines, re_str):
@@ -205,13 +219,18 @@ class GraphDovesnap:
         return args
 
     def build_graph(self):
-        dot = Digraph()
         client = docker.APIClient(base_url=self.DOCKER_URL)
         if not client.ping():
             raise GraphDovesnapException('cannot connect to docker')
         dovesnap = self._get_named_container(client, self.DOVESNAP_NAME)
         if not dovesnap:
             raise GraphDovesnapException('cannot find dovesnap container')
+        faucetconfrpc_client = FaucetConfRpcClient(
+            self.args.key, self.args.cert, self.args.ca, ':'.join([self.args.server, self.args.port]))
+        if not faucetconfrpc_client:
+            raise GraphDovesnapException('cannot connect to faucetconfrpc')
+
+        dot = Digraph()
         dovesnap_inspect = client.inspect_container(dovesnap['Id'])
         dovesnap_args = self._get_container_args(dovesnap_inspect)
         networks = self._get_dovesnap_networks(client)
@@ -262,7 +281,8 @@ class GraphDovesnap:
                 else:
                     if br_desc.startswith(self.VM_PREFIX):
                         vm_desc = self._scrape_vm_iface(br_desc)
-                        vm_options = self._get_vm_options(network['Name'], ofport)
+                        vm_options = self._get_vm_options(
+                            faucetconfrpc_client, network['Name'], ofport)
                         vm_desc += '\n'+vm_options
                         dot.node(br_desc, vm_desc)
                     else:
@@ -297,9 +317,9 @@ class GraphDovesnap:
                     dot.edge(bridgename, br_desc, str(ofport))
 
         dot.format = 'png'
-        dot.render(self.OUTPUT_FILE)
+        dot.render(self.args.output)
         # leave only PNG
-        os.remove(self.OUTPUT_FILE)
+        os.remove(self.args.output)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -314,6 +334,8 @@ def main():
                         help='FaucetConfRPC server port')
     parser.add_argument('--server', '-s', default='faucetconfrpc',
                         help='FaucetConfRPC server name')
+    parser.add_argument('--output', '-o', default='dovesnapviz',
+                        help='Output basename of image to write')
     args = parser.parse_args()
     g = GraphDovesnap(args)
     g.build_graph()

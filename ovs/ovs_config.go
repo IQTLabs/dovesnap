@@ -6,12 +6,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
 	networkplugin "github.com/docker/go-plugins-helpers/network"
-	bc "github.com/kenshaw/baseconv"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -204,63 +201,6 @@ func mustGetUserspace(r *networkplugin.CreateNetworkRequest) bool {
 	return parseBool(getGenericOption(r, userspaceOption))
 }
 
-func getContainerFromEndpoint(dockerclient *client.Client, EndpointID string) (types.ContainerJSON, error) {
-	for i := 0; i < dockerRetries; i++ {
-		netlist, _ := dockerclient.NetworkList(context.Background(), types.NetworkListOptions{})
-		for _, net := range netlist {
-			if net.Driver != DriverName {
-				continue
-			}
-			netInspect, err := dockerclient.NetworkInspect(context.Background(), net.ID, types.NetworkInspectOptions{})
-			if err != nil {
-				continue
-			}
-			for containerID, containerInfo := range netInspect.Containers {
-				if containerInfo.EndpointID == EndpointID {
-					containerInspect, err := dockerclient.ContainerInspect(context.Background(), containerID)
-					if err != nil {
-						continue
-					}
-					return containerInspect, nil
-				}
-			}
-		}
-		time.Sleep(1 * time.Second)
-	}
-	return types.ContainerJSON{}, fmt.Errorf("Endpoint %s not found", EndpointID)
-}
-
-func mustGetNetworkNameFromID(dockerclient *client.Client, NetworkID string) string {
-	for i := 0; i < dockerRetries; i++ {
-		netInspect, err := dockerclient.NetworkInspect(context.Background(), NetworkID, types.NetworkInspectOptions{})
-		if err == nil {
-			return netInspect.Name
-		}
-		time.Sleep(1 * time.Second)
-	}
-	panic(fmt.Errorf("Network %s not found", NetworkID))
-}
-
-func mustGetNetworkInspectFromID(dockerclient *client.Client, NetworkID string) types.NetworkResource {
-	for i := 0; i < dockerRetries; i++ {
-		netInspect, err := dockerclient.NetworkInspect(context.Background(), NetworkID, types.NetworkInspectOptions{})
-		if err == nil {
-			return netInspect
-		}
-		time.Sleep(1 * time.Second)
-	}
-	panic(fmt.Errorf("Network %s not found", NetworkID))
-}
-
-func mustGetIntDpid(dpid string) int {
-	strDpid, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
-	intDpid := defaultInt(strDpid, -1)
-	if intDpid == -1 {
-		panic(fmt.Errorf("Unable convert %s to an int", strDpid))
-	}
-	return intDpid
-}
-
 func truncateID(id string) string {
 	return id[:5]
 }
@@ -285,18 +225,8 @@ func (d *Driver) getStackMirrorConfig(r *networkplugin.CreateNetworkRequest) Sta
 	}
 }
 
-func base36to16(value string) string {
-	converted, _ := bc.Convert(strings.ToLower(value), bc.Digits36, bc.DigitsHex)
-	digits := len(converted)
-	for digits < 6 {
-		converted = "0" + converted
-		digits = len(converted)
-	}
-	return strings.ToUpper(converted)
-}
-
 func (d *Driver) getShortEngineID() (string, error) {
-	info, err := d.dockerclient.Info(context.Background())
+	info, err := d.dockerer.client.Info(context.Background())
 	if err != nil {
 		return "", err
 	}
@@ -320,7 +250,7 @@ func (d *Driver) mustGetLoopbackDP() string {
 	return "lb" + engineId
 }
 
-func (d *Driver) mustGetStackingInterface(stackingInterface string) (string, uint64, string) {
+func (d *Driver) mustGetStackingInterface(stackingInterface string) (string, uint32, string) {
 	stackSlice := strings.Split(stackingInterface, ":")
 	remoteDP := stackSlice[0]
 	remotePort, err := strconv.ParseUint(stackSlice[1], 10, 32)
@@ -331,7 +261,7 @@ func (d *Driver) mustGetStackingInterface(stackingInterface string) (string, uin
 	if err != nil {
 		panic(fmt.Errorf("Unable to convert local port to an unsigned integer because: [ %s ]", err))
 	}
-	return remoteDP, remotePort, localInterface
+	return remoteDP, uint32(remotePort), localInterface
 }
 
 func (d *Driver) mustGetStackBridgeConfig() (string, string, int, string) {
@@ -345,7 +275,7 @@ func (d *Driver) mustGetStackBridgeConfig() (string, string, int, string) {
 		panic(err)
 	}
 
-	intDpid := mustGetIntDpid(dpid)
+	intDpid := mustGetIntFromHexStr(dpid)
 	return hostname, dpid, intDpid, dpName
 }
 
@@ -371,7 +301,7 @@ func getIntOptionFromResource(r *types.NetworkResource, optionName string, defau
 
 func mustGetBridgeDpidFromResource(r *types.NetworkResource) (string, int) {
 	dpid := getStrOptionFromResource(r, bridgeDpid, "")
-	intDpid := mustGetIntDpid(dpid)
+	intDpid := mustGetIntFromHexStr(dpid)
 	return dpid, intDpid
 }
 

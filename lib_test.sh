@@ -34,7 +34,7 @@ init_dirs()
 
 clean_dirs()
 {
-	./graph_dovesnap/graph_dovesnap.py || exit 1
+	./graph_dovesnap/graph_dovesnap.py -o /tmp/dovesnapviz || exit 1
 	docker rm -f testcon || exit 1
 	docker network rm testnet || exit 1
 	FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml stop

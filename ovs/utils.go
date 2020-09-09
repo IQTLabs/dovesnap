@@ -2,12 +2,61 @@ package ovs
 
 import (
 	"fmt"
+	"hash/crc32"
+	"math"
 	"net"
+	"os"
+	"strings"
 	"time"
 
+	bc "github.com/kenshaw/baseconv"
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
+
+const (
+	b62alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+)
+
+func base36to16(value string) string {
+	converted, _ := bc.Convert(strings.ToLower(value), bc.Digits36, bc.DigitsHex)
+	digits := len(converted)
+	for digits < 6 {
+		converted = "0" + converted
+		digits = len(converted)
+	}
+	return strings.ToUpper(converted)
+}
+
+func mustGetIntFromHexStr(dpid string) int {
+	strVal, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
+	intVal := defaultInt(strVal, -1)
+	if intVal == -1 {
+		panic(fmt.Errorf("Unable convert %s to an int", strVal))
+	}
+	return intVal
+}
+
+// return int64 as base62.
+func b62Encode(n int64) string {
+	if n == 0 {
+		return "0"
+	}
+
+	b := make([]byte, 0, 512)
+	base := int64(len(b62alphabet))
+	for n > 0 {
+		r := math.Mod(float64(n), float64(base))
+		n /= base
+		b = append([]byte{b62alphabet[int(r)]}, b...)
+	}
+	return string(b)
+}
+
+// Represent link name as a short hash, for use in an interface name.
+func patchStr(a string) string {
+	return b62Encode(int64(crc32.ChecksumIEEE([]byte(a))))
+}
 
 // Generate a mac addr
 func makeMac(ip net.IP) string {
@@ -84,4 +133,71 @@ func validateIface(ifaceStr string) bool {
 		return false
 	}
 	return true
+}
+
+func ensureDirExists(dir string) {
+	_, err := os.Stat(dir)
+	if os.IsNotExist(err) {
+		err = os.MkdirAll(dir, 0755)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func createNsLink(pid int, id string) {
+	procPath := fmt.Sprintf("/proc/%d/ns/net", pid)
+	procNetNsPath := fmt.Sprintf("%s/%s", netNsPath, id)
+
+	_, err := os.Lstat(procNetNsPath)
+	if err == nil {
+		log.Debugf("Remove existing %s", procNetNsPath)
+		err = os.Remove(procNetNsPath)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	err = os.Symlink(procPath, procNetNsPath)
+	if err != nil {
+		panic(err)
+	}
+}
+
+// Create veth pair. Peername is renamed to eth0 in the container
+func vethPair(suffix string) *netlink.Veth {
+	return &netlink.Veth{
+		LinkAttrs: netlink.LinkAttrs{Name: ovsPortPrefix + suffix},
+		PeerName:  peerOvsPortPrefix + suffix,
+	}
+}
+
+// Enable a netlink interface
+func interfaceUp(name string) error {
+	iface, err := netlink.LinkByName(name)
+	if err != nil {
+		log.Debugf("Error retrieving a link named [ %s ]", iface.Attrs().Name)
+		return err
+	}
+	return netlink.LinkSetUp(iface)
+}
+
+// Delete veth pair.
+func delVethPair(localVethPair *netlink.Veth) {
+	err := netlink.LinkDel(localVethPair)
+	if err != nil {
+		panic(err)
+	}
+}
+
+// Add and activate veth pair
+func addVethPair(localVethPair *netlink.Veth) {
+	err := netlink.LinkAdd(localVethPair)
+	if err != nil {
+		panic(err)
+	}
+	err = netlink.LinkSetUp(localVethPair)
+	if err != nil {
+		panic(err)
+	}
 }
