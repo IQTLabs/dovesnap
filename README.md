@@ -7,6 +7,11 @@ Thanks to the folks who wrote the orginal [docker-ovs-plugin](https://github.com
 
 See also https://docs.faucet.nz for FAUCET documentation, including monitoring documentation (dovesnap will supply FAUCET-based monitoring without needing configuration, when started as below).
 
+### Requirements
+
+* Linux host running a supported version docker (x86 and Pi are supported)
+* Optionally: additional physical interfaces to connect other hosts also running dovesnap
+
 ### QuickStart Instructions
 
 These instructions describe the most basic use of dovesnap - creating a docker network with Internet access, where dovesnap provides all the FAUCET infrastructure. See below for more advanced usage.
