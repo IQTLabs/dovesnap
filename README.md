@@ -84,7 +84,7 @@ Dovesnap will connect `eno123` to the docker network, and attempt to use OVS OFP
 
 `--ipam-driver null -o ovs.bridge.dhcp=true`
 
-docker's IP management of this network will be disabled, and instead dhcp will request and maintain a DHCP lease for each container on the network, using 'udhcpc'. 'udhcpc' is run outside the container's PID namespace (so the container cannot see it), but within its network namespace. The container therefore does not need any special privileges and cannot change its IP address itself.
+docker's IP management of this network will be disabled, and instead dhcp will request and maintain a DHCP lease for each container on the network, using `udhcpc`. `udhcpc` is run outside the container's PID namespace (so the container cannot see it), but within its network namespace. The container therefore does not need any special privileges and cannot change its IP address itself.
 
 ##### Mirroring
 
@@ -128,8 +128,14 @@ An ACL will be applied to the port associated with the container. The ACL must a
 
 The container's traffic (both sent and received) will be mirrored to a port on the bridge (see above).
 
+#### Visualizing dovesnap networks
 
+Dovesnap can generate a diagram of how containers and interfaces are connected together, with some information about running containers (e.g. MAC and IP addresses). This can be useful for troubleshooting or verifying configuration.
 
+```
+$ cd graph_dovesnap
+$ sudo pip3 install -r requirements.txt
+$ ./graph_dovesnap.py
+```
 
-
-
+A PNG file will be created that describes the networks dovesnap controls.
