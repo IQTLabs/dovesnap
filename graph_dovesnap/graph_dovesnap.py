@@ -111,11 +111,12 @@ class GraphDovesnap:
                 ifaces = vm_iflist[2:-1]
                 iface_macs = {iface.split()[0]: iface.split()[4] for iface in ifaces}
                 mac = iface_macs.get(name, None)
-                if mac:
-                    hostname, address = self._network_lookup(vm_name)
-                    desc.insert(0, hostname)
+                if mac is not None:
                     desc.append(mac)
-                    desc.append(f'{address}/24')
+                    hostname, address = self._network_lookup(vm_name)
+                    if hostname is not None:
+                        desc.insert(0, hostname)
+                        desc.append(f'{address}/24')
                     break
         return '\n'.join(desc)
 
