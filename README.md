@@ -79,9 +79,17 @@ There are two `ovs.bridge.mode` modes, `flat` and `nat`. The default mode is `fl
 
 - `flat` causes dovesnap to provide connectivity only between containers on this docker network - not to other networks.
 
+##### Userspace mode
+
+`-o ovs.bridge.userspace=true`
+
+This requests a user space ("netdev"), rather than kernel space switch from OVS. Certain OVS features such as meters, used to implement rate limiting, will only work on a user space bridge.
+
+If userspace bridges are used, then OVS must run with `privileged: true`.
+
 ##### Adding a physical port/real VLAN
 
-`ovs.bridge.add_ports=eno123/8`
+`-o ovs.bridge.add_ports=eno123/8`
 
 Dovesnap will connect `eno123` to the docker network, and attempt to use OVS OFPort 8 (OVS will select another port number, if for some reason port 8 is already in use). You can specify more ports with commas. The OFPort specification is optional - if not present dovesnap will select the next free port number.
 
