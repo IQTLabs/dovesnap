@@ -5,23 +5,29 @@ dovesnap is a docker network provider, that works with FAUCET and OVS. This allo
 
 Thanks to the folks who wrote the orginal [docker-ovs-plugin](https://github.com/gopher-net/docker-ovs-plugin) which is what this project was forked from.
 
+See also https://docs.faucet.nz for FAUCET documentation, including monitoring documentation (dovesnap will supply FAUCET-based monitoring without needing configuration, when started as below).
+
 ### QuickStart Instructions
 
-These instructions describe the most basic use of dovesnap - creating a docker network with Internet access. See below for more advanced usage.
+These instructions describe the most basic use of dovesnap - creating a docker network with Internet access, where dovesnap provides all the FAUCET infrastructure. See below for more advanced usage.
 
 **1.** Make sure you are using Docker 1.10 or later
 
-**2.** You need to `modprobe openvswitch` on the machine where the Docker Daemon is located. Make sure that while the module is loaded, OVS is not running.
+**2.** You need to `modprobe openvswitch` on the machine where the Docker Daemon is located. Make sure that while the module is loaded, OVS is not running on the host.
 
-**3.** Create a directory for FAUCET to store its configuration:
-
-```
-sudo mkdir /etc/faucet
 ```
 $ sudo modprobe openvswitch
 ```
 
-**4.** `docker-compose build && FAUCET_PREFIX=/etc/faucet docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d`
+**3.** Create a directory for FAUCET to store its configuration:
+
+```
+$ sudo mkdir /etc/faucet
+```
+
+**4.** Start dovesnap.
+
+`$ docker-compose build && FAUCET_PREFIX=/etc/faucet docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d`
 
 **5.** Now you are ready to create a new network
 
@@ -29,54 +35,101 @@ $ sudo modprobe openvswitch
 $ docker network create mynet -d ovs --internal -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654
 ```
 
+`-d ovs` tells docker to use dovesnap as a network provider.
+
+`--internal` tells docker not to supply an additional network connection to containers on the new network for internet access. This is essential for dovesnap to complete control over connectivity.
+
+`-o ovs.bridge.mode=nat` tells dovesnap to arrange NAT for the new network.
+
+`-o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654` tell dovesnap which FAUCET will control this network (you can provide your own FAUCET elsewhere on the network, but in this example we are using a dovesnap-provided FAUCET instance).
+
 **6.** Test it out!
 
 ```
-
-
+$ docker run -d --net=mynet --rm --name=testcon busybox sleep 1h
+$ docker exec -t testcon ping 4.2.2.2
 ```
 
-### Modes
+### Advanced usage
 
-There are two generic modes, `flat` and `nat`. The default mode is `flat`.
+There are several options available when creating a network, and when creating a container on a network, to access FAUCET features.
 
-`nat` does not require any orchestration with the network because the address space is hidden behind iptables masquerading.
+You can view dovesnap's OVS bridges using `ovs-vsctl` and `ovs-ofctl`, from within the dovesnap OVS container. You can even use `ovs-vsctl` to add other (for example, physical) ports to a dovesnap managed bridge and dovesnap will monitor them for you. However, it's recommended that you use dovesnap's own options (below) where possible.
 
-- flat is simply an OVS bridge with the container link attached to it. An example would be a Docker host is plugged into a data center port that has a subnet of `192.168.1.0/24`. You would start the plugin like so:
+#### Required options
+
+`ovs.bridge.dpid=<dpid> -o ovs.bridge.controller=tcp:<ip>:<port>`
+
+Every dovesnap network requires a DPID (for OVS and FAUCET), and at least one controller for OVS. dovesnap will provide FAUCET and Gauge processes to do forwarding and monitoring by default - at least one FAUCET is required, and one Gauge if monitoring is desired.
+
+#### Network options
+
+These options are supplied at `docker network create` time.
+
+##### Bridge modes
+
+There are two `ovs.bridge.mode` modes, `flat` and `nat`. The default mode is `flat`.
+
+- `nat` causes dovesnap to provision NAT for the docker network.
+
+- `flat` causes dovesnap to provide connectivity only between containers on this docker network - not to other networks.
+
+##### Adding a physical port/real VLAN
+
+`ovs.bridge.add_ports=eno123/8`
+
+Dovesnap will connect `eno123` to the docker network, and attempt to use OVS OFPort 8 (OVS will select another port number, if for some reason port 8 is already in use). You can specify more ports with commas. The OFPort specification is optional - if not present dovesnap will select the next free port number.
+
+###### Enabling DHCP
+
+`--ipam-driver null -o ovs.bridge.dhcp=true`
+
+docker's IP management of this network will be disabled, and instead dhcp will request and maintain a DHCP lease for each container on the network, using 'udhcpc'. 'udhcpc' is run outside the container's PID namespace (so the container cannot see it), but within its network namespace. The container therefore does not need any special privileges and cannot change its IP address itself.
+
+##### Mirroring
+
+Dovesnap provides infrastructure to do centralized mirroring - you can have dovesnap mirror the traffic for any container on a network it controls, back to a single interface (virtual or physical). This allows you to (for example) run one centralized tcpdump process that can collect all mirrored traffic.
+
+To use physical interface `eno99` for mirroring, for example:
+
+`$ FAUCET_PREFIX=/etc/faucet MIRROR_BRIDGE_OUT=eno99 docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d`
+
+If you want to mirror to a virtual interface on your host, use a veth pair. For example:
 
 ```
-$ docker network create --internal --gateway=192.168.1.1 --subnet=192.168.1.0/24 -d ovs mynet
+$ sudo ip link add mirrori type veth peer name mirroro
+$ sudo ip link set dev mirrori up
+$ sudo ip link set dev mirroro up
+$ FAUCET_PREFIX=/etc/faucet MIRROR_BRIDGE_OUT=mirrori docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d
+$ sudo tcpdump -n -e -v -i mirroro
 ```
 
-- Containers now start attached to an OVS bridge. It could be tagged or untagged but either way it is isolated and unable to communicate to anything outside of its bridge domain. In this case, you either add VXLAN tunnels to other bridges of the same bridge domain or add an `eth` interface to the bridge to allow access to the underlying network when traffic leaves the Docker host. To do so, you simply add the `eth` interface to the ovs bridge. Neither the bridge nor the eth interface need to have an IP address since traffic from the container is strictly L2. **Warning** if you are remoted into the physical host make sure you are not using an ethernet interface to attach to the bridge that is also your management interface since the eth interface no longer uses the IP address it had. The IP would need to be migrated to ovsbr-docker0 in this case. Allowing underlying network access to an OVS bridge can be done like so:
+From this point, any container selected for mirroring (see below) will have traffic mirrored to tcpdump running on `mirroro`
 
-```
-ovs-vsctl add-port ovsbr-docker0 eth2
+###### Mirroring across multiple hosts
 
-```
+You might want to run docker and dovesnap on multiple hosts, and have all the mirrored traffic from all the hosts arrive on one port on one host.
 
-Add an address to ovsbr-docker0 if you want an L3 interface on the L2 domain for the Docker host if you would like one for troubleshooting etc but it isn't required since flat mode cares only about MAC addresses and VLAN IDs like any other L2 domain would.
+You can do this by daisy-chaining the hosts together with dedicated physical ports in a so called "mirror river". On the hosts within the chain, specify `MIRROR_BRIDGE_IN=eth77` (where `eth77` is connected to the previous host). This will cause each host to pass the mirrored traffic along to the final host.
 
-- Example of OVS with an ethernet interface bound to it for external access to the container sitting on the same bridge. NAT mode doesn't need the eth interface because IPTables is doing NAT/PAAT instead of bridging all the way through.
+#### Container options
+
+These options are supplied when starting a container.
+
+#### ACLs
+
+`--label="dovesnap.faucet.portacl=<aclname>"`
+
+An ACL will be applied to the port associated with the container. The ACL must already exist in FAUCET (e.g. by adding it to `faucet.yaml`).
+
+#### Mirroring
+
+`--label="dovesnap.faucet.mirror=true"`
+
+The container's traffic (both sent and received) will be mirrored to a port on the bridge (see above).
 
 
-```
-$ ovs-vsctl show
-e0de2079-66f0-4279-a1c8-46ba0672426e
-    Manager "ptcp:6640"
-        is_connected: true
-    Bridge "ovsbr-docker0"
-        Port "ovsbr-docker0"
-            Interface "ovsbr-docker0"
-                type: internal
-        Port "ovs-veth0-d33a9"
-            Interface "ovs-veth0-d33a9"
-        Port "eth2"
-            Interface "eth2"
-    ovs_version: "2.3.1"
-```
 
-**Flat Mode Note:** Hosts will only be able to ping one another unless you add an ethernet interface to the `docker-ovsbr0` bridge with something like `ovs-vsctl add-port <bridge_name> <port_name>`. NAT mode will masquerade around that issue. It is an inherent hassle of bridges that is unavoidable. This is a reason bridgeless implementation [gopher-net/ipvlan-docker-plugin](https://github.com/gopher-net/ipvlan-docker-plugin) and [gopher-net/macvlan-docker-plugin](https://github.com/gopher-net/macvlan-docker-plugin) can be attractive.
 
 
 
