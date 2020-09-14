@@ -75,9 +75,13 @@ These options are supplied at `docker network create` time.
 
 There are two `ovs.bridge.mode` modes, `flat` and `nat`. The default mode is `flat`.
 
+- `flat` causes dovesnap to provide connectivity only between containers on this docker network - not to other networks.
+
 - `nat` causes dovesnap to provision NAT for the docker network.
 
-- `flat` causes dovesnap to provide connectivity only between containers on this docker network - not to other networks.
+If NAT is in use, you can specify `-p <outside port>:<inside port>` when starting a container. dovesnap will provision a DNAT rule, via the network's gateway from the outside port to the inside port on that container.
+
+This mapping won't show up in `docker ps`, as dovesnap is not using docker-proxy.
 
 ##### Userspace mode
 
