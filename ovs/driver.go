@@ -9,6 +9,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	networkplugin "github.com/docker/go-plugins-helpers/network"
+	"github.com/docker/libnetwork/iptables"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -18,6 +19,7 @@ type OFPortMap struct {
 	Mode       string
 	NetworkID  string
 	EndpointID string
+	Options    map[string]interface{}
 	Operation  string
 }
 
@@ -31,6 +33,7 @@ type OFPortContainer struct {
 	OFPort           uint32
 	containerInspect types.ContainerJSON
 	udhcpcCmd        *exec.Cmd
+	Options          map[string]interface{}
 }
 
 type Driver struct {
@@ -349,9 +352,9 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 	}
 	log.Infof("Attached veth [ %s ] to bridge [ %s ] ofport %d", localVethPair.Name, ns.BridgeName, ofport)
 
-	// SrcName gets renamed to DstPrefix + ID on the container iface
 	res := &networkplugin.JoinResponse{
 		InterfaceName: networkplugin.InterfaceName{
+			// SrcName gets renamed to DstPrefix + ID on the container iface
 			SrcName:   localVethPair.PeerName,
 			DstPrefix: containerEthName,
 		},
@@ -364,6 +367,7 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 		Mode:       "",
 		NetworkID:  r.NetworkID,
 		EndpointID: r.EndpointID,
+		Options:    r.Options,
 		Operation:  "add",
 	}
 	d.ofportmapChan <- addmap
@@ -495,6 +499,18 @@ func mustHandleCreate(d *Driver, mapMsg OFPortMap) {
 	}
 }
 
+func mustGetPortMap(portMapRaw interface{}) (string, string, string) {
+	portMap := portMapRaw.(map[string]interface{})
+	hostPort := fmt.Sprintf("%d", int(portMap["HostPort"].(float64)))
+	port := fmt.Sprintf("%d", int(portMap["Port"].(float64)))
+	ipProto := "tcp"
+	ipProtoNum := int(portMap["Proto"].(float64))
+	if ipProtoNum == 17 {
+		ipProto = "udp"
+	}
+	return hostPort, port, ipProto
+}
+
 func mustHandleAdd(d *Driver, mapMsg OFPortMap, OFPorts *map[string]OFPortContainer) {
 	defer func() {
 		if rerr := recover(); rerr != nil {
@@ -502,14 +518,34 @@ func mustHandleAdd(d *Driver, mapMsg OFPortMap, OFPorts *map[string]OFPortContai
 		}
 	}()
 	containerInspect, err := d.dockerer.getContainerFromEndpoint(mapMsg.EndpointID)
-	log.Debugf("%s", containerInspect)
 	if err != nil {
 		panic(err)
 	}
 	ns := d.networks[mapMsg.NetworkID]
 	pid := containerInspect.State.Pid
+	containerNetSettings := containerInspect.NetworkSettings.Networks[ns.NetworkName]
+
 	log.Infof("Adding %s (pid %d) on %s DPID %d OFPort %d to Faucet",
 		containerInspect.Name, pid, ns.BridgeName, ns.BridgeDpidInt, mapMsg.OFPort)
+	log.Debugf("container network settings: %+v", containerNetSettings)
+
+	log.Debugf("%+v", mapMsg.Options[portMapOption])
+	hostIP := containerNetSettings.IPAddress
+	gatewayIP := containerNetSettings.Gateway
+
+	// Regular docker uses docker proxy, to listen on the configured port and proxy them into the container.
+	// dovesnap doesn't get to use docker proxy, so we listen on the configured port on the network's gateway instead.
+	for _, portMapRaw := range mapMsg.Options[portMapOption].([]interface{}) {
+		log.Debugf("adding portmap %+v", portMapRaw)
+		hostPort, port, ipProto := mustGetPortMap(portMapRaw)
+		iptables.Raw("-t", "nat", "-C", "DOCKER", "-p", ipProto, "-d", gatewayIP, "--dport", hostPort, "-j", "DNAT", "--to-destination", fmt.Sprintf("%s:%s", hostIP, port))
+		iptables.Raw("-t", "nat", "-A", "DOCKER", "-p", ipProto, "-d", gatewayIP, "--dport", hostPort, "-j", "DNAT", "--to-destination", fmt.Sprintf("%s:%s", hostIP, port))
+		iptables.Raw("-t", "nat", "-A", "OUTPUT", "-p", ipProto, "-d", gatewayIP, "--dport", hostPort, "-j", "DNAT", "--to-destination", fmt.Sprintf("%s:%s", hostIP, port))
+		iptables.Raw("-t", "nat", "-C", "POSTROUTING", "-p", ipProto, "-s", hostIP, "-d", hostIP, "--dport", port, "-j", "MASQUERADE")
+		iptables.Raw("-t", "nat", "-A", "POSTROUTING", "-p", ipProto, "-s", hostIP, "-d", hostIP, "--dport", port, "-j", "MASQUERADE")
+		iptables.Raw("-t", "filter", "-C", "DOCKER", "!", "-i", ns.BridgeName, "-o", ns.BridgeName, "-p", "tcp", "-d", hostIP, "--dport", port, "-j", "ACCEPT")
+		iptables.Raw("-t", "filter", "-A", "DOCKER", "!", "-i", ns.BridgeName, "-o", ns.BridgeName, "-p", "tcp", "-d", hostIP, "--dport", port, "-j", "ACCEPT")
+	}
 
 	portacl := ""
 	portacl, ok := containerInspect.Config.Labels["dovesnap.faucet.portacl"]
@@ -554,6 +590,7 @@ func mustHandleAdd(d *Driver, mapMsg OFPortMap, OFPorts *map[string]OFPortContai
 		OFPort:           mapMsg.OFPort,
 		containerInspect: containerInspect,
 		udhcpcCmd:        udhcpcCmd,
+		Options:          mapMsg.Options,
 	}
 	(*OFPorts)[mapMsg.EndpointID] = containerMap
 }
@@ -576,7 +613,20 @@ func mustHandleRm(d *Driver, mapMsg OFPortMap, OFPorts *map[string]OFPortContain
 	if have_network {
 		log.Debugf("Removing port %d on %s from Faucet config", mapMsg.OFPort, ns.NetworkName)
 		d.faucetconfrpcer.mustDeleteDpInterface(ns.NetworkName, uint32(mapMsg.OFPort))
+
+		containerNetSettings := containerMap.containerInspect.NetworkSettings.Networks[ns.NetworkName]
+		hostIP := containerNetSettings.IPAddress
+		gatewayIP := containerNetSettings.Gateway
+		for _, portMapRaw := range containerMap.Options[portMapOption].([]interface{}) {
+			log.Debugf("deleting portmap %+v", portMapRaw)
+			hostPort, port, ipProto := mustGetPortMap(portMapRaw)
+			iptables.Raw("-t", "nat", "-D", "DOCKER", "-p", ipProto, "-d", gatewayIP, "--dport", hostPort, "-j", "DNAT", "--to-destination", fmt.Sprintf("%s:%s", hostIP, port))
+			iptables.Raw("-t", "nat", "-D", "OUTPUT", "-p", ipProto, "-d", gatewayIP, "--dport", hostPort, "-j", "DNAT", "--to-destination", fmt.Sprintf("%s:%s", hostIP, port))
+			iptables.Raw("-t", "nat", "-D", "POSTROUTING", "-p", ipProto, "-s", hostIP, "-d", hostIP, "--dport", port, "-j", "MASQUERADE")
+			iptables.Raw("-t", "filter", "-D", "DOCKER", "!", "-i", ns.BridgeName, "-o", ns.BridgeName, "-p", "tcp", "-d", hostIP, "--dport", port, "-j", "ACCEPT")
+		}
 	}
+
 	// The container will be gone by the time we query docker.
 	delete(*OFPorts, mapMsg.EndpointID)
 }
