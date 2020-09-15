@@ -90,8 +90,6 @@ This mapping won't show up in `docker ps`, as dovesnap is not using docker-proxy
 
 This requests a user space ("netdev"), rather than kernel space switch from OVS. Certain OVS features such as meters, used to implement rate limiting, will only work on a user space bridge.
 
-If userspace bridges are used, then OVS must run with `privileged: true`.
-
 ##### Adding a physical port/real VLAN
 
 `-o ovs.bridge.add_ports=eno123/8`
