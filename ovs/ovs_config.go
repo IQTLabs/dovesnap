@@ -17,6 +17,7 @@ const (
 
 	genericOption  = "com.docker.network.generic"
 	internalOption = "com.docker.network.internal"
+	portMapOption  = "com.docker.network.portmap"
 
 	bindInterfaceOption = "ovs.bridge.bind_interface"
 	bridgeAddPorts      = "ovs.bridge.add_ports"
