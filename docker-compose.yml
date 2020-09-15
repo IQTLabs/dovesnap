@@ -37,9 +37,9 @@ services:
       - /usr/local/var/run/openvswitch:/usr/local/var/run/openvswitch
       - ovs-data:/etc/openvswitch
     network_mode: host
+    devices:
+      - "/dev/net/tun:/dev/net/tun"
     cap_add:
       - NET_ADMIN
-    # TODO: Userspace bridges require OVS to be privileged.
-    # privileged: true
 volumes:
   ovs-data:
