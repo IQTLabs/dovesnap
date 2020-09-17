@@ -64,6 +64,8 @@ github.com/iqtlabs/faucetconfrpc v0.0.0-20200903043621-1a2ead1c5e2e h1:2BDifKksH
 github.com/iqtlabs/faucetconfrpc v0.0.0-20200903043621-1a2ead1c5e2e/go.mod h1:Ovi12f0sV1UrXzTXxdWYYJhZhs11LD03z1NYa9F9Fzc=
 github.com/iqtlabs/faucetconfrpc v0.22.1 h1:HgYZ/nuMs3hUP63dyHkAVSpu8KCipNMX5EHq3pZHma4=
 github.com/iqtlabs/faucetconfrpc v0.22.1/go.mod h1:Ovi12f0sV1UrXzTXxdWYYJhZhs11LD03z1NYa9F9Fzc=
+github.com/iqtlabs/faucetconfrpc v0.22.3 h1:e33cP7t3mfqcHaJRGmdYw0uRBsXe4Nt/dck2/9I5IO8=
+github.com/iqtlabs/faucetconfrpc v0.22.3/go.mod h1:Ovi12f0sV1UrXzTXxdWYYJhZhs11LD03z1NYa9F9Fzc=
 github.com/kenshaw/baseconv v0.0.0-20180401001559-5ac6a1b7584c h1:Uct0wp6cyJPNXJd9c+4w3YZDWTNFdeZ7lMXU7l04o/o=
 github.com/kenshaw/baseconv v0.0.0-20180401001559-5ac6a1b7584c/go.mod h1:6Xm0q6lS6lk3O+LPxFG+3nhL7ydQ9oAMYW3Ooa1fUXM=
 github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQLJ+jE2L00=
