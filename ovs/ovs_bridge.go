@@ -149,18 +149,18 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 }
 
 //  setup bridge, if bridge does not exist create it.
-func (d *Driver) initBridge(id string, controller string, dpid string, add_ports string, userspace bool) error {
-	bridgeName := d.networks[id].BridgeName
+func (d *Driver) initBridge(ns NetworkState, controller string, dpid string, add_ports string, userspace bool) error {
+	bridgeName := ns.BridgeName
 	err := d.ovsdber.createBridge(bridgeName, controller, dpid, add_ports, false, userspace)
 	if err != nil {
 		log.Errorf("Error creating bridge: %s", err)
 		return err
 	}
-	bridgeMode := d.networks[id].Mode
+	bridgeMode := ns.Mode
 	switch bridgeMode {
 	case modeNAT:
 		{
-			gatewayIP := d.networks[id].Gateway + "/" + d.networks[id].GatewayMask
+			gatewayIP := ns.Gateway + "/" + ns.GatewayMask
 			if err := setInterfaceIP(bridgeName, gatewayIP); err != nil {
 				log.Debugf("Error assigning address: %s on bridge: %s with an error of: %s", gatewayIP, bridgeName, err)
 			}
