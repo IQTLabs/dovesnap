@@ -13,14 +13,32 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type OFPortMap struct {
-	OFPort     uint32
-	AddPorts   string
-	Mode       string
-	NetworkID  string
-	EndpointID string
-	Options    map[string]interface{}
-	Operation  string
+type NetworkState struct {
+	NetworkName       string
+	BridgeName        string
+	BridgeDpid        string
+	BridgeDpidInt     int
+	BridgeVLAN        int
+	MTU               int
+	Mode              string
+	AddPorts          string
+	Gateway           string
+	GatewayMask       string
+	FlatBindInterface string
+	UseDHCP           bool
+	Userspace         bool
+}
+
+type DovesnapOp struct {
+	NewNetworkState      NetworkState
+	NewStackMirrorConfig StackMirrorConfig
+	VethName             string
+	AddPorts             string
+	Mode                 string
+	NetworkID            string
+	EndpointID           string
+	Options              map[string]interface{}
+	Operation            string
 }
 
 type StackingPort struct {
@@ -47,26 +65,8 @@ type Driver struct {
 	mirrorBridgeIn          string
 	mirrorBridgeOut         string
 	networks                map[string]NetworkState
-	ofportmapChan           chan OFPortMap
+	dovesnapOpChan          chan DovesnapOp
 	stackMirrorConfigs      map[string]StackMirrorConfig
-}
-
-// NetworkState is filled in at network creation time
-// it contains state that we wish to keep for each network
-type NetworkState struct {
-	NetworkName       string
-	BridgeName        string
-	BridgeDpid        string
-	BridgeDpidInt     int
-	BridgeVLAN        int
-	MTU               int
-	Mode              string
-	AddPorts          string
-	Gateway           string
-	GatewayMask       string
-	FlatBindInterface string
-	UseDHCP           bool
-	Userspace         bool
 }
 
 func (d *Driver) createLoopbackBridge() error {
@@ -215,66 +215,34 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		Userspace:         useUserspace,
 	}
 
-	d.networks[r.NetworkID] = ns
-	d.stackMirrorConfigs[r.NetworkID] = d.getStackMirrorConfig(r)
-
 	if operation == "create" {
-		if err := d.initBridge(r.NetworkID, controller, dpid, add_ports, useUserspace); err != nil {
+		if err := d.initBridge(ns, controller, dpid, add_ports, useUserspace); err != nil {
 			panic(err)
 		}
 	}
 
-	createmap := OFPortMap{
-		OFPort:     0,
-		AddPorts:   add_ports,
-		Mode:       mode,
-		NetworkID:  r.NetworkID,
-		EndpointID: bridgeName,
-		Operation:  operation,
+	createMsg := DovesnapOp{
+		NewNetworkState:      ns,
+		NewStackMirrorConfig: d.getStackMirrorConfig(r),
+		AddPorts:             add_ports,
+		Mode:                 mode,
+		NetworkID:            r.NetworkID,
+		EndpointID:           bridgeName,
+		Operation:            operation,
 	}
 
-	d.ofportmapChan <- createmap
+	d.dovesnapOpChan <- createMsg
 	return err
 }
 
 func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 	log.Debugf("Delete network request: %+v", r)
-	// remove the bridge from the faucet config if it exists
-	ns := d.networks[r.NetworkID]
-	log.Debugf("Deleting Bridge %s", ns.BridgeName)
-
-	d.faucetconfrpcer.mustDeleteDp(ns.NetworkName)
-
-	if usingMirrorBridge(d) {
-		err := d.deletePatchPort(ns.BridgeName, mirrorBridgeName)
-		if err != nil {
-			log.Errorf("Unable to delete patch port to mirror bridge because: %v", err)
-		}
+	deleteMsg := DovesnapOp{
+		NetworkID: r.NetworkID,
+		Operation: "delete",
 	}
 
-	if usingStacking(d) {
-		_, stackDpName, _ := d.getStackDP()
-		err := d.deletePatchPort(ns.BridgeName, stackDpName)
-		if err != nil {
-			log.Errorf("Unable to delete patch port between bridges because: %v", err)
-		}
-		if usingStackMirroring(d) {
-			lbBridgeName := d.mustGetLoopbackDP()
-			err = d.deletePatchPort(ns.BridgeName, lbBridgeName)
-			if err != nil {
-				log.Errorf("Unable to delete patch port to loopback bridge: %v", err)
-			}
-		}
-	}
-
-	_, err := d.deleteBridge(ns.BridgeName)
-	if err != nil {
-		log.Errorf("Deleting bridge %s failed: %s", ns.BridgeName, err)
-		return err
-	}
-
-	delete(d.networks, r.NetworkID)
-	delete(d.stackMirrorConfigs, r.NetworkID)
+	d.dovesnapOpChan <- deleteMsg
 	return nil
 }
 
@@ -345,13 +313,6 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 	localVethPair := vethPair(truncateID(r.EndpointID))
 	addVethPair(localVethPair)
 	ns := d.networks[r.NetworkID]
-	ofport, _, err := d.addInternalPort(ns.BridgeName, localVethPair.Name, 0)
-	if err != nil {
-		log.Debugf("Error attaching veth [ %s ] to bridge [ %s ]", localVethPair.Name, ns.BridgeName)
-		return nil, err
-	}
-	log.Infof("Attached veth [ %s ] to bridge [ %s ] ofport %d", localVethPair.Name, ns.BridgeName, ofport)
-
 	res := &networkplugin.JoinResponse{
 		InterfaceName: networkplugin.InterfaceName{
 			// SrcName gets renamed to DstPrefix + ID on the container iface
@@ -361,46 +322,25 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 		Gateway: ns.Gateway,
 	}
 	log.Debugf("Join endpoint %s:%s to %s", r.NetworkID, r.EndpointID, r.SandboxKey)
-	addmap := OFPortMap{
-		OFPort:     ofport,
-		AddPorts:   "",
-		Mode:       "",
+	joinMsg := DovesnapOp{
+		VethName:   localVethPair.Name,
 		NetworkID:  r.NetworkID,
 		EndpointID: r.EndpointID,
 		Options:    r.Options,
-		Operation:  "add",
+		Operation:  "join",
 	}
-	d.ofportmapChan <- addmap
+	d.dovesnapOpChan <- joinMsg
 	return res, nil
 }
 
 func (d *Driver) Leave(r *networkplugin.LeaveRequest) error {
 	log.Debugf("Leave request: %+v", r)
-	portID := fmt.Sprintf(ovsPortPrefix + truncateID(r.EndpointID))
-	ns := d.networks[r.NetworkID]
-	ofport, err := d.ovsdber.getOfPortNumber(portID)
-	if err != nil {
-		log.Errorf("Unable to get ofport number from %s", portID)
-		return err
-	}
-	localVethPair := vethPair(truncateID(r.EndpointID))
-	delVethPair(localVethPair)
-	err = d.ovsdber.deletePort(ns.BridgeName, portID)
-	if err != nil {
-		log.Errorf("OVS port [ %s ] delete transaction failed on bridge [ %s ] due to: %s", portID, ns.BridgeName, err)
-		return err
-	}
-	log.Infof("Deleted OVS port [ %s ] from bridge [ %s ]", portID, ns.BridgeName)
-	log.Debugf("Leave %s:%s", r.NetworkID, r.EndpointID)
-	rmmap := OFPortMap{
-		OFPort:     ofport,
-		AddPorts:   "",
-		Mode:       "",
+	leaveMsg := DovesnapOp{
 		NetworkID:  r.NetworkID,
 		EndpointID: r.EndpointID,
-		Operation:  "rm",
+		Operation:  "leave",
 	}
-	d.ofportmapChan <- rmmap
+	d.dovesnapOpChan <- leaveMsg
 	return nil
 }
 
@@ -409,23 +349,70 @@ func mergeInterfacesYaml(dpName string, intDpid int, description string, addInte
 		dpName, intDpid, description, addInterfaces)
 }
 
-func mustHandleCreate(d *Driver, mapMsg OFPortMap) {
+func mustHandleDeleteNetwork(d *Driver, opMsg DovesnapOp) {
 	defer func() {
 		if rerr := recover(); rerr != nil {
-			log.Errorf("mustHandleCreate failed: %v", rerr)
+			log.Errorf("mustHandleDeleteNetwork failed: %v", rerr)
 		}
 	}()
 
-	log.Debugf("network ID: %s", mapMsg.NetworkID)
-	netInspect := d.dockerer.mustGetNetworkInspectFromID(mapMsg.NetworkID)
+	// remove the bridge from the faucet config if it exists
+	ns := d.networks[opMsg.NetworkID]
+	log.Infof("Deleting network ID %s bridge %s", opMsg.NetworkID, ns.BridgeName)
+
+	d.faucetconfrpcer.mustDeleteDp(ns.NetworkName)
+
+	if usingMirrorBridge(d) {
+		err := d.deletePatchPort(ns.BridgeName, mirrorBridgeName)
+		if err != nil {
+			log.Errorf("Unable to delete patch port to mirror bridge because: %v", err)
+		}
+	}
+
+	if usingStacking(d) {
+		_, stackDpName, _ := d.getStackDP()
+		err := d.deletePatchPort(ns.BridgeName, stackDpName)
+		if err != nil {
+			log.Errorf("Unable to delete patch port between bridges because: %v", err)
+		}
+		if usingStackMirroring(d) {
+			lbBridgeName := d.mustGetLoopbackDP()
+			err = d.deletePatchPort(ns.BridgeName, lbBridgeName)
+			if err != nil {
+				log.Errorf("Unable to delete patch port to loopback bridge: %v", err)
+			}
+		}
+	}
+
+	_, err := d.deleteBridge(ns.BridgeName)
+	if err != nil {
+		log.Errorf("Deleting bridge %s failed: %s", ns.BridgeName, err)
+	}
+
+	delete(d.networks, opMsg.NetworkID)
+	delete(d.stackMirrorConfigs, opMsg.NetworkID)
+}
+
+func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
+	defer func() {
+		if rerr := recover(); rerr != nil {
+			log.Errorf("mustHandleCreateNetwork failed: %v", rerr)
+		}
+	}()
+
+	log.Debugf("network ID: %s", opMsg.NetworkID)
+	netInspect := d.dockerer.mustGetNetworkInspectFromID(opMsg.NetworkID)
 	inspectNs, err := getNetworkStateFromResource(&netInspect)
 	if err != nil {
 		panic(err)
 	}
-	ns := d.networks[mapMsg.NetworkID]
+
+	ns := opMsg.NewNetworkState
+	d.stackMirrorConfigs[opMsg.NetworkID] = opMsg.NewStackMirrorConfig
 	ns.NetworkName = inspectNs.NetworkName
-	d.networks[mapMsg.NetworkID] = ns
-	add_ports := mapMsg.AddPorts
+	d.networks[opMsg.NetworkID] = ns
+
+	add_ports := opMsg.AddPorts
 	add_interfaces := ""
 	if add_ports != "" {
 		for _, add_port_number_str := range strings.Split(add_ports, ",") {
@@ -438,14 +425,14 @@ func mustHandleCreate(d *Driver, mapMsg OFPortMap) {
 			add_interfaces += fmt.Sprintf("%d: {description: %s, native_vlan: %d},", ofport, "Physical interface "+add_port, ns.BridgeVLAN)
 		}
 	}
-	mode := mapMsg.Mode
+	mode := opMsg.Mode
 	if mode == "nat" {
 		add_interfaces += fmt.Sprintf("%d: {description: OVS Port for NAT, native_vlan: %d},", ofPortLocal, ns.BridgeVLAN)
 	}
 	configYaml := mergeInterfacesYaml(ns.NetworkName, ns.BridgeDpidInt, ns.BridgeName, add_interfaces)
 	if usingMirrorBridge(d) {
 		log.Debugf("configuring mirror bridge port for %s", ns.BridgeName)
-		stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
+		stackMirrorConfig := d.stackMirrorConfigs[opMsg.NetworkID]
 		ofportNum, mirrorOfportNum, err := d.addPatchPort(ns.BridgeName, mirrorBridgeName, stackMirrorConfig.LbPort, 0)
 		if err != nil {
 			panic(err)
@@ -484,7 +471,7 @@ func mustHandleCreate(d *Driver, mapMsg OFPortMap) {
 	d.faucetconfrpcer.mustSetFaucetConfigFile(configYaml)
 	if usingStackMirroring(d) {
 		lbBridgeName := d.mustGetLoopbackDP()
-		stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
+		stackMirrorConfig := d.stackMirrorConfigs[opMsg.NetworkID]
 		_, _, err = d.addPatchPort(ns.BridgeName, lbBridgeName, stackMirrorConfig.LbPort, 0)
 		if err != nil {
 			panic(err)
@@ -511,31 +498,35 @@ func mustGetPortMap(portMapRaw interface{}) (string, string, string) {
 	return hostPort, port, ipProto
 }
 
-func mustHandleAdd(d *Driver, mapMsg OFPortMap, OFPorts *map[string]OFPortContainer) {
+func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OFPortContainer) {
 	defer func() {
 		if rerr := recover(); rerr != nil {
-			log.Errorf("mustHandleAdd failed: %v", rerr)
+			log.Errorf("mustHandleJoinContainer failed: %v", rerr)
 		}
 	}()
-	containerInspect, err := d.dockerer.getContainerFromEndpoint(mapMsg.EndpointID)
+	containerInspect, err := d.dockerer.getContainerFromEndpoint(opMsg.EndpointID)
 	if err != nil {
 		panic(err)
 	}
-	ns := d.networks[mapMsg.NetworkID]
+	ns := d.networks[opMsg.NetworkID]
 	pid := containerInspect.State.Pid
 	containerNetSettings := containerInspect.NetworkSettings.Networks[ns.NetworkName]
-
-	log.Infof("Adding %s (pid %d) on %s DPID %d OFPort %d to Faucet",
-		containerInspect.Name, pid, ns.BridgeName, ns.BridgeDpidInt, mapMsg.OFPort)
+	ofport, _, err := d.addInternalPort(ns.BridgeName, opMsg.VethName, 0)
+	if err != nil {
+		log.Debugf("Error attaching veth [ %s ] to bridge [ %s ]", opMsg.VethName, ns.BridgeName)
+		panic(err)
+	}
+	log.Infof("Adding %s (pid %d) veth %s on %s DPID %d OFPort %d to Faucet",
+		containerInspect.Name, pid, opMsg.VethName, ns.BridgeName, ns.BridgeDpidInt, ofport)
 	log.Debugf("container network settings: %+v", containerNetSettings)
 
-	log.Debugf("%+v", mapMsg.Options[portMapOption])
+	log.Debugf("%+v", opMsg.Options[portMapOption])
 	hostIP := containerNetSettings.IPAddress
 	gatewayIP := containerNetSettings.Gateway
 
 	// Regular docker uses docker proxy, to listen on the configured port and proxy them into the container.
 	// dovesnap doesn't get to use docker proxy, so we listen on the configured port on the network's gateway instead.
-	for _, portMapRaw := range mapMsg.Options[portMapOption].([]interface{}) {
+	for _, portMapRaw := range opMsg.Options[portMapOption].([]interface{}) {
 		log.Debugf("adding portmap %+v", portMapRaw)
 		hostPort, port, ipProto := mustGetPortMap(portMapRaw)
 		iptables.Raw("-t", "nat", "-C", "DOCKER", "-p", ipProto, "-d", gatewayIP, "--dport", hostPort, "-j", "DNAT", "--to-destination", fmt.Sprintf("%s:%s", hostIP, port))
@@ -553,16 +544,16 @@ func mustHandleAdd(d *Driver, mapMsg OFPortMap, OFPorts *map[string]OFPortContai
 		log.Infof("Set portacl %s on %s", portacl, containerInspect.Name)
 	}
 	add_interfaces := fmt.Sprintf("%d: {description: '%s', native_vlan: %d, acls_in: [%s]},",
-		mapMsg.OFPort, fmt.Sprintf("%s %s", containerInspect.Name, truncateID(containerInspect.ID)), ns.BridgeVLAN, portacl)
+		ofport, fmt.Sprintf("%s %s", containerInspect.Name, truncateID(containerInspect.ID)), ns.BridgeVLAN, portacl)
 
 	d.faucetconfrpcer.mustSetFaucetConfigFile(mergeInterfacesYaml(ns.NetworkName, ns.BridgeDpidInt, ns.BridgeName, add_interfaces))
 
 	mirror, ok := containerInspect.Config.Labels["dovesnap.faucet.mirror"]
 	if ok && parseBool(mirror) {
 		log.Infof("Mirroring container %s", containerInspect.Name)
-		stackMirrorConfig := d.stackMirrorConfigs[mapMsg.NetworkID]
+		stackMirrorConfig := d.stackMirrorConfigs[opMsg.NetworkID]
 		if usingStackMirroring(d) || usingMirrorBridge(d) {
-			d.faucetconfrpcer.mustAddPortMirror(ns.NetworkName, uint32(mapMsg.OFPort), stackMirrorConfig.LbPort)
+			d.faucetconfrpcer.mustAddPortMirror(ns.NetworkName, ofport, stackMirrorConfig.LbPort)
 		}
 	}
 
@@ -587,48 +578,61 @@ func mustHandleAdd(d *Driver, mapMsg OFPortMap, OFPorts *map[string]OFPortContai
 		}
 	}
 	containerMap := OFPortContainer{
-		OFPort:           mapMsg.OFPort,
+		OFPort:           ofport,
 		containerInspect: containerInspect,
 		udhcpcCmd:        udhcpcCmd,
-		Options:          mapMsg.Options,
+		Options:          opMsg.Options,
 	}
-	(*OFPorts)[mapMsg.EndpointID] = containerMap
+	(*OFPorts)[opMsg.EndpointID] = containerMap
 }
 
-func mustHandleRm(d *Driver, mapMsg OFPortMap, OFPorts *map[string]OFPortContainer) {
+func mustHandleLeaveContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OFPortContainer) {
 	defer func() {
 		if rerr := recover(); rerr != nil {
-			log.Errorf("mustHandleRm failed: %v", rerr)
+			log.Errorf("mustHandleLeaveContainer failed: %v", rerr)
 		}
 	}()
 
-	containerMap := (*OFPorts)[mapMsg.EndpointID]
+	containerMap := (*OFPorts)[opMsg.EndpointID]
 	udhcpcCmd := containerMap.udhcpcCmd
 	if udhcpcCmd != nil {
 		log.Infof("Shutting down udhcpc")
 		udhcpcCmd.Process.Kill()
 		udhcpcCmd.Wait()
 	}
-	ns, have_network := d.networks[mapMsg.NetworkID]
-	if have_network {
-		log.Debugf("Removing port %d on %s from Faucet config", mapMsg.OFPort, ns.NetworkName)
-		d.faucetconfrpcer.mustDeleteDpInterface(ns.NetworkName, uint32(mapMsg.OFPort))
+	portID := fmt.Sprintf(ovsPortPrefix + truncateID(opMsg.EndpointID))
+	ofport, err := d.ovsdber.getOfPortNumber(portID)
+	if err != nil {
+		log.Errorf("Unable to get ofport number from %s", portID)
+		panic(err)
+	}
+	localVethPair := vethPair(truncateID(opMsg.EndpointID))
+	delVethPair(localVethPair)
 
-		containerNetSettings := containerMap.containerInspect.NetworkSettings.Networks[ns.NetworkName]
-		hostIP := containerNetSettings.IPAddress
-		gatewayIP := containerNetSettings.Gateway
-		for _, portMapRaw := range containerMap.Options[portMapOption].([]interface{}) {
-			log.Debugf("deleting portmap %+v", portMapRaw)
-			hostPort, port, ipProto := mustGetPortMap(portMapRaw)
-			iptables.Raw("-t", "nat", "-D", "DOCKER", "-p", ipProto, "-d", gatewayIP, "--dport", hostPort, "-j", "DNAT", "--to-destination", fmt.Sprintf("%s:%s", hostIP, port))
-			iptables.Raw("-t", "nat", "-D", "OUTPUT", "-p", ipProto, "-d", gatewayIP, "--dport", hostPort, "-j", "DNAT", "--to-destination", fmt.Sprintf("%s:%s", hostIP, port))
-			iptables.Raw("-t", "nat", "-D", "POSTROUTING", "-p", ipProto, "-s", hostIP, "-d", hostIP, "--dport", port, "-j", "MASQUERADE")
-			iptables.Raw("-t", "filter", "-D", "DOCKER", "!", "-i", ns.BridgeName, "-o", ns.BridgeName, "-p", "tcp", "-d", hostIP, "--dport", port, "-j", "ACCEPT")
-		}
+	ns := d.networks[opMsg.NetworkID]
+	err = d.ovsdber.deletePort(ns.BridgeName, portID)
+	if err != nil {
+		log.Errorf("OVS port [ %s ] delete transaction failed on bridge [ %s ] due to: %s", portID, ns.BridgeName, err)
+		panic(err)
+	}
+	log.Infof("Deleted OVS port [ %s ] from bridge [ %s ]", portID, ns.BridgeName)
+	log.Infof("Removing port %d on %s from Faucet config", ofport, ns.NetworkName)
+	d.faucetconfrpcer.mustDeleteDpInterface(ns.NetworkName, ofport)
+
+	containerNetSettings := containerMap.containerInspect.NetworkSettings.Networks[ns.NetworkName]
+	hostIP := containerNetSettings.IPAddress
+	gatewayIP := containerNetSettings.Gateway
+	for _, portMapRaw := range containerMap.Options[portMapOption].([]interface{}) {
+		log.Debugf("deleting portmap %+v", portMapRaw)
+		hostPort, port, ipProto := mustGetPortMap(portMapRaw)
+		iptables.Raw("-t", "nat", "-D", "DOCKER", "-p", ipProto, "-d", gatewayIP, "--dport", hostPort, "-j", "DNAT", "--to-destination", fmt.Sprintf("%s:%s", hostIP, port))
+		iptables.Raw("-t", "nat", "-D", "OUTPUT", "-p", ipProto, "-d", gatewayIP, "--dport", hostPort, "-j", "DNAT", "--to-destination", fmt.Sprintf("%s:%s", hostIP, port))
+		iptables.Raw("-t", "nat", "-D", "POSTROUTING", "-p", ipProto, "-s", hostIP, "-d", hostIP, "--dport", port, "-j", "MASQUERADE")
+		iptables.Raw("-t", "filter", "-D", "DOCKER", "!", "-i", ns.BridgeName, "-o", ns.BridgeName, "-p", "tcp", "-d", hostIP, "--dport", port, "-j", "ACCEPT")
 	}
 
 	// The container will be gone by the time we query docker.
-	delete(*OFPorts, mapMsg.EndpointID)
+	delete(*OFPorts, opMsg.EndpointID)
 }
 
 func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint32]string) {
@@ -694,22 +698,24 @@ func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint32]string) {
 	}
 }
 
-func consolidateDockerInfo(d *Driver) {
+func resourceManager(d *Driver) {
 	OFPorts := make(map[string]OFPortContainer)
 	AllPortDesc := make(map[string]map[uint32]string)
 
 	for {
 		select {
-		case mapMsg := <-d.ofportmapChan:
-			switch mapMsg.Operation {
+		case opMsg := <-d.dovesnapOpChan:
+			switch opMsg.Operation {
 			case "create":
-				mustHandleCreate(d, mapMsg)
-			case "add":
-				mustHandleAdd(d, mapMsg, &OFPorts)
-			case "rm":
-				mustHandleRm(d, mapMsg, &OFPorts)
+				mustHandleCreateNetwork(d, opMsg)
+			case "delete":
+				mustHandleDeleteNetwork(d, opMsg)
+			case "join":
+				mustHandleJoinContainer(d, opMsg, &OFPorts)
+			case "leave":
+				mustHandleLeaveContainer(d, opMsg, &OFPorts)
 			default:
-				log.Errorf("Unknown consolidation message: %s", mapMsg)
+				log.Errorf("Unknown resource manager message: %s", opMsg)
 			}
 		default:
 			reconcileOvs(d, &AllPortDesc)
@@ -767,7 +773,7 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 		mirrorBridgeIn:          flagMirrorBridgeIn,
 		mirrorBridgeOut:         flagMirrorBridgeOut,
 		networks:                make(map[string]NetworkState),
-		ofportmapChan:           make(chan OFPortMap, 2),
+		dovesnapOpChan:          make(chan DovesnapOp, 2),
 		stackMirrorConfigs:      make(map[string]StackMirrorConfig),
 	}
 
@@ -797,7 +803,7 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 
 	restoreNetworks(d)
 
-	go consolidateDockerInfo(d)
+	go resourceManager(d)
 
 	return d
 }
