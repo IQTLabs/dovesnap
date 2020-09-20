@@ -91,29 +91,21 @@ func getGenericOption(r *networkplugin.CreateNetworkRequest, optionName string) 
 	return optionValue
 }
 
-func defaultInt(strValue string, defaultValue int) int {
-	intValue, err := strconv.Atoi(strValue)
-	if err == nil {
-		return intValue
-	}
-	return defaultValue
-}
-
-func getGenericIntOption(r *networkplugin.CreateNetworkRequest, optionName string, defaultOption int) int {
+func getGenericUintOption(r *networkplugin.CreateNetworkRequest, optionName string, defaultOption uint) uint {
 	option := getGenericOption(r, optionName)
-	return defaultInt(option, defaultOption)
+	return uint(defaultUint(option, uint64(defaultOption)))
 }
 
-func mustGetTunnelVid(r *networkplugin.CreateNetworkRequest) int {
-	return getGenericIntOption(r, mirrorTunnelVid, mustGetBridgeVLAN(r)+defaultTunnelVLANOffset)
+func mustGetTunnelVid(r *networkplugin.CreateNetworkRequest) uint {
+	return getGenericUintOption(r, mirrorTunnelVid, mustGetBridgeVLAN(r)+defaultTunnelVLANOffset)
 }
 
-func mustGetBridgeMTU(r *networkplugin.CreateNetworkRequest) int {
-	return getGenericIntOption(r, mtuOption, defaultMTU)
+func mustGetBridgeMTU(r *networkplugin.CreateNetworkRequest) uint {
+	return getGenericUintOption(r, mtuOption, defaultMTU)
 }
 
-func mustGetLbPort(r *networkplugin.CreateNetworkRequest) int {
-	return getGenericIntOption(r, bridgeLbPort, defaultLbPort)
+func mustGetLbPort(r *networkplugin.CreateNetworkRequest) uint {
+	return getGenericUintOption(r, bridgeLbPort, defaultLbPort)
 }
 
 func mustGetBridgeName(r *networkplugin.CreateNetworkRequest) string {
@@ -145,8 +137,8 @@ func mustGetBridgeDpid(r *networkplugin.CreateNetworkRequest) string {
 	return getGenericOption(r, bridgeDpid)
 }
 
-func mustGetBridgeVLAN(r *networkplugin.CreateNetworkRequest) int {
-	return getGenericIntOption(r, vlanOption, defaultVLAN)
+func mustGetBridgeVLAN(r *networkplugin.CreateNetworkRequest) uint {
+	return getGenericUintOption(r, vlanOption, defaultVLAN)
 }
 
 func mustGetBridgeAddPorts(r *networkplugin.CreateNetworkRequest) string {
@@ -206,16 +198,19 @@ func truncateID(id string) string {
 	return id[:5]
 }
 
+func (d *Driver) mustGetStackBridgeLink() (string, uint32) {
+	return d.stackMirrorInterface[0], uint32(defaultUint(d.stackMirrorInterface[1], 0))
+}
+
 func (d *Driver) getStackMirrorConfig(r *networkplugin.CreateNetworkRequest) StackMirrorConfig {
 	lbPort := mustGetLbPort(r)
-	tunnelVid := 0
+	var tunnelVid uint = 0
 	remoteDpName := ""
-	mirrorPort := 0
+	var mirrorPort uint32 = 0
 
 	if usingStackMirroring(d) {
 		tunnelVid = mustGetTunnelVid(r)
-		remoteDpName = d.stackMirrorInterface[0]
-		mirrorPort = defaultInt(d.stackMirrorInterface[1], 0)
+		remoteDpName, mirrorPort = d.mustGetStackBridgeLink()
 	}
 
 	return StackMirrorConfig{
@@ -254,7 +249,7 @@ func (d *Driver) mustGetLoopbackDP() string {
 func (d *Driver) mustGetStackingInterface(stackingInterface string) (string, uint32, string) {
 	stackSlice := strings.Split(stackingInterface, ":")
 	remoteDP := stackSlice[0]
-	remotePort, err := strconv.ParseUint(stackSlice[1], 10, 32)
+	remotePort, err := ParseUint32(stackSlice[1])
 	if err != nil {
 		panic(fmt.Errorf("Unable to convert remote port to an unsigned integer because: [ %s ]", err))
 	}
@@ -265,7 +260,7 @@ func (d *Driver) mustGetStackingInterface(stackingInterface string) (string, uin
 	return remoteDP, uint32(remotePort), localInterface
 }
 
-func (d *Driver) mustGetStackBridgeConfig() (string, string, int, string) {
+func (d *Driver) mustGetStackBridgeConfig() (string, string, uint64, string) {
 	dpid, dpName, err := d.getStackDP()
 	if err != nil {
 		panic(err)
@@ -276,8 +271,8 @@ func (d *Driver) mustGetStackBridgeConfig() (string, string, int, string) {
 		panic(err)
 	}
 
-	intDpid := mustGetIntFromHexStr(dpid)
-	return hostname, dpid, intDpid, dpName
+	uintDpid := mustGetUintFromHexStr(dpid)
+	return hostname, dpid, uintDpid, dpName
 }
 
 func mustGetBridgeNameFromResource(r *types.NetworkResource) string {
@@ -295,15 +290,15 @@ func getStrOptionFromResource(r *types.NetworkResource, optionName string, defau
 	return optionValue
 }
 
-func getIntOptionFromResource(r *types.NetworkResource, optionName string, defaultOptionValue int) int {
+func getUintOptionFromResource(r *types.NetworkResource, optionName string, defaultOptionValue uint) uint {
 	optionStrValue := getStrOptionFromResource(r, optionName, "")
-	return defaultInt(optionStrValue, defaultOptionValue)
+	return uint(defaultUint(optionStrValue, uint64(defaultOptionValue)))
 }
 
-func mustGetBridgeDpidFromResource(r *types.NetworkResource) (string, int) {
+func mustGetBridgeDpidFromResource(r *types.NetworkResource) (string, uint64) {
 	dpid := getStrOptionFromResource(r, bridgeDpid, "")
-	intDpid := mustGetIntFromHexStr(dpid)
-	return dpid, intDpid
+	uintDpid := mustGetUintFromHexStr(dpid)
+	return dpid, uintDpid
 }
 
 func getGatewayFromResource(r *types.NetworkResource) (string, string) {
@@ -326,15 +321,15 @@ func getNetworkStateFromResource(r *types.NetworkResource) (ns NetworkState, err
 			ns = NetworkState{}
 		}
 	}()
-	dpid, intDpid := mustGetBridgeDpidFromResource(r)
+	dpid, uintDpid := mustGetBridgeDpidFromResource(r)
 	gateway, mask := getGatewayFromResource(r)
 	ns = NetworkState{
 		NetworkName:       r.Name,
 		BridgeName:        mustGetBridgeNameFromResource(r),
 		BridgeDpid:        dpid,
-		BridgeDpidInt:     intDpid,
-		BridgeVLAN:        getIntOptionFromResource(r, vlanOption, defaultVLAN),
-		MTU:               getIntOptionFromResource(r, mtuOption, defaultMTU),
+		BridgeDpidUint:    uintDpid,
+		BridgeVLAN:        getUintOptionFromResource(r, vlanOption, defaultVLAN),
+		MTU:               getUintOptionFromResource(r, mtuOption, defaultMTU),
 		Mode:              getStrOptionFromResource(r, modeOption, defaultMode),
 		FlatBindInterface: getStrOptionFromResource(r, bindInterfaceOption, ""),
 		AddPorts:          getStrOptionFromResource(r, bridgeAddPorts, ""),
@@ -347,16 +342,15 @@ func getNetworkStateFromResource(r *types.NetworkResource) (ns NetworkState, err
 }
 
 func (d *Driver) getStackMirrorConfigFromResource(r *types.NetworkResource) StackMirrorConfig {
-	lbPort := getIntOptionFromResource(r, bridgeLbPort, defaultLbPort)
-	tunnelVid := 0
+	lbPort := getUintOptionFromResource(r, bridgeLbPort, defaultLbPort)
+	var tunnelVid uint = 0
 	remoteDpName := ""
-	mirrorPort := 0
+	var mirrorPort uint32 = 0
 
 	if usingStackMirroring(d) {
-		vlan := getIntOptionFromResource(r, vlanOption, defaultVLAN)
-		tunnelVid = getIntOptionFromResource(r, mirrorTunnelVid, vlan+defaultTunnelVLANOffset)
-		remoteDpName = d.stackMirrorInterface[0]
-		mirrorPort = defaultInt(d.stackMirrorInterface[1], 0)
+		vlan := getUintOptionFromResource(r, vlanOption, defaultVLAN)
+		tunnelVid = getUintOptionFromResource(r, mirrorTunnelVid, vlan+defaultTunnelVLANOffset)
+		remoteDpName, mirrorPort = d.mustGetStackBridgeLink()
 	}
 
 	return StackMirrorConfig{
