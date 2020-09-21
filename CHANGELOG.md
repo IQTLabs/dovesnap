@@ -1,3 +1,12 @@
+# v0.6.0 (2020-09-22)
+
+- fix race condition that could lead to multiple containers with same OFPort
+- add NAT port mapping (-p) support via network gateway IP
+- Remove OVS privilege when in userspace mode
+- Move to go mod from dep ensure
+- Viz script timeout/missing IP fixes
+- update faucetconfrpc, OVS
+
 # v0.5.0 (2020-09-04)
 
 - update faucetconfrpc, certstrap
