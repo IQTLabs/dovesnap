@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -19,28 +18,21 @@ func patchName(a string, b string) string {
 	return name
 }
 
-func scrapePortDesc(bridgeName string, portDesc *map[uint32]string) error {
-	output, err := OfCtl("dump-ports-desc", bridgeName)
-	if err != nil {
-		return err
-	}
+func mustScrapePortDesc(bridgeName string, portDesc *map[uint32]string) {
+	output := mustOfCtl("dump-ports-desc", bridgeName)
 	ofportNumberDump := regexp.MustCompile(`^\s*(\d+)\((\S+)\).+$`)
 	for _, line := range strings.Split(string(output), "\n") {
 		match := ofportNumberDump.FindAllStringSubmatch(line, -1)
 		if len(match) > 0 {
-			ofport, _ := strconv.ParseUint(match[0][1], 10, 32)
-			(*portDesc)[uint32(ofport)] = match[0][2]
+			ofport, _ := ParseUint32(match[0][1])
+			(*portDesc)[ofport] = match[0][2]
 		}
 	}
-	return nil
 }
 
-func (ovsdber *ovsdber) lowestFreePortOnBridge(bridgeName string) (lowestFreePort uint32, err error) {
+func (ovsdber *ovsdber) mustLowestFreePortOnBridge(bridgeName string) uint32 {
 	portDesc := make(map[uint32]string)
-	err = scrapePortDesc(bridgeName, &portDesc)
-	if err != nil {
-		return 0, err
-	}
+	mustScrapePortDesc(bridgeName, &portDesc)
 	existingOfPorts := []int{}
 	for ofport, _ := range portDesc {
 		existingOfPorts = append(existingOfPorts, int(ofport))
@@ -54,14 +46,11 @@ func (ovsdber *ovsdber) lowestFreePortOnBridge(bridgeName string) (lowestFreePor
 		}
 		intLowestFreePort++
 	}
-	return uint32(intLowestFreePort), nil
+	return uint32(intLowestFreePort)
 }
 
 func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag uint) (uint32, string, error) {
-	lowestFreePort, err := ovsdber.lowestFreePortOnBridge(bridgeName)
-	if err != nil {
-		return lowestFreePort, "", err
-	}
+	lowestFreePort := ovsdber.mustLowestFreePortOnBridge(bridgeName)
 	if tag != 0 {
 		value, err := VsCtl("add-port", bridgeName, portName, fmt.Sprintf("tag=%u", tag), "--", "set", "Interface", portName, fmt.Sprintf("ofport_request=%d", lowestFreePort))
 		return lowestFreePort, value, err
@@ -70,19 +59,20 @@ func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag 
 	return lowestFreePort, value, err
 }
 
-func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, port uint32, portPeer uint32) (uint32, uint32, error) {
-	var err error = nil
+func (ovsdber *ovsdber) mustAddInternalPort(bridgeName string, portName string, tag uint) (uint32, string) {
+	lowestFreePort, value, err := ovsdber.addInternalPort(bridgeName, portName, tag)
+	if err != nil {
+		panic(err)
+	}
+	return lowestFreePort, value
+}
+
+func (ovsdber *ovsdber) mustAddPatchPort(bridgeName string, bridgeNamePeer string, port uint32, portPeer uint32) (uint32, uint32) {
 	if port == 0 {
-		port, err = ovsdber.lowestFreePortOnBridge(bridgeName)
-		if err != nil {
-			return 0, 0, err
-		}
+		port = ovsdber.mustLowestFreePortOnBridge(bridgeName)
 	}
 	if portPeer == 0 {
-		portPeer, err = ovsdber.lowestFreePortOnBridge(bridgeNamePeer)
-		if err != nil {
-			return 0, 0, err
-		}
+		portPeer = ovsdber.mustLowestFreePortOnBridge(bridgeNamePeer)
 	}
 	portName := patchName(bridgeName, bridgeNamePeer)
 	portNamePeer := patchName(bridgeNamePeer, bridgeName)
@@ -97,45 +87,39 @@ func (ovsdber *ovsdber) addPatchPort(bridgeName string, bridgeNamePeer string, p
 		PeerName:  portName,
 	}
 	netlink.LinkSetUp(&vethPairPeer)
-	_, err = VsCtl("add-port", bridgeName, portName, "--", "set", "Interface", portName, fmt.Sprintf("ofport_request=%d", port))
-	_, err = VsCtl("add-port", bridgeNamePeer, portNamePeer, "--", "set", "Interface", portNamePeer, fmt.Sprintf("ofport_request=%d", portPeer))
+	_, _ = VsCtl("add-port", bridgeName, portName, "--", "set", "Interface", portName, fmt.Sprintf("ofport_request=%d", port))
+	_, _ = VsCtl("add-port", bridgeNamePeer, portNamePeer, "--", "set", "Interface", portNamePeer, fmt.Sprintf("ofport_request=%d", portPeer))
 	//_, err = VsCtl("set", "interface", portName, "type=patch")
 	//_, err = VsCtl("set", "interface", portNamePeer, "type=patch")
 	//_, err = VsCtl("set", "interface", portName, fmt.Sprintf("options:peer=%s", portNamePeer))
 	//_, err = VsCtl("set", "interface", portNamePeer, fmt.Sprintf("options:peer=%s", portName))
-	return port, portPeer, err
+	return port, portPeer
 }
 
-func (ovsdber *ovsdber) deletePatchPort(bridgeName string, bridgeNamePeer string) error {
+func (ovsdber *ovsdber) mustDeletePatchPort(bridgeName string, bridgeNamePeer string) {
 	portName := patchName(bridgeName, bridgeNamePeer)
 	portNamePeer := patchName(bridgeNamePeer, bridgeName)
-	_, err := VsCtl("del-port", bridgeName, portName)
-	_, err = VsCtl("del-port", bridgeNamePeer, portNamePeer)
+	ovsdber.mustDeletePort(bridgeName, portName)
+	ovsdber.mustDeletePort(bridgeNamePeer, portNamePeer)
 	vethPair := netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{Name: portName},
 		PeerName:  portNamePeer,
 	}
 	netlink.LinkDel(&vethPair)
-	return err
 }
 
-func (ovsdber *ovsdber) deletePort(bridgeName string, portName string) error {
-	_, err := VsCtl("del-port", bridgeName, portName)
-	return err
+func (ovsdber *ovsdber) mustDeletePort(bridgeName string, portName string) {
+	log.Debugf("Remove %s from %s", portName, bridgeName)
+	mustVsCtl("del-port", bridgeName, portName)
 }
 
-func (ovsdber *ovsdber) getOfPortNumber(portName string) (uint32, error) {
-	ofport, err := VsCtl("get", "Interface", portName, "ofport")
+func (ovsdber *ovsdber) mustGetOfPortNumber(portName string) uint32 {
+	ofport := mustVsCtl("get", "Interface", portName, "ofport")
+	ofportNum, err := ParseUint32(ofport)
 	if err != nil {
-		log.Errorf("Unable to get interface %s ofport number because: %v", portName, err)
-		return 0, err
+		panic(err)
 	}
-	ofportNum, err := strconv.ParseUint(ofport, 10, 32)
-	if err != nil {
-		log.Errorf("Unable to convert ofport number %v to an unsigned integer because: %v", ofport, err)
-		return 0, err
-	}
-	return uint32(ofportNum), nil
+	return ofportNum
 }
 
 func (ovsdber *ovsdber) addVxlanPort(bridgeName string, portName string, peerAddress string) (string, error) {
