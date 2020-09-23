@@ -28,6 +28,7 @@ const (
 	dhcpOption          = "ovs.bridge.dhcp"
 	mirrorTunnelVid     = "ovs.bridge.mirror_tunnel_vid"
 	modeOption          = "ovs.bridge.mode"
+	NATAclOption        = "ovs.bridge.nat_acl"
 	mtuOption           = "ovs.bridge.mtu"
 	vlanOption          = "ovs.bridge.vlan"
 	userspaceOption     = "ovs.bridge.userspace"
@@ -143,6 +144,10 @@ func mustGetBridgeVLAN(r *networkplugin.CreateNetworkRequest) uint {
 
 func mustGetBridgeAddPorts(r *networkplugin.CreateNetworkRequest) string {
 	return getGenericOption(r, bridgeAddPorts)
+}
+
+func mustGetNATAcl(r *networkplugin.CreateNetworkRequest) string {
+	return getGenericOption(r, NATAclOption)
 }
 
 func mustGetGatewayIPFromData(data []*networkplugin.IPAMData) string {
@@ -337,6 +342,7 @@ func getNetworkStateFromResource(r *types.NetworkResource) (ns NetworkState, err
 		Userspace:         parseBool(getStrOptionFromResource(r, userspaceOption, "")),
 		Gateway:           gateway,
 		GatewayMask:       mask,
+		NATAcl:            getStrOptionFromResource(r, NATAclOption, ""),
 	}
 	return
 }

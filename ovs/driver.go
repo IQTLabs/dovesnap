@@ -27,6 +27,7 @@ type NetworkState struct {
 	FlatBindInterface string
 	UseDHCP           bool
 	Userspace         bool
+	NATAcl            string
 }
 
 type DovesnapOp struct {
@@ -196,6 +197,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 	gateway, mask := mustGetGatewayIP(r)
 	useDHCP := mustGetUseDHCP(r)
 	useUserspace := mustGetUserspace(r)
+	natAcl := mustGetNATAcl(r)
 
 	if useDHCP {
 		if mode != "flat" {
@@ -222,6 +224,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		FlatBindInterface: bindInterface,
 		UseDHCP:           useDHCP,
 		Userspace:         useUserspace,
+		NATAcl:            natAcl,
 	}
 
 	if operation == "create" {
