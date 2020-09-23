@@ -425,7 +425,7 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 	}
 	mode := opMsg.Mode
 	if mode == "nat" {
-		add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofPortLocal, "OVS Port for NAT", ns.BridgeVLAN, "")
+		add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofPortLocal, "OVS Port for NAT", ns.BridgeVLAN, ns.NATAcl)
 	}
 	configYaml := d.faucetconfrpcer.mergeInterfacesYaml(ns.NetworkName, ns.BridgeDpidUint, ns.BridgeName, add_interfaces)
 	if usingMirrorBridge(d) {
