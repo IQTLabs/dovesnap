@@ -33,7 +33,7 @@ if [ "$RET" != "0" ] ; then
 	exit 1
 fi
 wait_acl
-wait_mirror
+wait_mirror 1
 sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
 echo verifying networking
 sudo timeout 30s tcpdump -n -c 1 -U -i mirroro -w $MIRROR_PCAP udp and port 67 &
