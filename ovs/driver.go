@@ -432,7 +432,7 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 		log.Debugf("configuring mirror bridge port for %s", ns.BridgeName)
 		stackMirrorConfig := d.stackMirrorConfigs[opMsg.NetworkID]
 		ofportNum, mirrorOfportNum := d.mustAddPatchPort(ns.BridgeName, mirrorBridgeName, stackMirrorConfig.LbPort, 0)
-		flowStr := fmt.Sprintf("priority=2,in_port=%d,actions=mod_vlan_vid:%d,output:1", mirrorOfportNum, ns.BridgeVLAN)
+		flowStr := fmt.Sprintf("priority=2,in_port=%d,dl_vlan=0xffff,actions=mod_vlan_vid:%d,output:1", mirrorOfportNum, ns.BridgeVLAN)
 		mustOfCtl("add-flow", mirrorBridgeName, flowStr)
 		add_interfaces += fmt.Sprintf("%d: {description: mirror, output_only: true},", ofportNum)
 		configYaml = d.faucetconfrpcer.mergeInterfacesYaml(ns.NetworkName, ns.BridgeDpidUint, ns.BridgeName, add_interfaces)
