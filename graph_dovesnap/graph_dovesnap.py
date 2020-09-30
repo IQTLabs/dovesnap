@@ -143,11 +143,14 @@ class GraphDovesnap:
         return results
 
     def _scrape_container_ip(self, name, iflink):
-        lines = self._scrape_container_cmd(name, ['ip', '-o', 'addr'])
-        matching_lines = self._get_matching_lines(lines, r'^%u:.+inet\s+(\S+).+$' % iflink)
-        for match in matching_lines:
-            return match[1]
-        return None
+        try:
+            lines = self._scrape_container_cmd(name, ['ip', '-o', 'addr'])
+            matching_lines = self._get_matching_lines(lines, r'^%u:.+inet\s+(\S+).+$' % iflink)
+            for match in matching_lines:
+                return match[1]
+            return None
+        except subprocess.CalledProcessError:
+            return None
 
     def _scrape_bridge_ports(self, bridgename):
         lines = self._scrape_ovs(['ovs-ofctl', 'dump-ports-desc', bridgename])
