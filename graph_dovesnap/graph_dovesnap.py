@@ -47,10 +47,13 @@ class GraphDovesnap:
     def _scrape_container_cmd(self, name, cmd, strict=True):
         client_hi = docker.DockerClient(base_url=self.DOCKER_URL)
         container = self._get_named_container_hi(client_hi, name, strict=strict)
-        (dump_exit, output) = container.exec_run(cmd)
-        if dump_exit != 0:
-            raise GraphDovesnapException('%s: %s', cmd, output)
-        return output.splitlines()
+        try:
+            (dump_exit, output) = container.exec_run(cmd)
+            if dump_exit == 0:
+                return output.decode('utf-8').splitlines()
+        except subprocess.CalledProcessError:
+            pass
+        return None
 
     def _scrape_cmd(self, cmd):
         try:
@@ -124,85 +127,89 @@ class GraphDovesnap:
         match_re = re.compile(re_str)
         matching_lines = []
         for line in lines:
-            match = match_re.match(line.decode('UTF-8'))
+            match = match_re.match(line)
             if match:
                 matching_lines.append(match)
         return matching_lines
 
     def _scrape_container_iface(self, name):
         lines = self._scrape_container_cmd(name, ['ip', '-o', 'link', 'show'])
-        matching_lines = self._get_matching_lines(
-            lines, r'^(\d+):\s+([^\@]+)\@if(\d+):.+link\/ether\s+(\S+).+$')
         results = []
-        for match in matching_lines:
-            iflink = int(match[1])
-            ifname = match[2]
-            peeriflink = int(match[3])
-            mac = match[4]
-            results.append((ifname, mac, iflink, peeriflink))
+        if lines is not None:
+            matching_lines = self._get_matching_lines(
+                lines, r'^(\d+):\s+([^\@]+)\@if(\d+):.+link\/ether\s+(\S+).+$')
+            for match in matching_lines:
+                iflink = int(match[1])
+                ifname = match[2]
+                peeriflink = int(match[3])
+                mac = match[4]
+                results.append((ifname, mac, iflink, peeriflink))
         return results
 
     def _scrape_container_ip(self, name, iflink):
-        try:
-            lines = self._scrape_container_cmd(name, ['ip', '-o', 'addr'])
+        lines = self._scrape_container_cmd(name, ['ip', '-o', 'addr'])
+        if lines is not None:
             matching_lines = self._get_matching_lines(lines, r'^%u:.+inet\s+(\S+).+$' % iflink)
             for match in matching_lines:
                 return match[1]
-            return None
-        except subprocess.CalledProcessError:
-            return None
+        return None
 
     def _scrape_bridge_ports(self, bridgename):
         lines = self._scrape_ovs(['ovs-ofctl', 'dump-ports-desc', bridgename])
-        matching_lines = self._get_matching_lines(
-            lines, r'^\s*(\d+|LOCAL)\((\S+)\).+$')
         port_desc = {}
-        for match in matching_lines:
-            port = match[1]
-            desc = match[2]
-            if port == 'LOCAL':
-                port = self.OFP_LOCAL
-            port = int(port)
-            port_desc[desc] = port
+        if lines is not None:
+            matching_lines = self._get_matching_lines(
+                lines, r'^\s*(\d+|LOCAL)\((\S+)\).+$')
+            for match in matching_lines:
+                port = match[1]
+                desc = match[2]
+                if port == 'LOCAL':
+                    port = self.OFP_LOCAL
+                port = int(port)
+                port_desc[desc] = port
         return port_desc
 
     def _scrape_all_bridge_ports(self):
         all_port_desc = {}
         lines = self._scrape_ovs(['ovs-vsctl', 'list-br'])
-        matching_lines = self._get_matching_lines(
-            lines, r'^(\S+)$')
-        for match in matching_lines:
-            bridgename = match[0]
-            all_port_desc[bridgename] = self._scrape_bridge_ports(bridgename)
+        if lines is not None:
+            matching_lines = self._get_matching_lines(
+                lines, r'^(\S+)$')
+            for match in matching_lines:
+                bridgename = match[0]
+                all_port_desc[bridgename] = self._scrape_bridge_ports(bridgename)
         return all_port_desc
+
+    def _scrape_host_veth(self):
+        return self._scrape_cmd(['ip', '-o', 'link', 'show', 'type', 'veth'])
 
     def _scrape_container_veths(self):
         container_veths = {}
-        process = subprocess.Popen(
-            ['ip', '-o', 'link', 'show', 'type', 'veth'], stdout=subprocess.PIPE)
-        matching_lines = self._get_matching_lines(
-            process.stdout.readlines(),
-            r'^(\d+):\s+([^\@]+)\@.+link\/ether\s+(\S+).+link-netnsid\s+(\d+).*$')
-        for match in matching_lines:
-            iflink = int(match[1])
-            ifname = match[2]
-            mac = match[3]
-            container_veths[iflink] = (ifname, mac)
+        lines = self._scrape_host_veth()
+        if lines is not None:
+            matching_lines = self._get_matching_lines(
+                lines,
+                r'^(\d+):\s+([^\@]+)\@.+link\/ether\s+(\S+).+link-netnsid\s+(\d+).*$')
+            for match in matching_lines:
+                iflink = int(match[1])
+                ifname = match[2]
+                mac = match[3]
+                container_veths[iflink] = (ifname, mac)
         return container_veths
 
     def _scrape_patch_veths(self):
         patch_veths = {}
-        process = subprocess.Popen(
-            ['ip', '-o', 'link', 'show', 'type', 'veth'], stdout=subprocess.PIPE)
-        matching_lines = self._get_matching_lines(
-            process.stdout.readlines(),
-            r'^\d+:\s+(%s[^\@]+)\@([^\:\s]+).+link\/ether\s+(\S+).+$' % self.PATCH_PREFIX)
-        for match in matching_lines:
-            ifname = match[1]
-            peerifname = match[2]
-            mac = match[3]
-            patch_veths[ifname] = (peerifname, mac)
-        assert len(patch_veths) % 2 == 0
+        lines = self._scrape_host_veth()
+        if lines is not None:
+            matching_lines = self._get_matching_lines(
+                lines,
+                r'^\d+:\s+(%s[^\@]+)\@([^\:\s]+).+link\/ether\s+(\S+).+$' % self.PATCH_PREFIX)
+            for match in matching_lines:
+                ifname = match[1]
+                peerifname = match[2]
+                mac = match[3]
+                patch_veths[ifname] = (peerifname, mac)
+            assert len(patch_veths) % 2 == 0
         return patch_veths
 
     def _get_network_mode(self, network):
