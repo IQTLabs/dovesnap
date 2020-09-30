@@ -1,3 +1,11 @@
+# v0.7.0 (2020-09-30)
+
+- allow ACL on NAT port
+- tests check mirror flows are present
+- mirror bridge should pass through packets with any VLAN tag
+- fix viz crash when no ip command
+- upgrade logrus, faucetconfrpc, grafana
+
 # v0.6.0 (2020-09-22)
 
 - fix race condition that could lead to multiple containers with same OFPort
