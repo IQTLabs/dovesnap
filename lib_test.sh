@@ -44,6 +44,7 @@ init_dirs()
 
 clean_dirs()
 {
+	wget -q -O- localhost:9401/networks |jq || exit 1
 	./graph_dovesnap/graph_dovesnap.py -o /tmp/dovesnapviz || exit 1
 	docker rm -f testcon || exit 1
 	docker network rm testnet || exit 1
