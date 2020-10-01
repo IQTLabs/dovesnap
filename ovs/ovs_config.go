@@ -343,6 +343,8 @@ func getNetworkStateFromResource(r *types.NetworkResource) (ns NetworkState, err
 		Gateway:           gateway,
 		GatewayMask:       mask,
 		NATAcl:            getStrOptionFromResource(r, NATAclOption, ""),
+		Containers:        make(map[string]ContainerState),
+		ExternalPorts:     make(map[string]ExternalPortState),
 	}
 	return
 }

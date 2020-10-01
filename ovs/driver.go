@@ -3,6 +3,7 @@ package ovs
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os/exec"
 	"reflect"
 	"strings"
@@ -12,6 +13,19 @@ import (
 	networkplugin "github.com/docker/go-plugins-helpers/network"
 	log "github.com/sirupsen/logrus"
 )
+
+type ContainerState struct {
+	Name   string
+	Id     string
+	OFPort uint32
+	HostIP string
+	Labels map[string]string
+}
+
+type ExternalPortState struct {
+	Name   string
+	OFPort uint32
+}
 
 type NetworkState struct {
 	NetworkName       string
@@ -28,6 +42,8 @@ type NetworkState struct {
 	UseDHCP           bool
 	Userspace         bool
 	NATAcl            string
+	Containers        map[string]ContainerState
+	ExternalPorts     map[string]ExternalPortState
 }
 
 type DovesnapOp struct {
@@ -81,6 +97,7 @@ type Driver struct {
 	networks                map[string]NetworkState
 	dovesnapOpChan          chan DovesnapOp
 	notifyMsgChan           chan NotifyMsg
+	webResponseChan         chan string
 	stackMirrorConfigs      map[string]StackMirrorConfig
 }
 
@@ -225,6 +242,8 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		UseDHCP:           useDHCP,
 		Userspace:         useUserspace,
 		NATAcl:            natAcl,
+		Containers:        make(map[string]ContainerState),
+		ExternalPorts:     make(map[string]ExternalPortState),
 	}
 
 	if operation == "create" {
@@ -421,11 +440,13 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 			add_port := add_port_number[0]
 			ofport := d.ovsdber.mustGetOfPortNumber(add_port)
 			add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofport, "Physical interface "+add_port, ns.BridgeVLAN, "")
+			ns.ExternalPorts[add_port] = ExternalPortState{Name: add_port, OFPort: ofport}
 		}
 	}
 	mode := opMsg.Mode
 	if mode == "nat" {
 		add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofPortLocal, "OVS Port for NAT", ns.BridgeVLAN, ns.NATAcl)
+		ns.ExternalPorts[inspectNs.BridgeName] = ExternalPortState{Name: inspectNs.BridgeName, OFPort: ofPortLocal}
 	}
 	configYaml := d.faucetconfrpcer.mergeInterfacesYaml(ns.NetworkName, ns.BridgeDpidUint, ns.BridgeName, add_interfaces)
 	if usingMirrorBridge(d) {
@@ -435,6 +456,7 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 		flowStr := fmt.Sprintf("priority=2,in_port=%d,dl_vlan=0xffff,actions=mod_vlan_vid:%d,output:1", mirrorOfportNum, ns.BridgeVLAN)
 		mustOfCtl("add-flow", mirrorBridgeName, flowStr)
 		add_interfaces += fmt.Sprintf("%d: {description: mirror, output_only: true},", ofportNum)
+		ns.ExternalPorts[mirrorBridgeName] = ExternalPortState{Name: mirrorBridgeName, OFPort: ofportNum}
 		configYaml = d.faucetconfrpcer.mergeInterfacesYaml(ns.NetworkName, ns.BridgeDpidUint, ns.BridgeName, add_interfaces)
 	}
 	if usingStacking(d) {
@@ -443,6 +465,7 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 			panic(err)
 		}
 		ofportNum, ofportNumPeer := d.mustAddPatchPort(ns.BridgeName, stackDpName, 0, 0)
+		ns.ExternalPorts[stackDpName] = ExternalPortState{Name: stackDpName, OFPort: ofportNum}
 		localDpYaml := fmt.Sprintf("%s: {dp_id: %d, description: %s, interfaces: {%s %s}}",
 			ns.NetworkName,
 			ns.BridgeDpidUint,
@@ -562,6 +585,13 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 		Options:          opMsg.Options,
 	}
 	(*OFPorts)[opMsg.EndpointID] = containerMap
+	ns.Containers[opMsg.EndpointID] = ContainerState{
+		Name:   containerInspect.Name,
+		Id:     containerInspect.ID,
+		OFPort: ofport,
+		HostIP: hostIP,
+		Labels: containerInspect.Config.Labels,
+	}
 
 	d.notifyMsgChan <- NotifyMsg{
 		Type:         "CONTAINER",
@@ -581,7 +611,6 @@ func mustHandleLeaveContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]O
 			log.Errorf("mustHandleLeaveContainer failed: %v", rerr)
 		}
 	}()
-
 	containerMap := (*OFPorts)[opMsg.EndpointID]
 	udhcpcCmd := containerMap.udhcpcCmd
 	if udhcpcCmd != nil {
@@ -607,6 +636,7 @@ func mustHandleLeaveContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]O
 	}
 
 	delete(*OFPorts, opMsg.EndpointID)
+	delete(ns.Containers, opMsg.EndpointID)
 
 	d.notifyMsgChan <- NotifyMsg{
 		Type:         "CONTAINER",
@@ -646,6 +676,7 @@ func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint32]string) {
 				}
 				log.Infof("removing non dovesnap port: %s %s %d %s", id, ns.BridgeName, ofport, desc)
 				d.faucetconfrpcer.mustDeleteDpInterface(ns.NetworkName, uint32(ofport))
+				delete(ns.ExternalPorts, desc)
 			}
 		} else {
 			log.Debugf("new portDesc for %s", ns.BridgeName)
@@ -669,6 +700,7 @@ func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint32]string) {
 			}
 			log.Infof("adding non dovesnap port: %s %s %d %s", id, ns.BridgeName, ofport, desc)
 			add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofport, "Physical interface "+desc, ns.BridgeVLAN, "")
+			ns.ExternalPorts[desc] = ExternalPortState{Name: desc, OFPort: ofport}
 		}
 
 		if add_interfaces != "" {
@@ -680,7 +712,15 @@ func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint32]string) {
 	}
 }
 
-func resourceManager(d *Driver) {
+func mustHandleNetworks(d *Driver) {
+	encodedMsg, err := json.Marshal(d.networks)
+	if err != nil {
+		panic(err)
+	}
+	d.webResponseChan <- fmt.Sprintf("%s", encodedMsg)
+}
+
+func (d *Driver) resourceManager() {
 	OFPorts := make(map[string]OFPortContainer)
 	AllPortDesc := make(map[string]map[uint32]string)
 
@@ -696,6 +736,8 @@ func resourceManager(d *Driver) {
 				mustHandleJoinContainer(d, opMsg, &OFPorts)
 			case "leave":
 				mustHandleLeaveContainer(d, opMsg, &OFPorts)
+			case "networks":
+				mustHandleNetworks(d)
 			default:
 				log.Errorf("Unknown resource manager message: %s", opMsg)
 			}
@@ -717,7 +759,7 @@ func usingStackMirroring(d *Driver) bool {
 	return usingStacking(d) && len(d.stackMirrorInterface) > 1
 }
 
-func notifier(d *Driver) {
+func (d *Driver) notifier() {
 	for {
 		select {
 		case notifyMsg := <-d.notifyMsgChan:
@@ -736,7 +778,7 @@ func notifier(d *Driver) {
 	}
 }
 
-func restoreNetworks(d *Driver) {
+func (d *Driver) restoreNetworks() {
 	netlist := d.dockerer.mustGetNetworkList()
 	for id, _ := range netlist {
 		netInspect := d.dockerer.mustGetNetworkInspectFromID(id)
@@ -752,7 +794,25 @@ func restoreNetworks(d *Driver) {
 	}
 }
 
-func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string, flagMirrorBridgeIn string, flagMirrorBridgeOut string) *Driver {
+func (d *Driver) getWebResponse(w http.ResponseWriter, operation string) {
+	d.dovesnapOpChan <- DovesnapOp{Operation: operation}
+	response := <-d.webResponseChan
+	fmt.Fprintf(w, response)
+}
+
+func (d *Driver) handleNetworksWeb(w http.ResponseWriter, r *http.Request) {
+	d.getWebResponse(w, "networks")
+}
+
+func (d *Driver) runWeb(port int) {
+	http.HandleFunc("/networks", d.handleNetworksWeb)
+
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
+		panic(err)
+	}
+}
+
+func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string, flagMirrorBridgeIn string, flagMirrorBridgeOut string, flagStatusServerPort int) *Driver {
 	ensureDirExists(netNsPath)
 
 	stack_mirror_interface := strings.Split(flagStackMirrorInterface, ":")
@@ -775,6 +835,7 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 		networks:                make(map[string]NetworkState),
 		dovesnapOpChan:          make(chan DovesnapOp, 2),
 		notifyMsgChan:           make(chan NotifyMsg, 2),
+		webResponseChan:         make(chan string, 2),
 		stackMirrorConfigs:      make(map[string]StackMirrorConfig),
 	}
 
@@ -783,7 +844,7 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 
 	d.ovsdber.waitForOvs()
 
-	go notifier(d)
+	go d.notifier()
 
 	if usingMirrorBridge(d) {
 		d.createMirrorBridge()
@@ -804,9 +865,11 @@ func NewDriver(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort i
 		log.Warnf("No stacking interface defined, not stacking DPs or creating a stacking bridge")
 	}
 
-	restoreNetworks(d)
+	d.restoreNetworks()
 
-	go resourceManager(d)
+	go d.resourceManager()
+
+	go d.runWeb(flagStatusServerPort)
 
 	return d
 }
