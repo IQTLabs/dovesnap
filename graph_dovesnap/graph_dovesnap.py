@@ -132,8 +132,9 @@ class GraphDovesnap:
                 matching_lines.append(match)
         return matching_lines
 
-    def _scrape_container_iface(self, name):
-        lines = self._scrape_container_cmd(name, ['ip', '-o', 'link', 'show'])
+    def _scrape_container_iface(self, container_id):
+        lines = self._scrape_container_cmd(
+            self.DOVESNAP_NAME, ['ip', 'netns', 'exec', container_id, 'ip', '-o', 'link', 'show'], strict=False)
         results = []
         if lines is not None:
             matching_lines = self._get_matching_lines(
@@ -146,8 +147,9 @@ class GraphDovesnap:
                 results.append((ifname, mac, iflink, peeriflink))
         return results
 
-    def _scrape_container_ip(self, name, iflink):
-        lines = self._scrape_container_cmd(name, ['ip', '-o', 'addr'])
+    def _scrape_container_ip(self, container_id, iflink):
+        lines = self._scrape_container_cmd(
+            self.DOVESNAP_NAME, ['ip', 'netns', 'exec', container_id, 'ip', '-o', 'addr'], strict=False)
         if lines is not None:
             matching_lines = self._get_matching_lines(lines, r'^%u:.+inet\s+(\S+).+$' % iflink)
             for match in matching_lines:
@@ -264,13 +266,13 @@ class GraphDovesnap:
             for container_id, container in network['Containers'].items():
                 container_name = container['Name']
                 container_inspect = client.inspect_container(container_id)
-                for ifname, mac, iflink, peeriflink in self._scrape_container_iface(container_name):
+                for ifname, mac, iflink, peeriflink in self._scrape_container_iface(container_id):
                     if peeriflink in container_veths:
                         br_ifname, _ = container_veths[peeriflink]
                         labels = ['%s: %s' % (label.split('.')[-1], labelval)
                             for label, labelval in container_inspect['Config']['Labels'].items()]
                         host_label = [container_name, "", "Container", ifname, mac]
-                        ip = self._scrape_container_ip(container_name, iflink)
+                        ip = self._scrape_container_ip(container_id, iflink)
                         if ip:
                             host_label.append(ip)
                         host_label.extend(labels)
