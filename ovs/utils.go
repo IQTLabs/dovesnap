@@ -189,6 +189,14 @@ func vethPair(suffix string) *netlink.Veth {
 	}
 }
 
+func getMacAddr(name string) string {
+	iface, err := netlink.LinkByName(name)
+	if err != nil {
+		panic(err)
+	}
+	return iface.Attrs().HardwareAddr.String()
+}
+
 // Enable a netlink interface
 func interfaceUp(name string) error {
 	iface, err := netlink.LinkByName(name)

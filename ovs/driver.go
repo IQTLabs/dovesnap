@@ -15,11 +15,12 @@ import (
 )
 
 type ContainerState struct {
-	Name   string
-	Id     string
-	OFPort uint32
-	HostIP string
-	Labels map[string]string
+	Name       string
+	Id         string
+	OFPort     uint32
+	MacAddress string
+	HostIP     string
+	Labels     map[string]string
 }
 
 type ExternalPortState struct {
@@ -50,6 +51,7 @@ type DovesnapOp struct {
 	NewNetworkState      NetworkState
 	NewStackMirrorConfig StackMirrorConfig
 	VethName             string
+	MacAddress           string
 	AddPorts             string
 	Mode                 string
 	NetworkID            string
@@ -279,10 +281,7 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 
 func (d *Driver) CreateEndpoint(r *networkplugin.CreateEndpointRequest) (*networkplugin.CreateEndpointResponse, error) {
 	log.Debugf("Create endpoint request: %+v", r)
-	localVethPair := vethPair(truncateID(r.EndpointID))
-	log.Debugf("Create vethPair")
-	res := &networkplugin.CreateEndpointResponse{Interface: &networkplugin.EndpointInterface{MacAddress: localVethPair.Attrs().HardwareAddr.String()}}
-	log.Debugf("Attached veth %+v,", r.Interface)
+	res := &networkplugin.CreateEndpointResponse{Interface: &networkplugin.EndpointInterface{}}
 	return res, nil
 }
 
@@ -343,6 +342,7 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 	log.Debugf("Join request: %+v", r)
 	localVethPair := vethPair(truncateID(r.EndpointID))
 	addVethPair(localVethPair)
+	macAddress := getMacAddr(localVethPair.PeerName)
 	ns := d.networks[r.NetworkID]
 	res := &networkplugin.JoinResponse{
 		InterfaceName: networkplugin.InterfaceName{
@@ -358,6 +358,7 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 		NetworkID:  r.NetworkID,
 		EndpointID: r.EndpointID,
 		Options:    r.Options,
+		MacAddress: macAddress,
 		Operation:  "join",
 	}
 	d.dovesnapOpChan <- joinMsg
@@ -562,6 +563,7 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 
 	defaultInterface := "eth0"
 	udhcpcCmd := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/udhcpc", "-f", "-R", "-i", defaultInterface)
+	// TODO: If DHCP in use, need background process to obtain IP address.
 	if ns.UseDHCP {
 		err = udhcpcCmd.Start()
 		if err != nil {
@@ -586,11 +588,12 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 	}
 	(*OFPorts)[opMsg.EndpointID] = containerMap
 	ns.Containers[opMsg.EndpointID] = ContainerState{
-		Name:   containerInspect.Name,
-		Id:     containerInspect.ID,
-		OFPort: ofport,
-		HostIP: hostIP,
-		Labels: containerInspect.Config.Labels,
+		Name:       containerInspect.Name,
+		Id:         containerInspect.ID,
+		OFPort:     ofport,
+		MacAddress: opMsg.MacAddress,
+		HostIP:     hostIP,
+		Labels:     containerInspect.Config.Labels,
 	}
 
 	d.notifyMsgChan <- NotifyMsg{
@@ -601,6 +604,8 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 			"name": containerInspect.Name,
 			"id":   containerInspect.ID,
 			"port": fmt.Sprintf("%d", ofport),
+			"mac":  opMsg.MacAddress,
+			"ip":   hostIP,
 		},
 	}
 }
