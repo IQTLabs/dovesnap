@@ -1,3 +1,9 @@
+# v0.8.0 (2020-10-09)
+
+- add JSON endpoint to get dovesnap state
+- log MAC address of containers
+- Update faucet, faucetconfrpc, certstrap, grafana, grpc
+
 # v0.7.0 (2020-09-30)
 
 - allow ACL on NAT port
