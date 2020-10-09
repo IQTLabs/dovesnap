@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	version = "0.5.0"
+	version = "0.8.0"
 )
 
 func main() {
@@ -32,6 +32,8 @@ func main() {
 		"mirror_bridge_in", "", "optional input interface from another mirror bridge")
 	flagMirrorBridgeOut := flag.String(
 		"mirror_bridge_out", "", "output interface from mirror bridge")
+	flagStatusServerPort := flag.Int(
+		"status_port", 9401, "port for status server")
 	flag.Parse()
 	if *flagDebug {
 		log.SetLevel(log.DebugLevel)
@@ -45,7 +47,8 @@ func main() {
 		*flagStackMirrorInterface,
 		*flagDefaultControllers,
 		*flagMirrorBridgeIn,
-		*flagMirrorBridgeOut)
+		*flagMirrorBridgeOut,
+		*flagStatusServerPort)
 	log.Infof("New Docker driver created")
 	h := network.NewHandler(d)
 	log.Infof("Getting ready to serve new Docker driver")

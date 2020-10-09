@@ -6,6 +6,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,6 +19,14 @@ const (
 	b62alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 )
 
+func ParseUint32(value string) (uint32, error) {
+	uintValue, err := strconv.ParseUint(value, 10, 32)
+	if err == nil {
+		return uint32(uintValue), nil
+	}
+	return 0, err
+}
+
 func base36to16(value string) string {
 	converted, _ := bc.Convert(strings.ToLower(value), bc.Digits36, bc.DigitsHex)
 	digits := len(converted)
@@ -28,13 +37,21 @@ func base36to16(value string) string {
 	return strings.ToUpper(converted)
 }
 
-func mustGetIntFromHexStr(dpid string) int {
-	strVal, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
-	intVal := defaultInt(strVal, -1)
-	if intVal == -1 {
-		panic(fmt.Errorf("Unable convert %s to an int", strVal))
+func defaultUint(strValue string, defaultValue uint64) uint64 {
+	uintValue, err := strconv.ParseUint(strValue, 10, 64)
+	if err == nil {
+		return uintValue
 	}
-	return intVal
+	return defaultValue
+}
+
+func mustGetUintFromHexStr(dpid string) uint64 {
+	strVal, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
+	uintVal := defaultUint(strVal, 0)
+	if uintVal == 0 {
+		panic(fmt.Errorf("Unable convert %s to an uint", strVal))
+	}
+	return uintVal
 }
 
 // return int64 as base62.
@@ -170,6 +187,14 @@ func vethPair(suffix string) *netlink.Veth {
 		LinkAttrs: netlink.LinkAttrs{Name: ovsPortPrefix + suffix},
 		PeerName:  peerOvsPortPrefix + suffix,
 	}
+}
+
+func getMacAddr(name string) string {
+	iface, err := netlink.LinkByName(name)
+	if err != nil {
+		panic(err)
+	}
+	return iface.Attrs().HardwareAddr.String()
 }
 
 // Enable a netlink interface

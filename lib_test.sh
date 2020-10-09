@@ -1,5 +1,15 @@
 #!/bin/bash
 
+reset_ovsid ()
+{
+	OVSID="$(docker ps -q --filter name=ovs)"
+}
+
+reset_bridgename ()
+{
+	BRIDGE=$(docker exec -t $OVSID ovs-vsctl list-br|grep -Eo 'ovsbr\S+')
+}
+
 restart_dovesnap ()
 {
         echo restarting dovesnap
@@ -34,9 +44,11 @@ init_dirs()
 
 clean_dirs()
 {
+	wget -q -O- localhost:9401/networks || exit 1
 	./graph_dovesnap/graph_dovesnap.py -o /tmp/dovesnapviz || exit 1
 	docker rm -f testcon || exit 1
 	docker network rm testnet || exit 1
+	sleep 2
 	FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml stop
 	rm -rf $TMPDIR
 }
@@ -143,11 +155,23 @@ wait_acl ()
 		ACLCOUNT=$(sudo grep -c ratelimitit $FAUCET_CONFIG)
 		sleep 1
 	done
+        reset_ovsid
+	reset_bridgename
+        OUTPUT=""
+        while [ "$OUTPUT" != "meter" ] ; do
+                OUTPUT=$(docker exec -t $OVSID ovs-ofctl dump-flows -OOpenFlow13 $BRIDGE table=0|grep -o meter|cat)
+                echo waiting for meter flow in table 0
+                sleep 1
+        done
 }
 
 wait_mirror ()
 {
-	echo waiting for mirror to be applied
+	table=$1
+	if [ "$table" == "" ] ; then
+		table=0
+	fi
+	echo waiting for mirror to be applied to config
 	DOVESNAPID="$(docker ps -q --filter name=dovesnap_plugin)"
 	MIRRORCOUNT=0
 	while [ "$MIRRORCOUNT" != "1" ] ; do
@@ -156,12 +180,20 @@ wait_mirror ()
 		MIRRORCOUNT=$(sudo grep -c mirror: $FAUCET_CONFIG)
 		sleep 1
 	done
+	reset_ovsid
+	reset_bridgename
+	OUTPUT=""
+	while [ "$OUTPUT" != "output:" ] ; do
+		OUTPUT=$(docker exec -t $OVSID ovs-ofctl dump-flows -OOpenFlow13 $BRIDGE table=$table|grep -o output:|cat)
+		echo waiting for mirror flow in table 0
+		sleep 1
+	done
 }
 
 init_ovs ()
 {
 	docker-compose -f docker-compose.yml up -d ovs || exit 1
-	OVSID="$(docker ps -q --filter name=ovs)"
+	reset_ovsid
 	while ! docker exec -t $OVSID ovs-vsctl show ; do
 		echo waiting for OVS
 		sleep 1
