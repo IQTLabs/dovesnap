@@ -16,7 +16,7 @@ require (
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/google/go-cmp v0.5.2 // indirect
 	github.com/iqtlabs/faucetconfrpc v0.22.6
-	github.com/kenshaw/baseconv v0.0.0-20180401001559-5ac6a1b7584c
+	github.com/kenshaw/baseconv v0.1.0
 	github.com/kr/text v0.2.0 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
