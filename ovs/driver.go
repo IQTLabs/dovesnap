@@ -534,6 +534,22 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 	vethName := localVethPair.Name
 	macAddress := containerNetSettings.MacAddress
 	ofport, _ := d.mustAddInternalPort(ns.BridgeName, vethName, 0)
+
+	createNsLink(pid, containerInspect.ID)
+	defaultInterface := "eth0"
+
+	macPrefix, mok := containerInspect.Config.Labels["dovesnap.faucet.mac_prefix"]
+	if mok && len(macPrefix) > 0 {
+		oldMacAddress := macAddress
+		macAddress := mustPrefixMAC(macPrefix, macAddress)
+		log.Infof("mapping MAC from %s to %s using prefix %s", oldMacAddress, macAddress, macPrefix)
+		output, err := exec.Command("ip", "netns", "exec", containerInspect.ID, "ip", "link", "set", defaultInterface, "address", macAddress).CombinedOutput()
+		log.Debugf("%s", output)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	log.Infof("Adding %s (pid %d) veth %s MAC %s on %s DPID %d OFPort %d to Faucet",
 		containerInspect.Name, pid, vethName, macAddress, ns.BridgeName, ns.BridgeDpidUint, ofport)
 	log.Debugf("container network settings: %+v", containerNetSettings)
@@ -569,9 +585,6 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 		}
 	}
 
-	createNsLink(pid, containerInspect.ID)
-
-	defaultInterface := "eth0"
 	udhcpcCmd := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/udhcpc", "-f", "-R", "-i", defaultInterface)
 	// TODO: If DHCP in use, need background process to obtain IP address.
 	if ns.UseDHCP {
