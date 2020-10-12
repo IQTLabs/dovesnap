@@ -50,8 +50,6 @@ type NetworkState struct {
 type DovesnapOp struct {
 	NewNetworkState      NetworkState
 	NewStackMirrorConfig StackMirrorConfig
-	VethName             string
-	MacAddress           string
 	AddPorts             string
 	Mode                 string
 	NetworkID            string
@@ -281,7 +279,20 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 
 func (d *Driver) CreateEndpoint(r *networkplugin.CreateEndpointRequest) (*networkplugin.CreateEndpointResponse, error) {
 	log.Debugf("Create endpoint request: %+v", r)
-	res := &networkplugin.CreateEndpointResponse{Interface: &networkplugin.EndpointInterface{}}
+	macAddress := r.Interface.MacAddress
+	localVethPair := vethPair(truncateID(r.EndpointID))
+	addVethPair(localVethPair)
+	vethName := localVethPair.PeerName
+	if macAddress == "" {
+		// No MAC address requested, we provide our own.
+		macAddress = getMacAddr(vethName)
+	} else {
+		mustSetInterfaceMac(vethName, macAddress)
+		// We accept Docker's request.
+		macAddress = ""
+	}
+	res := &networkplugin.CreateEndpointResponse{Interface: &networkplugin.EndpointInterface{MacAddress: macAddress}}
+	log.Debugf("Create endpoint response: %+v", res.Interface)
 	return res, nil
 }
 
@@ -341,8 +352,6 @@ func (d *Driver) EndpointInfo(r *networkplugin.InfoRequest) (*networkplugin.Info
 func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse, error) {
 	log.Debugf("Join request: %+v", r)
 	localVethPair := vethPair(truncateID(r.EndpointID))
-	addVethPair(localVethPair)
-	macAddress := getMacAddr(localVethPair.PeerName)
 	ns := d.networks[r.NetworkID]
 	res := &networkplugin.JoinResponse{
 		InterfaceName: networkplugin.InterfaceName{
@@ -354,11 +363,9 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 	}
 	log.Debugf("Join endpoint %s:%s to %s", r.NetworkID, r.EndpointID, r.SandboxKey)
 	joinMsg := DovesnapOp{
-		VethName:   localVethPair.Name,
 		NetworkID:  r.NetworkID,
 		EndpointID: r.EndpointID,
 		Options:    r.Options,
-		MacAddress: macAddress,
 		Operation:  "join",
 	}
 	d.dovesnapOpChan <- joinMsg
@@ -523,9 +530,12 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 	ns := d.networks[opMsg.NetworkID]
 	pid := containerInspect.State.Pid
 	containerNetSettings := containerInspect.NetworkSettings.Networks[ns.NetworkName]
-	ofport, _ := d.mustAddInternalPort(ns.BridgeName, opMsg.VethName, 0)
-	log.Infof("Adding %s (pid %d) veth %s on %s DPID %d OFPort %d to Faucet",
-		containerInspect.Name, pid, opMsg.VethName, ns.BridgeName, ns.BridgeDpidUint, ofport)
+	localVethPair := vethPair(truncateID(opMsg.EndpointID))
+	vethName := localVethPair.Name
+	macAddress := containerNetSettings.MacAddress
+	ofport, _ := d.mustAddInternalPort(ns.BridgeName, vethName, 0)
+	log.Infof("Adding %s (pid %d) veth %s MAC %s on %s DPID %d OFPort %d to Faucet",
+		containerInspect.Name, pid, vethName, macAddress, ns.BridgeName, ns.BridgeDpidUint, ofport)
 	log.Debugf("container network settings: %+v", containerNetSettings)
 
 	log.Debugf("%+v", opMsg.Options[portMapOption])
@@ -591,8 +601,8 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 		Name:       containerInspect.Name,
 		Id:         containerInspect.ID,
 		OFPort:     ofport,
-		MacAddress: opMsg.MacAddress,
 		HostIP:     hostIP,
+		MacAddress: macAddress,
 		Labels:     containerInspect.Config.Labels,
 	}
 
@@ -604,7 +614,7 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 			"name": containerInspect.Name,
 			"id":   containerInspect.ID,
 			"port": fmt.Sprintf("%d", ofport),
-			"mac":  opMsg.MacAddress,
+			"mac":  macAddress,
 			"ip":   hostIP,
 		},
 	}

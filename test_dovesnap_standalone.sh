@@ -20,7 +20,7 @@ restart_dovesnap
 echo creating testcon
 # github test runner can't use ping.
 docker pull busybox
-docker run -d --label="dovesnap.faucet.portacl=ratelimitit" --net=testnet --rm --name=testcon -p 80:80 busybox sleep 1h
+docker run -d --label="dovesnap.faucet.portacl=ratelimitit" --net=testnet --rm --name=testcon -p 80:80 --mac-address=0e:00:00:00:00:07 busybox sleep 1h
 RET=$?
 if [ "$RET" != "0" ] ; then
 	echo testcon container creation returned: $RET
@@ -30,5 +30,6 @@ wait_acl
 sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
 echo verifying networking
 docker exec -t testcon wget -q -O- bing.com || exit 1
+docker exec -t testcon ifconfig eth0 |grep -iq 0E:00:00:00:00:07 || exit 1
 
 clean_dirs
