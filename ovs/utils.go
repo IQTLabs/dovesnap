@@ -1,6 +1,7 @@
 package ovs
 
 import (
+	"encoding/hex"
 	"fmt"
 	"hash/crc32"
 	"math"
@@ -92,6 +93,24 @@ func getIfaceAddr(name string) (*net.IPNet, error) {
 		log.Infof("Interface [ %v ] has more than 1 IPv4 address. Defaulting to using [ %v ]\n", name, addrs[0].IP)
 	}
 	return addrs[0].IPNet, nil
+}
+
+func mustPrefixMAC(macPrefix string, macAddress string) string {
+	prefixBytes, err := hex.DecodeString(strings.ReplaceAll(macPrefix, ":", ""))
+	if err != nil {
+		panic(fmt.Errorf("invalid MAC prefix: %s", macPrefix))
+	}
+	if len(prefixBytes) > 5 {
+		panic(fmt.Errorf("MAC prefix too long: %s", macPrefix))
+	}
+	rawMacAddress, parseerr := net.ParseMAC(macAddress)
+	if parseerr != nil {
+		panic(parseerr)
+	}
+	for i, b := range prefixBytes {
+		rawMacAddress[i] = b
+	}
+	return rawMacAddress.String()
 }
 
 func mustSetInterfaceMac(name string, macAddress string) {

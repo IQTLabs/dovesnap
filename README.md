@@ -144,6 +144,15 @@ An ACL will be applied to the port associated with the container. The ACL must a
 
 The container's traffic (both sent and received) will be mirrored to a port on the bridge (see above).
 
+#### MAC prefix
+
+`--label="dovesnap.faucet.mac_prefix=0e:99`
+
+The prefix of the container interface's MAC address will be replaced with the specified bytes (1 to 5 bytes may be supplied).
+This can be convenient when filtering traffic with tcpdump - containers with this label will have an easily identifiable MAC address.
+
+NOTE: where this option is used, the MAC address reported by `docker inspect` will be inaccurate.
+
 #### Visualizing dovesnap networks
 
 Dovesnap can generate a diagram of how containers and interfaces are connected together, with some information about running containers (e.g. MAC and IP addresses). This can be useful for troubleshooting or verifying configuration.
