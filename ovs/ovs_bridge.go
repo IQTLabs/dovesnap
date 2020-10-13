@@ -87,7 +87,7 @@ func (ovsdber *ovsdber) parseAddPorts(add_ports string, addPorts *map[string]uin
 	return
 }
 
-func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid string, add_ports string, exists bool, userspace bool) error {
+func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid string, add_ports string, exists bool, userspace bool, ovsLocalMac string) error {
 	if exists {
 		if _, err := ovsdber.addBridgeExists(bridgeName); err != nil {
 			log.Errorf("Error creating ovs bridge [ %s ] : [ %s ]", bridgeName, err)
@@ -103,6 +103,10 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 
 	if userspace {
 		ovsConfigCmds = append(ovsConfigCmds, []string{"set", "bridge", bridgeName, "datapath_type=netdev"})
+	}
+
+	if ovsLocalMac != "" {
+		ovsConfigCmds = append(ovsConfigCmds, []string{"set", "bridge", bridgeName, fmt.Sprintf("other-config:hwaddr=\"%s\"", ovsLocalMac)})
 	}
 
 	if dpid != "" {
@@ -146,9 +150,9 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 }
 
 //  setup bridge, if bridge does not exist create it.
-func (d *Driver) initBridge(ns NetworkState, controller string, dpid string, add_ports string, userspace bool) error {
+func (d *Driver) initBridge(ns NetworkState, controller string, dpid string, add_ports string, userspace bool, ovsLocalMac string) error {
 	bridgeName := ns.BridgeName
-	err := d.ovsdber.createBridge(bridgeName, controller, dpid, add_ports, false, userspace)
+	err := d.ovsdber.createBridge(bridgeName, controller, dpid, add_ports, false, userspace, ovsLocalMac)
 	if err != nil {
 		log.Errorf("Error creating bridge: %s", err)
 		return err
