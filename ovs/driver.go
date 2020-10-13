@@ -43,6 +43,7 @@ type NetworkState struct {
 	UseDHCP           bool
 	Userspace         bool
 	NATAcl            string
+	OvsLocalMac       string
 	Containers        map[string]ContainerState
 	ExternalPorts     map[string]ExternalPortState
 }
@@ -125,7 +126,7 @@ func (d *Driver) createMirrorBridge() {
 	if len(d.mirrorBridgeIn) > 0 {
 		add_ports += "," + d.mirrorBridgeIn
 	}
-	err = d.ovsdber.createBridge(mirrorBridgeName, "", "", add_ports, true, false)
+	err = d.ovsdber.createBridge(mirrorBridgeName, "", "", add_ports, true, false, "")
 	if err != nil {
 		panic(err)
 	}
@@ -147,7 +148,7 @@ func (d *Driver) createStackingBridge() error {
 		log.Infof("Stacking bridge doesn't exist, creating one now")
 	}
 
-	err = d.ovsdber.createBridge(dpName, d.stackDefaultControllers, dpid, "", true, false)
+	err = d.ovsdber.createBridge(dpName, d.stackDefaultControllers, dpid, "", true, false, "")
 	if err != nil {
 		log.Errorf("Unable to create stacking bridge because: [ %s ]", err)
 	}
@@ -215,6 +216,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 	useDHCP := mustGetUseDHCP(r)
 	useUserspace := mustGetUserspace(r)
 	natAcl := mustGetNATAcl(r)
+	ovsLocalMac := mustGetOvsLocalMac(r)
 
 	if useDHCP {
 		if mode != "flat" {
@@ -242,12 +244,13 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		UseDHCP:           useDHCP,
 		Userspace:         useUserspace,
 		NATAcl:            natAcl,
+		OvsLocalMac:       ovsLocalMac,
 		Containers:        make(map[string]ContainerState),
 		ExternalPorts:     make(map[string]ExternalPortState),
 	}
 
 	if operation == "create" {
-		if err := d.initBridge(ns, controller, dpid, add_ports, useUserspace); err != nil {
+		if err := d.initBridge(ns, controller, dpid, add_ports, useUserspace, ovsLocalMac); err != nil {
 			panic(err)
 		}
 	}

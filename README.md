@@ -90,6 +90,12 @@ You can also specify an input ACL for the NAT port with `-o ovs.bridge.nat_acl=<
 
 This requests a user space ("netdev"), rather than kernel space switch from OVS. Certain OVS features such as meters, used to implement rate limiting, will only work on a user space bridge.
 
+##### MAC on OVS local port
+
+`-o ovs.bridge.ovs_local_mac=0e:01:00:00:00:03`
+
+This option sets the MAC address of OVS' "local" port on the switch.
+
 ##### Adding a physical port/real VLAN
 
 `-o ovs.bridge.add_ports=eno123/8`
