@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io/ioutil"
 	"strconv"
 	"time"
@@ -126,4 +127,17 @@ func (c *faucetconfrpcer) mustSetRemoteMirrorPort(dpName string, ofport uint32, 
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (c *faucetconfrpcer) vlanInterfaceYaml(ofport uint32, description string, vlan uint, acls_in string) string {
+	return fmt.Sprintf("%d: {description: %s, native_vlan: %d, acls_in: [%s]},", ofport, description, vlan, acls_in)
+}
+
+func (c *faucetconfrpcer) stackInterfaceYaml(ofport uint32, remoteDpName string, remoteOfport uint32) string {
+	return fmt.Sprintf("%d: {description: stack link to %s, stack: {dp: %s, port: %d}},", ofport, remoteDpName, remoteDpName, remoteOfport)
+}
+
+func (c *faucetconfrpcer) mergeInterfacesYaml(dpName string, uintDpid uint64, description string, addInterfaces string) string {
+	return fmt.Sprintf("{dps: {%s: {dp_id: %d, description: OVS Bridge %s, interfaces: {%s}}}}",
+		dpName, uintDpid, description, addInterfaces)
 }

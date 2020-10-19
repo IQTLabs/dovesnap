@@ -80,9 +80,9 @@ There are two `ovs.bridge.mode` modes, `flat` and `nat`. The default mode is `fl
 
 - `nat` causes dovesnap to provision NAT for the docker network.
 
-If NAT is in use, you can specify `-p <outside port>:<inside port>` when starting a container. dovesnap will provision a DNAT rule, via the network's gateway from the outside port to the inside port on that container.
+If NAT is in use, you can specify `-p <outside port>:<inside port>` when starting a container. dovesnap will provision a DNAT rule, via the network's gateway from the outside port to the inside port on that container. This mapping won't show up in `docker ps`, as dovesnap is not using docker-proxy.
 
-This mapping won't show up in `docker ps`, as dovesnap is not using docker-proxy.
+You can also specify an input ACL for the NAT port with `-o ovs.bridge.nat_acl=<acl>`
 
 ##### Userspace mode
 

@@ -1,3 +1,26 @@
+# v0.8.0 (2020-10-09)
+
+- add JSON endpoint to get dovesnap state
+- log MAC address of containers
+- Update faucet, faucetconfrpc, certstrap, grafana, grpc
+
+# v0.7.0 (2020-09-30)
+
+- allow ACL on NAT port
+- tests check mirror flows are present
+- mirror bridge should pass through packets with any VLAN tag
+- fix viz crash when no ip command
+- upgrade logrus, faucetconfrpc, grafana
+
+# v0.6.0 (2020-09-22)
+
+- fix race condition that could lead to multiple containers with same OFPort
+- add NAT port mapping (-p) support via network gateway IP
+- Remove OVS privilege when in userspace mode
+- Move to go mod from dep ensure
+- Viz script timeout/missing IP fixes
+- update faucetconfrpc, OVS
+
 # v0.5.0 (2020-09-04)
 
 - update faucetconfrpc, certstrap

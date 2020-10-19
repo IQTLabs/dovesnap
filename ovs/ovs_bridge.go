@@ -2,11 +2,9 @@ package ovs
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/docker/libnetwork/iptables"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -45,9 +43,8 @@ func (ovsdber *ovsdber) addBridgeExists(bridgeName string) (string, error) {
 	return VsCtl("--may-exist", "add-br", bridgeName, "--", "set", "Bridge", bridgeName, "stp_enable=false")
 }
 
-// deleteBridge deletes the OVS bridge
-func (ovsdber *ovsdber) deleteBridge(bridgeName string) (string, error) {
-	return VsCtl("del-br", bridgeName)
+func (ovsdber *ovsdber) mustDeleteBridge(bridgeName string) string {
+	return mustVsCtl("del-br", bridgeName)
 }
 
 func (ovsdber *ovsdber) makeMirrorBridge(bridgeName string, mirrorBridgeOutPort uint) {
@@ -78,11 +75,11 @@ func (ovsdber *ovsdber) parseAddPorts(add_ports string, addPorts *map[string]uin
 		add_port_number := strings.Split(add_port_number_str, "/")
 		add_port := add_port_number[0]
 		if len(add_port_number) == 2 {
-			number, err := strconv.ParseUint(add_port_number[1], 10, 32)
+			number, err := ParseUint32(add_port_number[1])
 			if err != nil {
 				panic(err)
 			}
-			(*addPorts)[add_port] = uint32(number)
+			(*addPorts)[add_port] = number
 		} else {
 			(*addPorts)[add_port] = 0
 		}
@@ -149,18 +146,18 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 }
 
 //  setup bridge, if bridge does not exist create it.
-func (d *Driver) initBridge(id string, controller string, dpid string, add_ports string, userspace bool) error {
-	bridgeName := d.networks[id].BridgeName
+func (d *Driver) initBridge(ns NetworkState, controller string, dpid string, add_ports string, userspace bool) error {
+	bridgeName := ns.BridgeName
 	err := d.ovsdber.createBridge(bridgeName, controller, dpid, add_ports, false, userspace)
 	if err != nil {
 		log.Errorf("Error creating bridge: %s", err)
 		return err
 	}
-	bridgeMode := d.networks[id].Mode
+	bridgeMode := ns.Mode
 	switch bridgeMode {
 	case modeNAT:
 		{
-			gatewayIP := d.networks[id].Gateway + "/" + d.networks[id].GatewayMask
+			gatewayIP := ns.Gateway + "/" + ns.GatewayMask
 			if err := setInterfaceIP(bridgeName, gatewayIP); err != nil {
 				log.Debugf("Error assigning address: %s on bridge: %s with an error of: %s", gatewayIP, bridgeName, err)
 			}
@@ -185,28 +182,4 @@ func (d *Driver) initBridge(id string, controller string, dpid string, add_ports
 		}
 	}
 	return nil
-}
-
-// TODO: reconcile with what libnetwork does and port mappings
-func natOut(cidr string) error {
-	masquerade := []string{
-		"POSTROUTING", "-t", "nat",
-		"-s", cidr,
-		"-j", "MASQUERADE",
-	}
-	if _, err := iptables.Raw(
-		append([]string{"-C"}, masquerade...)...,
-	); err != nil {
-		incl := append([]string{"-I"}, masquerade...)
-		if output, err := iptables.Raw(incl...); err != nil {
-			return err
-		} else if len(output) > 0 {
-			return &iptables.ChainError{
-				Chain:  "POSTROUTING",
-				Output: output,
-			}
-		}
-	}
-	_, err := iptables.Raw("-P", "FORWARD", "ACCEPT")
-	return err
 }
