@@ -1,6 +1,7 @@
 package ovs
 
 import (
+	"encoding/hex"
 	"fmt"
 	"hash/crc32"
 	"math"
@@ -75,15 +76,6 @@ func patchStr(a string) string {
 	return b62Encode(int64(crc32.ChecksumIEEE([]byte(a))))
 }
 
-// Generate a mac addr
-func makeMac(ip net.IP) string {
-	hw := make(net.HardwareAddr, 6)
-	hw[0] = 0x7a
-	hw[1] = 0x42
-	copy(hw[2:], ip.To4())
-	return hw.String()
-}
-
 // Return the IPv4 address of a network interface
 func getIfaceAddr(name string) (*net.IPNet, error) {
 	iface, err := netlink.LinkByName(name)
@@ -101,6 +93,36 @@ func getIfaceAddr(name string) (*net.IPNet, error) {
 		log.Infof("Interface [ %v ] has more than 1 IPv4 address. Defaulting to using [ %v ]\n", name, addrs[0].IP)
 	}
 	return addrs[0].IPNet, nil
+}
+
+func mustPrefixMAC(macPrefix string, macAddress string) string {
+	prefixBytes, err := hex.DecodeString(strings.ReplaceAll(macPrefix, ":", ""))
+	if err != nil {
+		panic(fmt.Errorf("invalid MAC prefix: %s", macPrefix))
+	}
+	if len(prefixBytes) > 5 {
+		panic(fmt.Errorf("MAC prefix too long: %s", macPrefix))
+	}
+	rawMacAddress, parseerr := net.ParseMAC(macAddress)
+	if parseerr != nil {
+		panic(parseerr)
+	}
+	for i, b := range prefixBytes {
+		rawMacAddress[i] = b
+	}
+	return rawMacAddress.String()
+}
+
+func mustSetInterfaceMac(name string, macAddress string) {
+	iface := mustGetLinkByName(name)
+	netaddr, err := net.ParseMAC(macAddress)
+	if err != nil {
+		panic(err)
+	}
+	err = netlink.LinkSetHardwareAddr(iface, netaddr)
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Set the IP addr of a netlink interface
@@ -189,11 +211,16 @@ func vethPair(suffix string) *netlink.Veth {
 	}
 }
 
-func getMacAddr(name string) string {
+func mustGetLinkByName(name string) netlink.Link {
 	iface, err := netlink.LinkByName(name)
 	if err != nil {
 		panic(err)
 	}
+	return iface
+}
+
+func getMacAddr(name string) string {
+	iface := mustGetLinkByName(name)
 	return iface.Attrs().HardwareAddr.String()
 }
 

@@ -90,6 +90,12 @@ You can also specify an input ACL for the NAT port with `-o ovs.bridge.nat_acl=<
 
 This requests a user space ("netdev"), rather than kernel space switch from OVS. Certain OVS features such as meters, used to implement rate limiting, will only work on a user space bridge.
 
+##### MAC on OVS local port
+
+`-o ovs.bridge.ovs_local_mac=0e:01:00:00:00:03`
+
+This option sets the MAC address of OVS' "local" port on the switch.
+
 ##### Adding a physical port/real VLAN
 
 `-o ovs.bridge.add_ports=eno123/8`
@@ -143,6 +149,15 @@ An ACL will be applied to the port associated with the container. The ACL must a
 `--label="dovesnap.faucet.mirror=true"`
 
 The container's traffic (both sent and received) will be mirrored to a port on the bridge (see above).
+
+#### MAC prefix
+
+`--label="dovesnap.faucet.mac_prefix=0e:99`
+
+The prefix of the container interface's MAC address will be replaced with the specified bytes (1 to 5 bytes may be supplied).
+This can be convenient when filtering traffic with tcpdump - containers with this label will have an easily identifiable MAC address.
+
+NOTE: where this option is used, the MAC address reported by `docker inspect` will be inaccurate.
 
 #### Visualizing dovesnap networks
 

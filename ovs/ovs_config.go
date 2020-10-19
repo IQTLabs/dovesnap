@@ -32,6 +32,7 @@ const (
 	mtuOption           = "ovs.bridge.mtu"
 	vlanOption          = "ovs.bridge.vlan"
 	userspaceOption     = "ovs.bridge.userspace"
+	ovsLocalMacOption   = "ovs.bridge.ovs_local_mac"
 
 	defaultLbPort           = 99
 	defaultMTU              = 1500
@@ -116,6 +117,10 @@ func mustGetBridgeName(r *networkplugin.CreateNetworkRequest) string {
 		bridgeName = name
 	}
 	return bridgeName
+}
+
+func mustGetOvsLocalMac(r *networkplugin.CreateNetworkRequest) string {
+	return getGenericOption(r, ovsLocalMacOption)
 }
 
 func mustGetBridgeMode(r *networkplugin.CreateNetworkRequest) string {
@@ -343,6 +348,7 @@ func getNetworkStateFromResource(r *types.NetworkResource) (ns NetworkState, err
 		Gateway:           gateway,
 		GatewayMask:       mask,
 		NATAcl:            getStrOptionFromResource(r, NATAclOption, ""),
+		OvsLocalMac:       getStrOptionFromResource(r, ovsLocalMacOption, ""),
 		Containers:        make(map[string]ContainerState),
 		ExternalPorts:     make(map[string]ExternalPortState),
 	}
