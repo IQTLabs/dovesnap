@@ -24,7 +24,10 @@ _testmain.go
 *.exe
 *.test
 *.prof
+*.egg-info
 .idea
 plugin
+dist
+
 
 .DS_Store
