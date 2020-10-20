@@ -9,10 +9,11 @@ import (
 )
 
 const (
-	version = "0.8.0"
+	version = "0.9.0"
 )
 
 func main() {
+	flagTrace := flag.Bool("trace", false, "enable trace level debugging")
 	flagDebug := flag.Bool("debug", false, "enable debugging")
 	flagFaucetconfrpcServerName := flag.String(
 		"faucetconfrpc_addr", "localhost", "address of faucetconfrpc server")
@@ -35,7 +36,9 @@ func main() {
 	flagStatusServerPort := flag.Int(
 		"status_port", 9401, "port for status server")
 	flag.Parse()
-	if *flagDebug {
+	if *flagTrace {
+		log.SetLevel(log.TraceLevel)
+	} else if *flagDebug {
 		log.SetLevel(log.DebugLevel)
 	}
 	d := ovs.NewDriver(

@@ -19,7 +19,7 @@ func RunCmd(cmd string, args ...string) (string, error) {
 	if err != nil {
 		log.Debugf("FAILED: %v, %s", args, output)
 	} else {
-		log.Debugf("OK: %v", args)
+		log.Tracef("OK: %v", args)
 	}
 	return strings.TrimSuffix(string(output), "\n"), err
 }
