@@ -1,3 +1,9 @@
+# v0.10.0 (2020-10-22)
+
+- Fix MANIFEST.in to include main.go
+- Allow configuration of faucetconfrpc client key
+- Upgrade grpc, grafana
+
 # v0.9.0 (2020-10-21)
 
 - Move non-error OVS debug to trace level
