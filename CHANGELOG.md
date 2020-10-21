@@ -1,3 +1,8 @@
+# v0.9.0 (2020-10-21)
+
+- Move non-error OVS debug to trace level
+- Add support for setting container/NAT interface MAC prefixes.
+
 # v0.8.0 (2020-10-09)
 
 - add JSON endpoint to get dovesnap state
