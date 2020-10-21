@@ -19,9 +19,9 @@ type faucetconfrpcer struct {
 	client faucetconfserver.FaucetConfServerClient
 }
 
-func (c *faucetconfrpcer) mustGetGRPCClient(flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string) {
-	crt_file := flagFaucetconfrpcKeydir + "/faucetconfrpc.crt"
-	key_file := flagFaucetconfrpcKeydir + "/faucetconfrpc.key"
+func (c *faucetconfrpcer) mustGetGRPCClient(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string) {
+	crt_file := fmt.Sprintf("%s/%s.crt", flagFaucetconfrpcKeydir, flagFaucetconfrpcClientName)
+	key_file := fmt.Sprintf("%s/%s.key", flagFaucetconfrpcKeydir, flagFaucetconfrpcClientName)
 	ca_file := flagFaucetconfrpcKeydir + "/" + flagFaucetconfrpcServerName + "-ca.crt"
 	certificate, err := tls.LoadX509KeyPair(crt_file, key_file)
 	if err != nil {

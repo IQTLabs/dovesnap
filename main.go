@@ -15,6 +15,8 @@ const (
 func main() {
 	flagTrace := flag.Bool("trace", false, "enable trace level debugging")
 	flagDebug := flag.Bool("debug", false, "enable debugging")
+	flagFaucetconfrpcClientName := flag.String(
+		"faucetconfrpc_client", "faucetconfrpc", "basename name of faucetconfrpc client certificate")
 	flagFaucetconfrpcServerName := flag.String(
 		"faucetconfrpc_addr", "localhost", "address of faucetconfrpc server")
 	flagFaucetconfrpcServerPort := flag.Int(
@@ -42,6 +44,7 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 	d := ovs.NewDriver(
+		*flagFaucetconfrpcClientName,
 		*flagFaucetconfrpcServerName,
 		*flagFaucetconfrpcServerPort,
 		*flagFaucetconfrpcKeydir,
