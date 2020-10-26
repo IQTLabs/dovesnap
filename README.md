@@ -100,7 +100,19 @@ This option sets the MAC address of OVS' "local" port on the switch.
 
 `-o ovs.bridge.add_ports=eno123/8`
 
-Dovesnap will connect `eno123` to the docker network, and attempt to use OVS OFPort 8 (OVS will select another port number, if for some reason port 8 is already in use). You can specify more ports with commas. The OFPort specification is optional - if not present dovesnap will select the next free port number.
+Dovesnap will connect `eno123` to the Docker network, and attempt to use OVS OFPort 8 (OVS will select another port number, if for some reason port 8 is already in use). You can specify more ports with commas. The OFPort specification is optional - if not present dovesnap will select the next free port number.
+
+##### Specifying a specific VLAN to use
+
+`-o ovs.bridge.vlan=100`
+
+This adds the VLAN tag of 100 for the Docker network. The default is 100.
+
+##### Specifying a specific VLAN to use for the mirror tunnel
+
+`-o ovs.bridge.mirror_tunnel_vid=200`
+
+This sets the mirror tunnel VLAN to 200. The default is 256 + the VLAN of the network.
 
 ###### Enabling DHCP
 
