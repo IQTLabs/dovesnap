@@ -28,6 +28,11 @@ acls:
   - rule:
       actions:
         allow: 0
+# workaround: https://github.com/faucetsdn/faucet/pull/3730
+  - rule:
+      actions:
+        meter: lossymeter
+        allow: 0
 dps:
   # Need at least DP defined always.
   anchor:
