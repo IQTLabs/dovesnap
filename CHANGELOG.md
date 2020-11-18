@@ -1,3 +1,8 @@
+# v0.11.0 (2020-10-30)
+
+- VLAN documentation
+- Update faucet, gauge, certstrap, faucetconfrpc
+
 # v0.10.0 (2020-10-22)
 
 - Fix MANIFEST.in to include main.go
