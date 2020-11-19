@@ -1,3 +1,8 @@
+# v0.12.0 (2020-11-19)
+
+- Updated prometheus, grafana, faucet, gauge, faucet-certstrap, faucetconfrpc
+- Restructured tests
+
 # v0.11.0 (2020-10-30)
 
 - VLAN documentation
