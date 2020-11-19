@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ./lib_test.sh
+source ./tests/lib_test.sh
 
 sudo ip link add mirrori type veth peer name mirroro
 sudo ip link set dev mirrori up || exit 1

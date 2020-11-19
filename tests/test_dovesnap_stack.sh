@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ./lib_test.sh
+source ./tests/lib_test.sh
 
 init_dirs
 conf_gauge
