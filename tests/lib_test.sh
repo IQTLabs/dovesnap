@@ -185,7 +185,7 @@ wait_mirror ()
 	OUTPUT=""
 	while [ "$OUTPUT" != "output:" ] ; do
 		OUTPUT=$(docker exec -t $OVSID ovs-ofctl dump-flows -OOpenFlow13 $BRIDGE table=$table|grep -o output:|cat)
-		echo waiting for mirror flow in table 0
+		echo waiting for mirror flow in table $table
 		sleep 1
 	done
 }
