@@ -1,3 +1,8 @@
+# v0.13.0 (2020-11-25)
+
+- Updated grafana, faucetconfrpc, faucet-certstrap
+- Fix stack test, for faucet
+
 # v0.12.0 (2020-11-19)
 
 - Updated prometheus, grafana, faucet, gauge, faucet-certstrap, faucetconfrpc
