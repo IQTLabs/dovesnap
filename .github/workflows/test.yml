@@ -15,21 +15,21 @@ jobs:
     - uses: actions/checkout@v2
     - name: standalone_int_test
       run: |
-        ./tests/install_test.sh && ./tests/test_dovesnap_standalone.sh
+        ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_standalone.sh
   stack_int_test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - name: stack_int_test
       run: |
-        ./tests/install_test.sh && ./tests/test_dovesnap_stack.sh
+        ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_stack.sh
   mirrorbridge_int_test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - name: mirrorbridge_int_test
       run: |
-        ./tests/install_test.sh && ./tests/test_dovesnap_mirrorbridge.sh
+        ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_mirrorbridge.sh
   dhcp_int_test:
     runs-on: ubuntu-latest
     steps:

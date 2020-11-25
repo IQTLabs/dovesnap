@@ -90,7 +90,8 @@ if [ "$RET" != "0" ] ; then
 	exit 1
 fi
 wait_acl
-wait_mirror
+# mirror flow will be in table 1, because ACLs are applied.
+wait_mirror 1
 sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
 echo verifying networking
 docker exec -t testcon wget -q -O- bing.com || exit 1
