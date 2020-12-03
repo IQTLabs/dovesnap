@@ -90,16 +90,18 @@ if [ "$RET" != "0" ] ; then
 	exit 1
 fi
 wait_acl
+sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
+wait_stack_up 4
 # mirror flow will be in table 1, because ACLs are applied.
 wait_mirror 1
-sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
+wait_tunnel_src 0 99
 echo verifying networking
 docker exec -t testcon wget -q -O- bing.com || exit 1
 OVSID="$(docker ps -q --filter name=ovs)"
 echo showing packets tunnelled: tunnel 356 is vlan 100 plus default offset 256
 PACKETS=$(docker exec -t $OVSID ovs-ofctl dump-flows rootsw table=0,dl_vlan=356|grep -v n_packets=0)
 echo $PACKETS
-if [ "$PACKETS" = "" ] ; then
+if [ "$PACKETS" == "" ] ; then
         echo no packets were tunnelled
         exit 1
 fi
