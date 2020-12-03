@@ -13,7 +13,6 @@ require (
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20200219012139-4f65d685bdf9
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
-	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/google/go-cmp v0.5.2 // indirect
 	github.com/iqtlabs/faucetconfrpc v0.22.12
 	github.com/kenshaw/baseconv v0.1.0
@@ -31,7 +30,7 @@ require (
 	golang.org/x/text v0.3.3 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/genproto v0.0.0-20200904004341-0bd0a958aa1d // indirect
-	google.golang.org/grpc v1.33.2
+	google.golang.org/grpc v1.34.0
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 )
