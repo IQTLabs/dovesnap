@@ -36,7 +36,7 @@ wait_acl
 wait_mirror 1
 sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
 echo verifying networking
-sudo timeout 30s tcpdump -n -c 1 -U -i mirroro -w $MIRROR_PCAP tcp &
+timeout 30s sudo tcpdump -n -c 1 -U -i mirroro -w $MIRROR_PCAP tcp &
 sleep 3
 docker exec -t testcon wget -q -O- bing.com || exit 1
 docker exec -t testcon ifconfig eth0 |grep -iq 0e:99:00:00:00:07 || exit 1
