@@ -93,11 +93,16 @@ wait_acl
 sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
 # mirror flow will be in table 1, because ACLs are applied.
 wait_mirror 1
+wait_stack_state 3 4
+
 # TODO: bounce stack to force tunnel to be created
 # FAUCET does not apply the tunnel to the copro port, if the stack was up before the copro port.
-# The following line can be removed when the bug is fixed.
-ifconfig rootswintp1 down && sleep 30 && ifconfig rootswintp1 up
-wait_stack_up 4
+# The following 4 lines can be removed when the bug is fixed.
+sudo ip link set rootswintp1 down
+wait_stack_state 4 2
+sudo ip link set rootswintp1 up
+wait_stack_state 3 4
+
 wait_tunnel_src 0 99
 echo verifying networking
 docker exec -t testcon wget -q -O- bing.com || exit 1

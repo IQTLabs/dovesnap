@@ -165,14 +165,15 @@ wait_acl ()
         done
 }
 
-wait_stack_up ()
+wait_stack_state ()
 {
-        expected=$1
+        state=$1
+        count=$2
         FIP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' dovesnap_faucet_1)
         STACKUPCOUNT=0
-        echo waiting for $expected stack ports to be up
-        while [ "$STACKUPCOUNT" != "$expected" ] ; do
-                STACKUPCOUNT=$(wget -q -O- $FIP:9302|grep -Ec "^port_stack_state.+3.0$")
+        echo waiting for $count stack ports to be state $state
+        while [ "$STACKUPCOUNT" != "$count" ] ; do
+                STACKUPCOUNT=$(wget -q -O- $FIP:9302|grep -Ec "^port_stack_state.+$state.0$")
                 sleep 1
         done
         sleep 5
