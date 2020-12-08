@@ -15,7 +15,7 @@ services:
       FAUCET_CONFIG_AUTO_REVERT: '1'
   gauge:
     restart: always
-    image: 'faucet/gauge:1.9.52'
+    image: 'faucet/gauge:1.9.53'
     networks:
       - dovesnap
     volumes:
