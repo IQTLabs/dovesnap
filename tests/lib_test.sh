@@ -234,9 +234,9 @@ wait_for_pcap_match ()
         i=0
         OUT=""
         sudo chmod go+rx $TMPDIR
-        sudo chown root $MIRROR_PCAP
         while [ "$OUT" == "" ] && [ "$i" != 30 ] ; do
                 echo waiting for pcap match $PCAPMATCH: $i
+                sudo chown root $MIRROR_PCAP
                 OUT=$(sudo tcpdump -n -r $MIRROR_PCAP -v | grep $PCAPMATCH)
                 ((i=i+1))
                 sleep 1
