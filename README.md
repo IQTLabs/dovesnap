@@ -33,7 +33,7 @@ $ sudo mkdir /etc/faucet
 
 **4.** Start dovesnap.
 
-`$ docker-compose build && FAUCET_PREFIX=/etc/faucet docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d`
+`$ docker-compose build && docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d`
 
 **5.** Now you are ready to create a new network
 
