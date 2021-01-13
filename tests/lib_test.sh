@@ -79,13 +79,6 @@ acls:
       actions:
         allow: 0
 dps:
-  # Need at least DP defined always.
-  anchor:
-    dp_id: 0x99
-    hardware: Open vSwitch
-    interfaces:
-        1:
-           native_vlan: 100
   testnet:
     dp_id: 0x1
     hardware: Open vSwitch
