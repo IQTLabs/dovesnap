@@ -18,8 +18,7 @@ func patchName(a string, b string) string {
 	return name
 }
 
-func mustScrapePortDesc(bridgeName string, portDesc *map[uint32]string) {
-	output := mustOfCtl("dump-ports-desc", bridgeName)
+func parsePortDesc(output string, portDesc *map[uint32]string) {
 	ofportNumberDump := regexp.MustCompile(`^\s*(\d+)\((\S+)\).+$`)
 	for _, line := range strings.Split(string(output), "\n") {
 		match := ofportNumberDump.FindAllStringSubmatch(line, -1)
@@ -28,6 +27,20 @@ func mustScrapePortDesc(bridgeName string, portDesc *map[uint32]string) {
 			(*portDesc)[ofport] = match[0][2]
 		}
 	}
+}
+
+func mustScrapePortDesc(bridgeName string, portDesc *map[uint32]string) {
+	output := mustOfCtl("dump-ports-desc", bridgeName)
+	parsePortDesc(output, portDesc)
+}
+
+func scrapePortDesc(bridgeName string, portDesc *map[uint32]string) error {
+	output, err := OfCtl("dump-ports-desc", bridgeName)
+	if err != nil {
+		return err
+	}
+	parsePortDesc(output, portDesc)
+	return nil
 }
 
 func (ovsdber *ovsdber) mustLowestFreePortOnBridge(bridgeName string) uint32 {

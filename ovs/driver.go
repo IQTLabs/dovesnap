@@ -44,6 +44,7 @@ type NetworkState struct {
 	Userspace         bool
 	NATAcl            string
 	OvsLocalMac       string
+	Controller        string
 	Containers        map[string]ContainerState
 	ExternalPorts     map[string]ExternalPortState
 }
@@ -245,6 +246,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		Userspace:         useUserspace,
 		NATAcl:            natAcl,
 		OvsLocalMac:       ovsLocalMac,
+		Controller:        controller,
 		Containers:        make(map[string]ContainerState),
 		ExternalPorts:     make(map[string]ExternalPortState),
 	}
@@ -258,10 +260,10 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 	createMsg := DovesnapOp{
 		NewNetworkState:      ns,
 		NewStackMirrorConfig: d.getStackMirrorConfig(r),
-		AddPorts:             add_ports,
-		Mode:                 mode,
+		AddPorts:             ns.AddPorts,
+		Mode:                 ns.Mode,
 		NetworkID:            r.NetworkID,
-		EndpointID:           bridgeName,
+		EndpointID:           ns.BridgeName,
 		Operation:            operation,
 	}
 
@@ -685,7 +687,11 @@ func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint32]string) {
 	for id, ns := range d.networks {
 		stackMirrorConfig := d.stackMirrorConfigs[id]
 		newPortDesc := make(map[uint32]string)
-		mustScrapePortDesc(ns.BridgeName, &newPortDesc)
+		err := scrapePortDesc(ns.BridgeName, &newPortDesc)
+		if err != nil {
+			log.Warnf("scrape of port-desc for %s failed, will retry", ns.BridgeName)
+			continue
+		}
 		addPorts := make(map[string]uint32)
 		d.ovsdber.parseAddPorts(ns.AddPorts, &addPorts)
 
@@ -759,6 +765,13 @@ func (d *Driver) resourceManager() {
 		select {
 		case opMsg := <-d.dovesnapOpChan:
 			switch opMsg.Operation {
+			case "recreate":
+				mustHandleDeleteNetwork(d, opMsg)
+				ns := opMsg.NewNetworkState
+				if err := d.initBridge(ns, ns.Controller, ns.BridgeDpid, ns.AddPorts, ns.Userspace, ns.OvsLocalMac); err != nil {
+					panic(err)
+				}
+				mustHandleCreateNetwork(d, opMsg)
 			case "create":
 				mustHandleCreateNetwork(d, opMsg)
 			case "delete":
@@ -821,7 +834,23 @@ func (d *Driver) restoreNetworks() {
 		d.networks[id] = ns
 		sc := d.getStackMirrorConfigFromResource(&netInspect)
 		d.stackMirrorConfigs[id] = sc
-		log.Infof("restoring network %+v, %+v", ns, sc)
+		log.Infof("restoring network %+v, %+v %+v", ns, sc, netInspect)
+		if !d.ovsdber.ifUp(ns.BridgeName) {
+			log.Warnf("%s not up, assuming cold start", ns.BridgeName)
+			if ns.Controller == "" {
+				ns.Controller = d.stackDefaultControllers
+			}
+			createMsg := DovesnapOp{
+				NewNetworkState:      ns,
+				NewStackMirrorConfig: sc,
+				AddPorts:             ns.AddPorts,
+				Mode:                 ns.Mode,
+				NetworkID:            id,
+				EndpointID:           ns.BridgeName,
+				Operation:            "recreate",
+			}
+			d.dovesnapOpChan <- createMsg
+		}
 	}
 }
 
@@ -844,6 +873,7 @@ func (d *Driver) runWeb(port int) {
 }
 
 func NewDriver(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string, flagMirrorBridgeIn string, flagMirrorBridgeOut string, flagStatusServerPort int) *Driver {
+	log.Infof("Initializing dovesnap")
 	ensureDirExists(netNsPath)
 
 	stack_mirror_interface := strings.Split(flagStackMirrorInterface, ":")
