@@ -1,3 +1,10 @@
+# v0.14.0 (2021-01-14)
+
+* Handle empty FAUCET config at startup
+* Handle cold start of host with existing docker networks
+* Handle ovs-ofctl returning an error temporarily, reconciling networks
+* Upgrade prometheus, grpc, faucet, gauge, faucetconfrpc, certstrap, grafana
+
 # v0.13.0 (2020-11-25)
 
 - Updated grafana, faucetconfrpc, faucet-certstrap
