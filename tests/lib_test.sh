@@ -7,16 +7,32 @@ reset_ovsid ()
 
 reset_bridgename ()
 {
-        BRIDGE=$(docker exec -t $OVSID ovs-vsctl list-br|grep -Eo 'ovsbr\S+')
+        BRIDGE=""
+        while [ "$BRIDGE" == "" ] ; do
+                echo refreshing bridge name
+                BRIDGE=$(docker exec -t $OVSID ovs-vsctl list-br|grep -Eo 'ovsbr\S+')
+                sleep 1
+        done
+}
+
+restart_container ()
+{
+        containerid=$1
+        echo restarting $containerid
+        CID=$(docker ps -q --filter name=$containerid)
+        docker logs $CID
+        docker restart $CID
+        docker logs $CID
 }
 
 restart_dovesnap ()
 {
-        echo restarting dovesnap
-        DOVESNAPID="$(docker ps -q --filter name=dovesnap_plugin)"
-        docker logs $DOVESNAPID
-        docker restart $DOVESNAPID
-        docker logs $DOVESNAPID
+        restart_container dovesnap_plugin
+}
+
+restart_ovs ()
+{
+        restart_container ovs
 }
 
 restart_wait_dovesnap ()
@@ -172,7 +188,7 @@ wait_stack_state ()
         sleep 5
 }
 
-wait_tunnel_src ()
+wait_push_vlan ()
 {
         table=$1
         inport=$2
@@ -181,7 +197,8 @@ wait_tunnel_src ()
         OUTPUT=""
         while [ "$OUTPUT" != "push_vlan:" ] ; do
                 OUTPUT=$(docker exec -t $OVSID ovs-ofctl dump-flows -OOpenFlow13 $BRIDGE in_port=$inport,table=$table|grep -o push_vlan:|cat)
-                echo waiting for tunnel source rule for port $inport in $table
+                docker exec -t $OVSID ovs-ofctl dump-flows -OOpenFlow13 $BRIDGE table=$table
+                echo waiting for push vlan rule for port $inport in table $table
                 sleep 1
         done
 }
@@ -201,7 +218,6 @@ wait_mirror ()
                 MIRRORCOUNT=$(sudo grep -c mirror: $FAUCET_CONFIG)
                 sleep 1
         done
-        reset_ovsid
         reset_bridgename
         OUTPUT=""
         while [ "$OUTPUT" != "output:" ] ; do

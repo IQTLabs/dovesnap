@@ -87,7 +87,7 @@ sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
 # mirror flow will be in table 1, because ACLs are applied.
 wait_mirror 1
 wait_stack_state 3 4
-wait_tunnel_src 0 99
+wait_push_vlan 0 99
 echo verifying networking
 docker exec -t testcon wget -q -O- bing.com || exit 1
 OVSID="$(docker ps -q --filter name=ovs)"
