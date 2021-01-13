@@ -323,12 +323,12 @@ func getGatewayFromResource(r *types.NetworkResource) (string, string) {
 	return "", ""
 }
 
-func getNetworkStateFromResource(r *types.NetworkResource) (ns NetworkState, err error) {
+func getNetworkStateFromResource(r *types.NetworkResource) (NetworkState, error) {
+	var err error = nil
+	ns := NetworkState{}
 	defer func() {
-		err = nil
 		if rerr := recover(); rerr != nil {
 			err = fmt.Errorf("missing bridge info: %v", rerr)
-			ns = NetworkState{}
 		}
 	}()
 	dpid, uintDpid := mustGetBridgeDpidFromResource(r)
@@ -349,10 +349,11 @@ func getNetworkStateFromResource(r *types.NetworkResource) (ns NetworkState, err
 		GatewayMask:       mask,
 		NATAcl:            getStrOptionFromResource(r, NATAclOption, ""),
 		OvsLocalMac:       getStrOptionFromResource(r, ovsLocalMacOption, ""),
+		Controller:        getStrOptionFromResource(r, bridgeController, ""),
 		Containers:        make(map[string]ContainerState),
 		ExternalPorts:     make(map[string]ExternalPortState),
 	}
-	return
+	return ns, err
 }
 
 func (d *Driver) getStackMirrorConfigFromResource(r *types.NetworkResource) StackMirrorConfig {
