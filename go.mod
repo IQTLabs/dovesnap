@@ -14,7 +14,7 @@ require (
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/google/go-cmp v0.5.2 // indirect
-	github.com/iqtlabs/faucetconfrpc v0.22.14
+	github.com/iqtlabs/faucetconfrpc v0.22.15
 	github.com/kenshaw/baseconv v0.1.0
 	github.com/kr/text v0.2.0 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
