@@ -12,7 +12,11 @@ wait_faucet
 
 docker ps -a
 echo creating testnet
-docker network create testnet -d ovs --internal -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 -o ovs.bridge.ovs_local_mac=0e:01:00:00:00:23 || exit 1
+
+sudo ip link add addport1 type veth peer name addport2 && true
+sudo ip link add addcoproport1 type veth peer name addcoproport2 && true
+
+docker network create testnet -d ovs --internal -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 -o ovs.bridge.ovs_local_mac=0e:01:00:00:00:23 -o ovs.bridge.add_ports=addport1/888 -o ovs.bridge.add_copro_ports=addcoproport1/777 || exit 1
 docker network ls
 restart_dovesnap
 echo creating testcon

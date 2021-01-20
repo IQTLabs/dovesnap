@@ -129,6 +129,10 @@ func (c *faucetconfrpcer) mustSetRemoteMirrorPort(dpName string, ofport uint32, 
 	}
 }
 
+func (c *faucetconfrpcer) coproInterfaceYaml(ofport uint32, description string, strategy string) string {
+	return fmt.Sprintf("%d: {description: %s, coprocessor: {strategy: %s}},", ofport, description, strategy)
+}
+
 func (c *faucetconfrpcer) vlanInterfaceYaml(ofport uint32, description string, vlan uint, acls_in string) string {
 	return fmt.Sprintf("%d: {description: %s, native_vlan: %d, acls_in: [%s]},", ofport, description, vlan, acls_in)
 }

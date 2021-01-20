@@ -37,6 +37,7 @@ type NetworkState struct {
 	MTU               uint
 	Mode              string
 	AddPorts          string
+	AddCoproPorts     string
 	Gateway           string
 	GatewayMask       string
 	FlatBindInterface string
@@ -53,6 +54,7 @@ type DovesnapOp struct {
 	NewNetworkState      NetworkState
 	NewStackMirrorConfig StackMirrorConfig
 	AddPorts             string
+	AddCoproPorts        string
 	Mode                 string
 	NetworkID            string
 	EndpointID           string
@@ -191,6 +193,20 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) (err error
 	return d.ReOrCreateNetwork(r, "create")
 }
 
+func (d *Driver) InitBridge(ns NetworkState) {
+	ports := []string{}
+	if ns.AddPorts != "" {
+		ports = append(ports, ns.AddPorts)
+	}
+	if ns.AddCoproPorts != "" {
+		ports = append(ports, ns.AddCoproPorts)
+	}
+	all_added_ports := strings.Join(ports, ",")
+	if err := d.initBridge(ns, ns.Controller, ns.BridgeDpid, all_added_ports, ns.Userspace, ns.OvsLocalMac); err != nil {
+		panic(err)
+	}
+}
+
 func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operation string) (err error) {
 	err = nil
 	defer func() {
@@ -213,6 +229,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 	dpid := mustGetBridgeDpid(r)
 	vlan := mustGetBridgeVLAN(r)
 	add_ports := mustGetBridgeAddPorts(r)
+	add_copro_ports := mustGetBridgeAddCoproPorts(r)
 	gateway, mask := mustGetGatewayIP(r)
 	useDHCP := mustGetUseDHCP(r)
 	useUserspace := mustGetUserspace(r)
@@ -239,6 +256,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		MTU:               mtu,
 		Mode:              mode,
 		AddPorts:          add_ports,
+		AddCoproPorts:     add_copro_ports,
 		Gateway:           gateway,
 		GatewayMask:       mask,
 		FlatBindInterface: bindInterface,
@@ -251,16 +269,20 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		ExternalPorts:     make(map[string]ExternalPortState),
 	}
 
+	// Validate add_ports/add_copro_ports if present.
+	addPorts := make(map[string]uint32)
+	d.ovsdber.parseAddPorts(ns.AddPorts, &addPorts)
+	d.ovsdber.parseAddPorts(ns.AddCoproPorts, &addPorts)
+
 	if operation == "create" {
-		if err := d.initBridge(ns, controller, dpid, add_ports, useUserspace, ovsLocalMac); err != nil {
-			panic(err)
-		}
+		d.InitBridge(ns)
 	}
 
 	createMsg := DovesnapOp{
 		NewNetworkState:      ns,
 		NewStackMirrorConfig: d.getStackMirrorConfig(r),
 		AddPorts:             ns.AddPorts,
+		AddCoproPorts:        ns.AddCoproPorts,
 		Mode:                 ns.Mode,
 		NetworkID:            r.NetworkID,
 		EndpointID:           ns.BridgeName,
@@ -448,11 +470,21 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 	add_ports := opMsg.AddPorts
 	add_interfaces := ""
 	if add_ports != "" {
-		for _, add_port_number_str := range strings.Split(add_ports, ",") {
-			add_port_number := strings.Split(add_port_number_str, "/")
-			add_port := add_port_number[0]
+		addPorts := make(map[string]uint32)
+		d.ovsdber.parseAddPorts(add_ports, &addPorts)
+		for add_port, _ := range addPorts {
 			ofport := d.ovsdber.mustGetOfPortNumber(add_port)
 			add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofport, "Physical interface "+add_port, ns.BridgeVLAN, "")
+			ns.ExternalPorts[add_port] = ExternalPortState{Name: add_port, OFPort: ofport}
+		}
+	}
+	add_copro_ports := opMsg.AddCoproPorts
+	if add_copro_ports != "" {
+		addPorts := make(map[string]uint32)
+		d.ovsdber.parseAddPorts(add_copro_ports, &addPorts)
+		for add_port, _ := range addPorts {
+			ofport := d.ovsdber.mustGetOfPortNumber(add_port)
+			add_interfaces += d.faucetconfrpcer.coproInterfaceYaml(ofport, "Physical interface "+add_port, "vlan_vid")
 			ns.ExternalPorts[add_port] = ExternalPortState{Name: add_port, OFPort: ofport}
 		}
 	}
@@ -694,6 +726,7 @@ func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint32]string) {
 		}
 		addPorts := make(map[string]uint32)
 		d.ovsdber.parseAddPorts(ns.AddPorts, &addPorts)
+		d.ovsdber.parseAddPorts(ns.AddCoproPorts, &addPorts)
 
 		portDesc, have_port_desc := (*allPortDesc)[id]
 		if have_port_desc {
@@ -767,10 +800,7 @@ func (d *Driver) resourceManager() {
 			switch opMsg.Operation {
 			case "recreate":
 				mustHandleDeleteNetwork(d, opMsg)
-				ns := opMsg.NewNetworkState
-				if err := d.initBridge(ns, ns.Controller, ns.BridgeDpid, ns.AddPorts, ns.Userspace, ns.OvsLocalMac); err != nil {
-					panic(err)
-				}
+				d.InitBridge(opMsg.NewNetworkState)
 				mustHandleCreateNetwork(d, opMsg)
 			case "create":
 				mustHandleCreateNetwork(d, opMsg)
