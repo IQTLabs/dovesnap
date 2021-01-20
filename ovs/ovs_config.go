@@ -21,6 +21,7 @@ const (
 
 	bindInterfaceOption = "ovs.bridge.bind_interface"
 	bridgeAddPorts      = "ovs.bridge.add_ports"
+	bridgeAddCoproPorts = "ovs.bridge.add_copro_ports"
 	bridgeController    = "ovs.bridge.controller"
 	bridgeDpid          = "ovs.bridge.dpid"
 	bridgeLbPort        = "ovs.bridge.lbport"
@@ -149,6 +150,10 @@ func mustGetBridgeVLAN(r *networkplugin.CreateNetworkRequest) uint {
 
 func mustGetBridgeAddPorts(r *networkplugin.CreateNetworkRequest) string {
 	return getGenericOption(r, bridgeAddPorts)
+}
+
+func mustGetBridgeAddCoproPorts(r *networkplugin.CreateNetworkRequest) string {
+	return getGenericOption(r, bridgeAddCoproPorts)
 }
 
 func mustGetNATAcl(r *networkplugin.CreateNetworkRequest) string {
@@ -343,6 +348,7 @@ func getNetworkStateFromResource(r *types.NetworkResource) (NetworkState, error)
 		Mode:              getStrOptionFromResource(r, modeOption, defaultMode),
 		FlatBindInterface: getStrOptionFromResource(r, bindInterfaceOption, ""),
 		AddPorts:          getStrOptionFromResource(r, bridgeAddPorts, ""),
+		AddCoproPorts:     getStrOptionFromResource(r, bridgeAddCoproPorts, ""),
 		UseDHCP:           parseBool(getStrOptionFromResource(r, dhcpOption, "")),
 		Userspace:         parseBool(getStrOptionFromResource(r, userspaceOption, "")),
 		Gateway:           gateway,
