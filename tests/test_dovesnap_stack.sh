@@ -44,6 +44,8 @@ dps:
         0xfffffffe:
             native_vlan: 100
             opstatus_reconf: false
+            # TODO: workaround for FAUCET bug handling change of pipeline upon ACL change with stacking.
+            acls_in: [allowall]
     interface_ranges:
         2-10:
             native_vlan: 100
