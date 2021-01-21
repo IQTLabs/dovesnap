@@ -37,6 +37,7 @@ type NetworkState struct {
 	MTU               uint
 	Mode              string
 	AddPorts          string
+	AddCoproPorts     string
 	Gateway           string
 	GatewayMask       string
 	FlatBindInterface string
@@ -44,6 +45,7 @@ type NetworkState struct {
 	Userspace         bool
 	NATAcl            string
 	OvsLocalMac       string
+	Controller        string
 	Containers        map[string]ContainerState
 	ExternalPorts     map[string]ExternalPortState
 }
@@ -52,6 +54,7 @@ type DovesnapOp struct {
 	NewNetworkState      NetworkState
 	NewStackMirrorConfig StackMirrorConfig
 	AddPorts             string
+	AddCoproPorts        string
 	Mode                 string
 	NetworkID            string
 	EndpointID           string
@@ -190,6 +193,20 @@ func (d *Driver) CreateNetwork(r *networkplugin.CreateNetworkRequest) (err error
 	return d.ReOrCreateNetwork(r, "create")
 }
 
+func (d *Driver) InitBridge(ns NetworkState) {
+	ports := []string{}
+	if ns.AddPorts != "" {
+		ports = append(ports, ns.AddPorts)
+	}
+	if ns.AddCoproPorts != "" {
+		ports = append(ports, ns.AddCoproPorts)
+	}
+	all_added_ports := strings.Join(ports, ",")
+	if err := d.initBridge(ns, ns.Controller, ns.BridgeDpid, all_added_ports, ns.Userspace, ns.OvsLocalMac); err != nil {
+		panic(err)
+	}
+}
+
 func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operation string) (err error) {
 	err = nil
 	defer func() {
@@ -212,6 +229,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 	dpid := mustGetBridgeDpid(r)
 	vlan := mustGetBridgeVLAN(r)
 	add_ports := mustGetBridgeAddPorts(r)
+	add_copro_ports := mustGetBridgeAddCoproPorts(r)
 	gateway, mask := mustGetGatewayIP(r)
 	useDHCP := mustGetUseDHCP(r)
 	useUserspace := mustGetUserspace(r)
@@ -230,6 +248,10 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		}
 	}
 
+	// TODO: Frustratingly, when docker creates a network, it doesn't tell us the network's name.
+	// We have to look that up with docker inspect. But we can't inspect a network, that
+	// hasn't been created yet. If we had a way to get the network's name at creation time
+	// that would resolve a lot of error handling cases.
 	ns := NetworkState{
 		BridgeName:        bridgeName,
 		BridgeDpid:        dpid,
@@ -238,6 +260,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		MTU:               mtu,
 		Mode:              mode,
 		AddPorts:          add_ports,
+		AddCoproPorts:     add_copro_ports,
 		Gateway:           gateway,
 		GatewayMask:       mask,
 		FlatBindInterface: bindInterface,
@@ -245,23 +268,28 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		Userspace:         useUserspace,
 		NATAcl:            natAcl,
 		OvsLocalMac:       ovsLocalMac,
+		Controller:        controller,
 		Containers:        make(map[string]ContainerState),
 		ExternalPorts:     make(map[string]ExternalPortState),
 	}
 
+	// Validate add_ports/add_copro_ports if present.
+	addPorts := make(map[string]uint32)
+	d.ovsdber.parseAddPorts(ns.AddPorts, &addPorts)
+	d.ovsdber.parseAddPorts(ns.AddCoproPorts, &addPorts)
+
 	if operation == "create" {
-		if err := d.initBridge(ns, controller, dpid, add_ports, useUserspace, ovsLocalMac); err != nil {
-			panic(err)
-		}
+		d.InitBridge(ns)
 	}
 
 	createMsg := DovesnapOp{
 		NewNetworkState:      ns,
 		NewStackMirrorConfig: d.getStackMirrorConfig(r),
-		AddPorts:             add_ports,
-		Mode:                 mode,
+		AddPorts:             ns.AddPorts,
+		AddCoproPorts:        ns.AddCoproPorts,
+		Mode:                 ns.Mode,
 		NetworkID:            r.NetworkID,
-		EndpointID:           bridgeName,
+		EndpointID:           ns.BridgeName,
 		Operation:            operation,
 	}
 
@@ -446,11 +474,21 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 	add_ports := opMsg.AddPorts
 	add_interfaces := ""
 	if add_ports != "" {
-		for _, add_port_number_str := range strings.Split(add_ports, ",") {
-			add_port_number := strings.Split(add_port_number_str, "/")
-			add_port := add_port_number[0]
+		addPorts := make(map[string]uint32)
+		d.ovsdber.parseAddPorts(add_ports, &addPorts)
+		for add_port, _ := range addPorts {
 			ofport := d.ovsdber.mustGetOfPortNumber(add_port)
 			add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofport, "Physical interface "+add_port, ns.BridgeVLAN, "")
+			ns.ExternalPorts[add_port] = ExternalPortState{Name: add_port, OFPort: ofport}
+		}
+	}
+	add_copro_ports := opMsg.AddCoproPorts
+	if add_copro_ports != "" {
+		addPorts := make(map[string]uint32)
+		d.ovsdber.parseAddPorts(add_copro_ports, &addPorts)
+		for add_port, _ := range addPorts {
+			ofport := d.ovsdber.mustGetOfPortNumber(add_port)
+			add_interfaces += d.faucetconfrpcer.coproInterfaceYaml(ofport, "Physical interface "+add_port, "vlan_vid")
 			ns.ExternalPorts[add_port] = ExternalPortState{Name: add_port, OFPort: ofport}
 		}
 	}
@@ -685,9 +723,14 @@ func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint32]string) {
 	for id, ns := range d.networks {
 		stackMirrorConfig := d.stackMirrorConfigs[id]
 		newPortDesc := make(map[uint32]string)
-		mustScrapePortDesc(ns.BridgeName, &newPortDesc)
+		err := scrapePortDesc(ns.BridgeName, &newPortDesc)
+		if err != nil {
+			log.Warnf("scrape of port-desc for %s failed, will retry", ns.BridgeName)
+			continue
+		}
 		addPorts := make(map[string]uint32)
 		d.ovsdber.parseAddPorts(ns.AddPorts, &addPorts)
+		d.ovsdber.parseAddPorts(ns.AddCoproPorts, &addPorts)
 
 		portDesc, have_port_desc := (*allPortDesc)[id]
 		if have_port_desc {
@@ -752,6 +795,8 @@ func mustHandleNetworks(d *Driver) {
 }
 
 func (d *Driver) resourceManager() {
+	// TODO: make all the mustHandle() hooks, be able to cleanly retry on a failure at any point
+	// E.g. a transient OVS DB or faucetconfrpc error.
 	OFPorts := make(map[string]OFPortContainer)
 	AllPortDesc := make(map[string]map[uint32]string)
 
@@ -759,6 +804,10 @@ func (d *Driver) resourceManager() {
 		select {
 		case opMsg := <-d.dovesnapOpChan:
 			switch opMsg.Operation {
+			case "recreate":
+				mustHandleDeleteNetwork(d, opMsg)
+				d.InitBridge(opMsg.NewNetworkState)
+				mustHandleCreateNetwork(d, opMsg)
 			case "create":
 				mustHandleCreateNetwork(d, opMsg)
 			case "delete":
@@ -811,6 +860,7 @@ func (d *Driver) notifier() {
 
 func (d *Driver) restoreNetworks() {
 	netlist := d.dockerer.mustGetNetworkList()
+	dpNames := d.faucetconfrpcer.getDpNames()
 	for id, _ := range netlist {
 		netInspect := d.dockerer.mustGetNetworkInspectFromID(id)
 		ns, err := getNetworkStateFromResource(&netInspect)
@@ -821,7 +871,24 @@ func (d *Driver) restoreNetworks() {
 		d.networks[id] = ns
 		sc := d.getStackMirrorConfigFromResource(&netInspect)
 		d.stackMirrorConfigs[id] = sc
-		log.Infof("restoring network %+v, %+v", ns, sc)
+		log.Infof("restoring network %+v, %+v %+v", ns, sc, netInspect)
+		_, havefaucet := dpNames[ns.NetworkName]
+		if !d.ovsdber.ifUp(ns.BridgeName) || !havefaucet {
+			log.Warnf("%s not up or FAUCET config for %s missing recreating", ns.BridgeName, ns.NetworkName)
+			if ns.Controller == "" {
+				ns.Controller = d.stackDefaultControllers
+			}
+			createMsg := DovesnapOp{
+				NewNetworkState:      ns,
+				NewStackMirrorConfig: sc,
+				AddPorts:             ns.AddPorts,
+				Mode:                 ns.Mode,
+				NetworkID:            id,
+				EndpointID:           ns.BridgeName,
+				Operation:            "recreate",
+			}
+			d.dovesnapOpChan <- createMsg
+		}
 	}
 }
 
@@ -844,6 +911,7 @@ func (d *Driver) runWeb(port int) {
 }
 
 func NewDriver(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string, flagMirrorBridgeIn string, flagMirrorBridgeOut string, flagStatusServerPort int) *Driver {
+	log.Infof("Initializing dovesnap")
 	ensureDirExists(netNsPath)
 
 	stack_mirror_interface := strings.Split(flagStackMirrorInterface, ":")

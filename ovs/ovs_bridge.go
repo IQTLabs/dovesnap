@@ -2,6 +2,7 @@ package ovs
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -28,6 +29,17 @@ func (ovsdber *ovsdber) waitForOvs() {
 	log.Infof("Connected to open vswitch")
 }
 
+func (ovsdber *ovsdber) ifUp(ifName string) bool {
+	byNameInterface, err := net.InterfaceByName(ifName)
+	if err != nil {
+		return false
+	}
+	if strings.Contains(byNameInterface.Flags.String(), "up") {
+		return true
+	}
+	return false
+}
+
 // checks if a bridge already exists
 func (ovsdber *ovsdber) bridgeExists(bridgeName string) (string, error) {
 	return VsCtl("br-exists", bridgeName)
@@ -35,6 +47,7 @@ func (ovsdber *ovsdber) bridgeExists(bridgeName string) (string, error) {
 
 // addBridge adds the OVS bridge
 func (ovsdber *ovsdber) addBridge(bridgeName string) (string, error) {
+	VsCtl("--if-exists", "del-br", bridgeName)
 	return VsCtl("add-br", bridgeName, "--", "set", "Bridge", bridgeName, "stp_enable=false")
 }
 

@@ -13,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
 )
 
 type faucetconfrpcer struct {
@@ -51,6 +52,26 @@ func (c *faucetconfrpcer) mustGetGRPCClient(flagFaucetconfrpcClientName string, 
 	}
 	log.Debugf("Connected to RPC server")
 	c.client = faucetconfserver.NewFaucetConfServerClient(conn)
+}
+
+func (c *faucetconfrpcer) getDpNames() map[string]bool {
+	dpNames := make(map[string]bool)
+	req := &faucetconfserver.GetDpNamesRequest{}
+	resp, err := c.client.GetDpNames(context.Background(), req)
+	if err == nil {
+		for _, dpName := range resp.DpName {
+			dpNames[dpName] = true
+		}
+	} else {
+		// gRPC error (so transport probably is working), but empty config file.
+		if grpcerror, ok := status.FromError(err); ok {
+			log.Warnf("RPC liveness error %d %s", grpcerror.Code(), grpcerror.Message())
+			// Error, and not a gRPC error (e.g. I/O)
+		} else {
+			panic(err)
+		}
+	}
+	return dpNames
 }
 
 func (c *faucetconfrpcer) mustSetFaucetConfigFile(config_yaml string) {
@@ -127,6 +148,10 @@ func (c *faucetconfrpcer) mustSetRemoteMirrorPort(dpName string, ofport uint32, 
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (c *faucetconfrpcer) coproInterfaceYaml(ofport uint32, description string, strategy string) string {
+	return fmt.Sprintf("%d: {description: %s, coprocessor: {strategy: %s}},", ofport, description, strategy)
 }
 
 func (c *faucetconfrpcer) vlanInterfaceYaml(ofport uint32, description string, vlan uint, acls_in string) string {

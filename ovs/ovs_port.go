@@ -5,9 +5,14 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+)
+
+const (
+	dumpPortsRetries = 3
 )
 
 func patchName(a string, b string) string {
@@ -18,8 +23,7 @@ func patchName(a string, b string) string {
 	return name
 }
 
-func mustScrapePortDesc(bridgeName string, portDesc *map[uint32]string) {
-	output := mustOfCtl("dump-ports-desc", bridgeName)
+func parsePortDesc(output string, portDesc *map[uint32]string) {
 	ofportNumberDump := regexp.MustCompile(`^\s*(\d+)\((\S+)\).+$`)
 	for _, line := range strings.Split(string(output), "\n") {
 		match := ofportNumberDump.FindAllStringSubmatch(line, -1)
@@ -28,6 +32,30 @@ func mustScrapePortDesc(bridgeName string, portDesc *map[uint32]string) {
 			(*portDesc)[ofport] = match[0][2]
 		}
 	}
+}
+
+func mustScrapePortDesc(bridgeName string, portDesc *map[uint32]string) {
+	// Periodically OVS can falsely return:
+	// "FAILED: [dump-ports-desc ovsbr-508ac], ovs-ofctl: ovsbr-508ac is not a bridge or a socket\n"
+	// Handle just this call with a backoff/retry.
+	var err error = nil
+	for i := 0; i <= dumpPortsRetries; i++ {
+		err = scrapePortDesc(bridgeName, portDesc)
+		if err == nil {
+			return
+		}
+		time.Sleep(time.Second * time.Duration(i+1))
+	}
+	panic(err)
+}
+
+func scrapePortDesc(bridgeName string, portDesc *map[uint32]string) error {
+	output, err := OfCtl("dump-ports-desc", bridgeName)
+	if err != nil {
+		return err
+	}
+	parsePortDesc(output, portDesc)
+	return nil
 }
 
 func (ovsdber *ovsdber) mustLowestFreePortOnBridge(bridgeName string) uint32 {

@@ -1,3 +1,20 @@
+# v0.15.0 (2021-01-21)
+
+- Add ovs.bridge.add_copro_ports
+- Upgrade faucetconfrpc, certstrap, prometheus, grafana, grpc
+
+# v0.14.0 (2021-01-14)
+
+- Handle empty FAUCET config at startup
+- Handle cold start of host with existing docker networks
+- Handle ovs-ofctl returning an error temporarily, reconciling networks
+- Upgrade prometheus, grpc, faucet, gauge, faucetconfrpc, certstrap, grafana
+
+# v0.13.0 (2020-11-25)
+
+- Updated grafana, faucetconfrpc, faucet-certstrap
+- Fix stack test, for faucet
+
 # v0.12.0 (2020-11-19)
 
 - Updated prometheus, grafana, faucet, gauge, faucet-certstrap, faucetconfrpc

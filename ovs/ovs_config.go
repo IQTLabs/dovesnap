@@ -21,6 +21,7 @@ const (
 
 	bindInterfaceOption = "ovs.bridge.bind_interface"
 	bridgeAddPorts      = "ovs.bridge.add_ports"
+	bridgeAddCoproPorts = "ovs.bridge.add_copro_ports"
 	bridgeController    = "ovs.bridge.controller"
 	bridgeDpid          = "ovs.bridge.dpid"
 	bridgeLbPort        = "ovs.bridge.lbport"
@@ -149,6 +150,10 @@ func mustGetBridgeVLAN(r *networkplugin.CreateNetworkRequest) uint {
 
 func mustGetBridgeAddPorts(r *networkplugin.CreateNetworkRequest) string {
 	return getGenericOption(r, bridgeAddPorts)
+}
+
+func mustGetBridgeAddCoproPorts(r *networkplugin.CreateNetworkRequest) string {
+	return getGenericOption(r, bridgeAddCoproPorts)
 }
 
 func mustGetNATAcl(r *networkplugin.CreateNetworkRequest) string {
@@ -323,12 +328,12 @@ func getGatewayFromResource(r *types.NetworkResource) (string, string) {
 	return "", ""
 }
 
-func getNetworkStateFromResource(r *types.NetworkResource) (ns NetworkState, err error) {
+func getNetworkStateFromResource(r *types.NetworkResource) (NetworkState, error) {
+	var err error = nil
+	ns := NetworkState{}
 	defer func() {
-		err = nil
 		if rerr := recover(); rerr != nil {
 			err = fmt.Errorf("missing bridge info: %v", rerr)
-			ns = NetworkState{}
 		}
 	}()
 	dpid, uintDpid := mustGetBridgeDpidFromResource(r)
@@ -343,16 +348,18 @@ func getNetworkStateFromResource(r *types.NetworkResource) (ns NetworkState, err
 		Mode:              getStrOptionFromResource(r, modeOption, defaultMode),
 		FlatBindInterface: getStrOptionFromResource(r, bindInterfaceOption, ""),
 		AddPorts:          getStrOptionFromResource(r, bridgeAddPorts, ""),
+		AddCoproPorts:     getStrOptionFromResource(r, bridgeAddCoproPorts, ""),
 		UseDHCP:           parseBool(getStrOptionFromResource(r, dhcpOption, "")),
 		Userspace:         parseBool(getStrOptionFromResource(r, userspaceOption, "")),
 		Gateway:           gateway,
 		GatewayMask:       mask,
 		NATAcl:            getStrOptionFromResource(r, NATAclOption, ""),
 		OvsLocalMac:       getStrOptionFromResource(r, ovsLocalMacOption, ""),
+		Controller:        getStrOptionFromResource(r, bridgeController, ""),
 		Containers:        make(map[string]ContainerState),
 		ExternalPorts:     make(map[string]ExternalPortState),
 	}
-	return
+	return ns, err
 }
 
 func (d *Driver) getStackMirrorConfigFromResource(r *types.NetworkResource) StackMirrorConfig {
