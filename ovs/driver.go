@@ -248,6 +248,10 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		}
 	}
 
+	// TODO: Frustratingly, when docker creates a network, it doesn't tell us the network's name.
+	// We have to look that up with docker inspect. But we can't inspect a network, that
+	// hasn't been created yet. If we had a way to get the network's name at creation time
+	// that would resolve a lot of error handling cases.
 	ns := NetworkState{
 		BridgeName:        bridgeName,
 		BridgeDpid:        dpid,
@@ -791,6 +795,8 @@ func mustHandleNetworks(d *Driver) {
 }
 
 func (d *Driver) resourceManager() {
+	// TODO: make all the mustHandle() hooks, be able to cleanly retry on a failure at any point
+	// E.g. a transient OVS DB or faucetconfrpc error.
 	OFPorts := make(map[string]OFPortContainer)
 	AllPortDesc := make(map[string]map[uint32]string)
 
