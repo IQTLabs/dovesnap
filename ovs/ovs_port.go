@@ -44,7 +44,7 @@ func mustScrapePortDesc(bridgeName string, portDesc *map[uint32]string) {
 		if err == nil {
 			return
 		}
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Second * time.Duration(i+1))
 	}
 	panic(err)
 }
