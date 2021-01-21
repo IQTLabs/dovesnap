@@ -207,6 +207,12 @@ func (d *Driver) InitBridge(ns NetworkState) {
 	}
 }
 
+func (d *Driver) mustReserveNetwork(ns NetworkState) {
+	reserved_interface := d.faucetconfrpcer.vlanInterfaceYaml(ofPortLocal, "test reserved interface", ns.BridgeVLAN, "")
+	configYaml := d.faucetconfrpcer.mergeInterfacesYaml(ns.BridgeName, ns.BridgeDpidUint, ns.BridgeName, reserved_interface)
+	d.faucetconfrpcer.mustSetFaucetConfigFile(configYaml)
+}
+
 func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operation string) (err error) {
 	err = nil
 	defer func() {
@@ -273,6 +279,13 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 	addPorts := make(map[string]uint32)
 	d.ovsdber.parseAddPorts(ns.AddPorts, &addPorts)
 	d.ovsdber.parseAddPorts(ns.AddCoproPorts, &addPorts)
+
+	// Frustratingly, when docker creates a network, it doesn't tell us the network's name,
+	// so we have to obtain this via docker inspect, later. However, we can at least attempt
+	// to add a bridge with the provided bridge name, and make sure there are no DPID
+	// conflicts and that faucetconfrpc is working, so that if not we can return an error
+	// to docker right away.
+	d.mustReserveNetwork(ns)
 
 	if operation == "create" {
 		d.InitBridge(ns)
@@ -463,6 +476,8 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 	}
 
 	ns := opMsg.NewNetworkState
+	d.faucetconfrpcer.mustDeleteDp(ns.BridgeName)
+
 	d.stackMirrorConfigs[opMsg.NetworkID] = opMsg.NewStackMirrorConfig
 	ns.NetworkName = inspectNs.NetworkName
 	d.networks[opMsg.NetworkID] = ns
@@ -867,6 +882,7 @@ func (d *Driver) restoreNetworks() {
 		log.Infof("restoring network %+v, %+v %+v", ns, sc, netInspect)
 		if !d.ovsdber.ifUp(ns.BridgeName) {
 			log.Warnf("%s not up, assuming cold start", ns.BridgeName)
+			d.mustReserveNetwork(ns)
 			if ns.Controller == "" {
 				ns.Controller = d.stackDefaultControllers
 			}
