@@ -854,6 +854,7 @@ func (d *Driver) notifier() {
 
 func (d *Driver) restoreNetworks() {
 	netlist := d.dockerer.mustGetNetworkList()
+	dpNames := d.faucetconfrpcer.getDpNames()
 	for id, _ := range netlist {
 		netInspect := d.dockerer.mustGetNetworkInspectFromID(id)
 		ns, err := getNetworkStateFromResource(&netInspect)
@@ -865,8 +866,9 @@ func (d *Driver) restoreNetworks() {
 		sc := d.getStackMirrorConfigFromResource(&netInspect)
 		d.stackMirrorConfigs[id] = sc
 		log.Infof("restoring network %+v, %+v %+v", ns, sc, netInspect)
-		if !d.ovsdber.ifUp(ns.BridgeName) {
-			log.Warnf("%s not up, assuming cold start", ns.BridgeName)
+		_, havefaucet := dpNames[ns.NetworkName]
+		if !d.ovsdber.ifUp(ns.BridgeName) || !havefaucet {
+			log.Warnf("%s not up or FAUCET config for %s missing recreating", ns.BridgeName, ns.NetworkName)
 			if ns.Controller == "" {
 				ns.Controller = d.stackDefaultControllers
 			}

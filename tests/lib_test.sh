@@ -143,7 +143,7 @@ conf_keys ()
 
 wait_faucet ()
 {
-        for p in 6653 6654 9302 ; do
+        for p in 6653 6654 9302 59999 ; do
                 PORTCOUNT=""
                 while [ "$PORTCOUNT" = "0" ] ; do
                         echo waiting for $p
