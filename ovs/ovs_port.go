@@ -5,9 +5,14 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+)
+
+const (
+	dumpPortsRetries = 3
 )
 
 func patchName(a string, b string) string {
@@ -30,8 +35,18 @@ func parsePortDesc(output string, portDesc *map[uint32]string) {
 }
 
 func mustScrapePortDesc(bridgeName string, portDesc *map[uint32]string) {
-	output := mustOfCtl("dump-ports-desc", bridgeName)
-	parsePortDesc(output, portDesc)
+	// Periodically OVS can falsely return:
+	// "FAILED: [dump-ports-desc ovsbr-508ac], ovs-ofctl: ovsbr-508ac is not a bridge or a socket\n"
+	// Handle just this call with a backoff/retry.
+	var err error = nil
+	for i := 0; i <= dumpPortsRetries; i++ {
+		err = scrapePortDesc(bridgeName, portDesc)
+		if err == nil {
+			return
+		}
+		time.Sleep(time.Second * 1)
+	}
+	panic(err)
 }
 
 func scrapePortDesc(bridgeName string, portDesc *map[uint32]string) error {
