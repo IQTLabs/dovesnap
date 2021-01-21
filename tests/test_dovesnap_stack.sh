@@ -100,6 +100,8 @@ PACKETS=$(docker exec -t $OVSID ovs-ofctl dump-flows rootsw table=0,dl_vlan=356|
 echo $PACKETS
 if [ "$PACKETS" == "" ] ; then
         echo no packets were tunnelled
+        docker exec -t $OVSID ovs-ofctl dump-flows rootsw
+        docker exec -t $OVSID ovs-ofctl dump-flows $BRIDGE
         exit 1
 fi
 
