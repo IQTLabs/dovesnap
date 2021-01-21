@@ -76,6 +76,8 @@ restart_wait_dovesnap
 echo creating testcon
 # github test runner can't use ping.
 docker pull busybox
+# TODO: wait for stack to come up before adding a tunnel. FAUCET can miss the mirror via tunnel request if it is made before the stack comes up.
+wait_stack_state 3 4
 docker run -d --label="dovesnap.faucet.portacl=ratelimitit" --label="dovesnap.faucet.mirror=true" --net=testnet --rm --name=testcon busybox sleep 1h
 RET=$?
 if [ "$RET" != "0" ] ; then
