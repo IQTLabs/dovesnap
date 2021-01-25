@@ -471,8 +471,8 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 	ns.NetworkName = inspectNs.NetworkName
 	d.networks[opMsg.NetworkID] = ns
 	egressPipeline := false
-	if ns.VLANAclOut {
-		egressPipeline := true
+	if ns.VLANOutAcl != "" {
+		egressPipeline = true
 	}
 
 	add_ports := opMsg.AddPorts

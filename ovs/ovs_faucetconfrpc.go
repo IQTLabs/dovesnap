@@ -169,7 +169,7 @@ func (c *faucetconfrpcer) mergeDpInterfacesMinimalYaml(dpName string, addInterfa
 func (c *faucetconfrpcer) mergeDpInterfacesYaml(dpName string, uintDpid uint64, description string, addInterfaces string, egressPipeline bool) string {
 	egressPipelineStr := "false"
 	if egressPipeline {
-		egressPipeline = "true"
+		egressPipelineStr = "true"
 	}
 	return fmt.Sprintf("%s: {dp_id: %d, description: %s, hardware: %s, egress_pipeline: %s, interfaces: {%s}},",
 		dpName, uintDpid, description, "Open vSwitch", egressPipelineStr, addInterfaces)
@@ -180,5 +180,5 @@ func (c *faucetconfrpcer) mergeSingleDpMinimalYaml(dpName string, addInterfaces 
 }
 
 func (c *faucetconfrpcer) mergeSingleDpYaml(dpName string, uintDpid uint64, description string, addInterfaces string, egressPipeline bool) string {
-	return fmt.Sprintf("{dps: {%s}}", c.mergeDpInterfacesMinimalYaml(dpName, uintDpid, description, addInterfaces, egressPipeline))
+	return fmt.Sprintf("{dps: {%s}}", c.mergeDpInterfacesYaml(dpName, uintDpid, description, addInterfaces, egressPipeline))
 }
