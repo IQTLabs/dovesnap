@@ -87,14 +87,14 @@ func (c *faucetconfrpcer) mustSetFaucetConfigFile(config_yaml string) {
 }
 
 func (c *faucetconfrpcer) mustSetVlanOutAcl(vlan_name string, acl_out string) {
-        req := &faucetconfserver.SetVlanOutAclRequest{
+	req := &faucetconfserver.SetVlanOutAclRequest{
 		VlanName: vlan_name,
-		AclOut: acl_out,
-        }
-        _, err := c.client.SetVlanOutAcl(context.Background(), req)
-        if err != nil {
-                panic(err)
-        }
+		AclOut:   acl_out,
+	}
+	_, err := c.client.SetVlanOutAcl(context.Background(), req)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (c *faucetconfrpcer) mustDeleteDpInterface(dpName string, ofport uint32) {
