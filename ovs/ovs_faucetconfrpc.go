@@ -162,11 +162,15 @@ func (c *faucetconfrpcer) stackInterfaceYaml(ofport uint32, remoteDpName string,
 	return fmt.Sprintf("%d: {description: stack link to %s, stack: {dp: %s, port: %d}},", ofport, remoteDpName, remoteDpName, remoteOfport)
 }
 
-func (c *faucetconfrpcer) mergeDpInterfacesYaml(dpName string, uintDpid uint64, description string, addInterfaces string) string {
+func (c *faucetconfrpcer) mergeDpInterfacesYaml(dpName string, uintDpid uint64, description string, addInterfaces string, egressPipeline bool) string {
+	egressPipelineStr := "false"
+	if egressPipeline {
+		egressPipelineStr := "true"
+	}
 	return fmt.Sprintf("%s: {dp_id: %d, description: %s, hardware: %s, egress_pipeline: %s, interfaces: {%s}},",
-		dpName, uintDpid, description, "Open vSwitch", "false", addInterfaces)
+		dpName, uintDpid, description, "Open vSwitch", egressPipelineStr, addInterfaces)
 }
 
-func (c *faucetconfrpcer) mergeSingleDpYaml(dpName string, uintDpid uint64, description string, addInterfaces string) string {
-	return fmt.Sprintf("{dps: {%s}}", c.mergeDpInterfacesYaml(dpName, uintDpid, description, addInterfaces))
+func (c *faucetconfrpcer) mergeSingleDpYaml(dpName string, uintDpid uint64, description string, addInterfaces string, egressPipeline bool) string {
+	return fmt.Sprintf("{dps: {%s}}", c.mergeDpInterfacesYaml(dpName, uintDpid, description, addInterfaces, egressPipeline))
 }
