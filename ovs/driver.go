@@ -48,6 +48,7 @@ type NetworkState struct {
 	Controller        string
 	Containers        map[string]ContainerState
 	ExternalPorts     map[string]ExternalPortState
+	VLANOutAcl        string
 }
 
 type DovesnapOp struct {
@@ -158,31 +159,28 @@ func (d *Driver) createStackingBridge() error {
 
 	// loop through stacking interfaces
 	stackingPorts := []StackingPort{}
-	stackingConfig := "{dps: {"
+	remoteStackingConfig := ""
 	for _, stackingInterface := range d.stackingInterfaces {
 		remoteDP, remotePort, localInterface := d.mustGetStackingInterface(stackingInterface)
 
 		ofport, _ := d.mustAddInternalPort(dpName, localInterface, 0)
-		stackingConfig += fmt.Sprintf("%s: {stack: ", remoteDP)
+		stackConfig := ""
 		if d.stackPriority1 == remoteDP {
-			stackingConfig += "{priority: 1}, "
+			stackConfig = "stack: {priority: 1},"
 		}
-		stackingConfig += fmt.Sprintf("interfaces: {%d: {description: %s, stack: {dp: %s, port: %d}}}}, ", remotePort, "Stack link to "+dpName, dpName, ofport)
+		remoteStackingConfig += fmt.Sprintf("%s: {%s interfaces: {%s}},",
+			remoteDP, stackConfig, d.faucetconfrpcer.stackInterfaceYaml(remotePort, dpName, ofport))
 		stackingPorts = append(stackingPorts, StackingPort{RemoteDP: remoteDP, RemotePort: remotePort, OFPort: ofport})
 	}
 
-	stackingConfig += fmt.Sprintf("%s: {dp_id: %d, description: %s, hardware: Open vSwitch, interfaces: {",
-		dpName,
-		intDpid,
-		"Dovesnap Stacking Bridge for "+hostname)
+	localStackingConfig := ""
 	for _, stackingPort := range stackingPorts {
-		stackingConfig += fmt.Sprintf("%d: {description: %s, stack: {dp: %s, port: %d}},",
-			stackingPort.OFPort,
-			"Stack link to "+stackingPort.RemoteDP,
-			stackingPort.RemoteDP,
-			stackingPort.RemotePort)
+		localStackingConfig += d.faucetconfrpcer.stackInterfaceYaml(
+			stackingPort.OFPort, stackingPort.RemoteDP, stackingPort.RemotePort)
 	}
-	stackingConfig += "}}}}"
+	localStackingConfig = d.faucetconfrpcer.mergeDpInterfacesYaml(
+		dpName, intDpid, "Dovesnap Stacking Bridge for "+hostname, localStackingConfig)
+	stackingConfig := fmt.Sprintf("{dps: {%s %s}}", localStackingConfig, remoteStackingConfig)
 
 	d.faucetconfrpcer.mustSetFaucetConfigFile(stackingConfig)
 	return nil
@@ -235,6 +233,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 	useUserspace := mustGetUserspace(r)
 	natAcl := mustGetNATAcl(r)
 	ovsLocalMac := mustGetOvsLocalMac(r)
+	vlanOutAcl := mustGetBridgeVLANOutAcl(r)
 
 	if useDHCP {
 		if mode != "flat" {
@@ -271,6 +270,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		Controller:        controller,
 		Containers:        make(map[string]ContainerState),
 		ExternalPorts:     make(map[string]ExternalPortState),
+		VLANOutAcl:        vlanOutAcl,
 	}
 
 	// Validate add_ports/add_copro_ports if present.
@@ -497,7 +497,6 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 		add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofPortLocal, "OVS Port for NAT", ns.BridgeVLAN, ns.NATAcl)
 		ns.ExternalPorts[inspectNs.BridgeName] = ExternalPortState{Name: inspectNs.BridgeName, OFPort: ofPortLocal}
 	}
-	configYaml := d.faucetconfrpcer.mergeInterfacesYaml(ns.NetworkName, ns.BridgeDpidUint, ns.BridgeName, add_interfaces)
 	if usingMirrorBridge(d) {
 		log.Debugf("configuring mirror bridge port for %s", ns.BridgeName)
 		stackMirrorConfig := d.stackMirrorConfigs[opMsg.NetworkID]
@@ -506,8 +505,8 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 		mustOfCtl("add-flow", mirrorBridgeName, flowStr)
 		add_interfaces += fmt.Sprintf("%d: {description: mirror, output_only: true},", ofportNum)
 		ns.ExternalPorts[mirrorBridgeName] = ExternalPortState{Name: mirrorBridgeName, OFPort: ofportNum}
-		configYaml = d.faucetconfrpcer.mergeInterfacesYaml(ns.NetworkName, ns.BridgeDpidUint, ns.BridgeName, add_interfaces)
 	}
+	configYaml := d.faucetconfrpcer.mergeSingleDpYaml(ns.NetworkName, ns.BridgeDpidUint, "OVS Bridge "+ns.BridgeName, add_interfaces)
 	if usingStacking(d) {
 		_, stackDpName, err := d.getStackDP()
 		if err != nil {
@@ -515,16 +514,12 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 		}
 		ofportNum, ofportNumPeer := d.mustAddPatchPort(ns.BridgeName, stackDpName, 0, 0)
 		ns.ExternalPorts[stackDpName] = ExternalPortState{Name: stackDpName, OFPort: ofportNum}
-		localDpYaml := fmt.Sprintf("%s: {dp_id: %d, description: %s, interfaces: {%s %s}}",
-			ns.NetworkName,
-			ns.BridgeDpidUint,
-			"OVS Bridge "+ns.BridgeName,
-			add_interfaces,
-			d.faucetconfrpcer.stackInterfaceYaml(ofportNum, stackDpName, ofportNumPeer))
+		localDpYaml := d.faucetconfrpcer.mergeDpInterfacesYaml(ns.NetworkName, ns.BridgeDpidUint, "OVS Bridge "+ns.BridgeName,
+			add_interfaces+d.faucetconfrpcer.stackInterfaceYaml(ofportNum, stackDpName, ofportNumPeer))
 		remoteDpYaml := fmt.Sprintf("%s: {interfaces: {%s}}",
 			stackDpName,
 			d.faucetconfrpcer.stackInterfaceYaml(ofportNumPeer, ns.NetworkName, ofportNum))
-		configYaml = fmt.Sprintf("{dps: {%s, %s}}", localDpYaml, remoteDpYaml)
+		configYaml = fmt.Sprintf("{dps: {%s %s}}", localDpYaml, remoteDpYaml)
 	}
 	d.faucetconfrpcer.mustSetFaucetConfigFile(configYaml)
 	if usingStackMirroring(d) {
@@ -615,7 +610,8 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 	add_interfaces := d.faucetconfrpcer.vlanInterfaceYaml(
 		ofport, fmt.Sprintf("%s %s", containerInspect.Name, truncateID(containerInspect.ID)), ns.BridgeVLAN, portacl)
 
-	d.faucetconfrpcer.mustSetFaucetConfigFile(d.faucetconfrpcer.mergeInterfacesYaml(ns.NetworkName, ns.BridgeDpidUint, ns.BridgeName, add_interfaces))
+	d.faucetconfrpcer.mustSetFaucetConfigFile(d.faucetconfrpcer.mergeSingleDpYaml(
+		ns.NetworkName, ns.BridgeDpidUint, "OVS Bridge "+ns.BridgeName, add_interfaces))
 
 	mirror, ok := containerInspect.Config.Labels["dovesnap.faucet.mirror"]
 	if ok && parseBool(mirror) {
@@ -778,7 +774,8 @@ func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint32]string) {
 		}
 
 		if add_interfaces != "" {
-			configYaml := d.faucetconfrpcer.mergeInterfacesYaml(ns.NetworkName, ns.BridgeDpidUint, ns.BridgeName, add_interfaces)
+			configYaml := d.faucetconfrpcer.mergeSingleDpYaml(
+				ns.NetworkName, ns.BridgeDpidUint, "OVS Bridge "+ns.BridgeName, add_interfaces)
 			d.faucetconfrpcer.mustSetFaucetConfigFile(configYaml)
 		}
 
