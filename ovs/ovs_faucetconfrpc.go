@@ -162,7 +162,11 @@ func (c *faucetconfrpcer) stackInterfaceYaml(ofport uint32, remoteDpName string,
 	return fmt.Sprintf("%d: {description: stack link to %s, stack: {dp: %s, port: %d}},", ofport, remoteDpName, remoteDpName, remoteOfport)
 }
 
-func (c *faucetconfrpcer) mergeInterfacesYaml(dpName string, uintDpid uint64, description string, addInterfaces string) string {
-	return fmt.Sprintf("{dps: {%s: {dp_id: %d, description: OVS Bridge %s, interfaces: {%s}}}}",
+func (c *faucetconfrpcer) mergeDpInterfacesYaml(dpName string, uintDpid uint64, description string, addInterfaces string) string {
+	return fmt.Sprintf("%s: {dp_id: %d, description: %s, interfaces: {%s}},",
 		dpName, uintDpid, description, addInterfaces)
+}
+
+func (c *faucetconfrpcer) mergeSingleDpYaml(dpName string, uintDpid uint64, description string, addInterfaces string) string {
+	return fmt.Sprintf("{dps: {%s}}", c.mergeDpInterfacesYaml(dpName, uintDpid, description, addInterfaces))
 }

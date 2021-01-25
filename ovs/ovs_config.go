@@ -34,6 +34,7 @@ const (
 	vlanOption          = "ovs.bridge.vlan"
 	userspaceOption     = "ovs.bridge.userspace"
 	ovsLocalMacOption   = "ovs.bridge.ovs_local_mac"
+	vlanOutAclOption    = "ovs.bridge.vlan_out_acl"
 
 	defaultLbPort           = 99
 	defaultMTU              = 1500
@@ -146,6 +147,10 @@ func mustGetBridgeDpid(r *networkplugin.CreateNetworkRequest) string {
 
 func mustGetBridgeVLAN(r *networkplugin.CreateNetworkRequest) uint {
 	return getGenericUintOption(r, vlanOption, defaultVLAN)
+}
+
+func mustGetBridgeVLANOutAcl(r *networkplugin.CreateNetworkRequest) string {
+	return getGenericOption(r, vlanOutAclOption)
 }
 
 func mustGetBridgeAddPorts(r *networkplugin.CreateNetworkRequest) string {
@@ -358,6 +363,7 @@ func getNetworkStateFromResource(r *types.NetworkResource) (NetworkState, error)
 		Controller:        getStrOptionFromResource(r, bridgeController, ""),
 		Containers:        make(map[string]ContainerState),
 		ExternalPorts:     make(map[string]ExternalPortState),
+		VLANOutAcl:        getStrOptionFromResource(r, vlanOutAclOption, ""),
 	}
 	return ns, err
 }
