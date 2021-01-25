@@ -86,6 +86,17 @@ func (c *faucetconfrpcer) mustSetFaucetConfigFile(config_yaml string) {
 	}
 }
 
+func (c *faucetconfrpcer) mustSetVlanOutAcl(vlan_name string, acl_out string) {
+	req := &faucetconfserver.SetVlanOutAclRequest{
+		VlanName: vlan_name,
+		AclOut:   acl_out,
+	}
+	_, err := c.client.SetVlanOutAcl(context.Background(), req)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (c *faucetconfrpcer) mustDeleteDpInterface(dpName string, ofport uint32) {
 	interfaces := &faucetconfserver.InterfaceInfo{
 		PortNo: ofport,
@@ -162,7 +173,23 @@ func (c *faucetconfrpcer) stackInterfaceYaml(ofport uint32, remoteDpName string,
 	return fmt.Sprintf("%d: {description: stack link to %s, stack: {dp: %s, port: %d}},", ofport, remoteDpName, remoteDpName, remoteOfport)
 }
 
-func (c *faucetconfrpcer) mergeInterfacesYaml(dpName string, uintDpid uint64, description string, addInterfaces string) string {
-	return fmt.Sprintf("{dps: {%s: {dp_id: %d, description: OVS Bridge %s, interfaces: {%s}}}}",
-		dpName, uintDpid, description, addInterfaces)
+func (c *faucetconfrpcer) mergeDpInterfacesMinimalYaml(dpName string, addInterfaces string) string {
+	return fmt.Sprintf("%s: {interfaces: {%s}},", dpName, addInterfaces)
+}
+
+func (c *faucetconfrpcer) mergeDpInterfacesYaml(dpName string, uintDpid uint64, description string, addInterfaces string, egressPipeline bool) string {
+	egressPipelineStr := "false"
+	if egressPipeline {
+		egressPipelineStr = "true"
+	}
+	return fmt.Sprintf("%s: {dp_id: %d, description: %s, hardware: %s, egress_pipeline: %s, interfaces: {%s}},",
+		dpName, uintDpid, description, "Open vSwitch", egressPipelineStr, addInterfaces)
+}
+
+func (c *faucetconfrpcer) mergeSingleDpMinimalYaml(dpName string, addInterfaces string) string {
+	return fmt.Sprintf("{dps: {%s}}", c.mergeDpInterfacesMinimalYaml(dpName, addInterfaces))
+}
+
+func (c *faucetconfrpcer) mergeSingleDpYaml(dpName string, uintDpid uint64, description string, addInterfaces string, egressPipeline bool) string {
+	return fmt.Sprintf("{dps: {%s}}", c.mergeDpInterfacesYaml(dpName, uintDpid, description, addInterfaces, egressPipeline))
 }
