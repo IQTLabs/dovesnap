@@ -527,6 +527,9 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 		configYaml = fmt.Sprintf("{dps: {%s %s}}", localDpYaml, remoteDpYaml)
 	}
 	d.faucetconfrpcer.mustSetFaucetConfigFile(configYaml)
+	if ns.VLANOutAcl != "" {
+		d.faucetconfrpcer.mustSetVlanOutAcl(fmt.Sprintf("%d", ns.BridgeVLAN), ns.VLANOutAcl)
+	}
 	if usingStackMirroring(d) {
 		lbBridgeName := d.mustGetLoopbackDP()
 		stackMirrorConfig := d.stackMirrorConfigs[opMsg.NetworkID]

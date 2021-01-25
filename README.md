@@ -114,6 +114,14 @@ Dovesnap will connect `eno123` to the Docker network as a FAUCET coprocessor por
 
 This adds the VLAN tag of 100 for the Docker network. The default is 100.
 
+#### Specifying an VLAN output ACL to use
+
+`-o vlanOutAclOption=allowall`
+
+This adds the output ACL `allowall` to the VLAN used on the docker network.
+
+NOTE: this enables use of Faucet's egress pipeline feature, which is currently experimental and works only on OVS.
+
 ##### Specifying a specific VLAN to use for the mirror tunnel
 
 `-o ovs.bridge.mirror_tunnel_vid=200`
