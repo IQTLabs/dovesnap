@@ -179,7 +179,7 @@ func (d *Driver) createStackingBridge() error {
 			stackingPort.OFPort, stackingPort.RemoteDP, stackingPort.RemotePort)
 	}
 	localStackingConfig = d.faucetconfrpcer.mergeDpInterfacesYaml(
-		dpName, intDpid, "Dovesnap Stacking Bridge for " + hostname, localStackingConfig)
+		dpName, intDpid, "Dovesnap Stacking Bridge for "+hostname, localStackingConfig, false)
 	stackingConfig := fmt.Sprintf("{dps: {%s %s}}", localStackingConfig, remoteStackingConfig)
 
 	d.faucetconfrpcer.mustSetFaucetConfigFile(stackingConfig)
@@ -470,6 +470,10 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 	d.stackMirrorConfigs[opMsg.NetworkID] = opMsg.NewStackMirrorConfig
 	ns.NetworkName = inspectNs.NetworkName
 	d.networks[opMsg.NetworkID] = ns
+	egressPipeline := false
+	if ns.VLANAclOut {
+		egressPipeline := true
+	}
 
 	add_ports := opMsg.AddPorts
 	add_interfaces := ""
@@ -497,7 +501,6 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 		add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofPortLocal, "OVS Port for NAT", ns.BridgeVLAN, ns.NATAcl)
 		ns.ExternalPorts[inspectNs.BridgeName] = ExternalPortState{Name: inspectNs.BridgeName, OFPort: ofPortLocal}
 	}
-	configYaml := d.faucetconfrpcer.mergeSingleDpYaml(ns.NetworkName, ns.BridgeDpidUint, "OVS Bridge "+ns.BridgeName, add_interfaces)
 	if usingMirrorBridge(d) {
 		log.Debugf("configuring mirror bridge port for %s", ns.BridgeName)
 		stackMirrorConfig := d.stackMirrorConfigs[opMsg.NetworkID]
@@ -506,8 +509,9 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 		mustOfCtl("add-flow", mirrorBridgeName, flowStr)
 		add_interfaces += fmt.Sprintf("%d: {description: mirror, output_only: true},", ofportNum)
 		ns.ExternalPorts[mirrorBridgeName] = ExternalPortState{Name: mirrorBridgeName, OFPort: ofportNum}
-		configYaml = d.faucetconfrpcer.mergeSingleDpYaml(ns.NetworkName, ns.BridgeDpidUint, "OVS Bridge "+ns.BridgeName, add_interfaces)
 	}
+	configYaml := d.faucetconfrpcer.mergeSingleDpYaml(
+		ns.NetworkName, ns.BridgeDpidUint, "OVS Bridge "+ns.BridgeName, add_interfaces, egressPipeline)
 	if usingStacking(d) {
 		_, stackDpName, err := d.getStackDP()
 		if err != nil {
@@ -516,7 +520,7 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 		ofportNum, ofportNumPeer := d.mustAddPatchPort(ns.BridgeName, stackDpName, 0, 0)
 		ns.ExternalPorts[stackDpName] = ExternalPortState{Name: stackDpName, OFPort: ofportNum}
 		localDpYaml := d.faucetconfrpcer.mergeDpInterfacesYaml(ns.NetworkName, ns.BridgeDpidUint, "OVS Bridge "+ns.BridgeName,
-			add_interfaces+d.faucetconfrpcer.stackInterfaceYaml(ofportNum, stackDpName, ofportNumPeer))
+			add_interfaces+d.faucetconfrpcer.stackInterfaceYaml(ofportNum, stackDpName, ofportNumPeer), egressPipeline)
 		remoteDpYaml := fmt.Sprintf("%s: {interfaces: {%s}}",
 			stackDpName,
 			d.faucetconfrpcer.stackInterfaceYaml(ofportNumPeer, ns.NetworkName, ofportNum))
@@ -611,8 +615,8 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 	add_interfaces := d.faucetconfrpcer.vlanInterfaceYaml(
 		ofport, fmt.Sprintf("%s %s", containerInspect.Name, truncateID(containerInspect.ID)), ns.BridgeVLAN, portacl)
 
-	d.faucetconfrpcer.mustSetFaucetConfigFile(d.faucetconfrpcer.mergeSingleDpYaml(
-		ns.NetworkName, ns.BridgeDpidUint, "OVS Bridge "+ns.BridgeName, add_interfaces))
+	d.faucetconfrpcer.mustSetFaucetConfigFile(d.faucetconfrpcer.mergeSingleDpMinimalYaml(
+		ns.NetworkName, add_interfaces))
 
 	mirror, ok := containerInspect.Config.Labels["dovesnap.faucet.mirror"]
 	if ok && parseBool(mirror) {
@@ -775,8 +779,8 @@ func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint32]string) {
 		}
 
 		if add_interfaces != "" {
-			configYaml := d.faucetconfrpcer.mergeSingleDpYaml(
-				ns.NetworkName, ns.BridgeDpidUint, "OVS Bridge "+ns.BridgeName, add_interfaces)
+			configYaml := d.faucetconfrpcer.mergeSingleDpMinimalYaml(
+				ns.NetworkName, add_interfaces)
 			d.faucetconfrpcer.mustSetFaucetConfigFile(configYaml)
 		}
 
