@@ -86,6 +86,18 @@ func (c *faucetconfrpcer) mustSetFaucetConfigFile(config_yaml string) {
 	}
 }
 
+func (c *faucetconfrpcer) mustSetPortAcl(dpName string, portNo uint32, acls string) {
+	req := &faucetconfserver.SetPortAclRequest{
+		DpName: dpName,
+		PortNo: portNo,
+		Acls:   acls,
+	}
+	_, err := c.client.SetPortAcl(context.Background(), req)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (c *faucetconfrpcer) mustSetVlanOutAcl(vlan_name string, acl_out string) {
 	req := &faucetconfserver.SetVlanOutAclRequest{
 		VlanName: vlan_name,

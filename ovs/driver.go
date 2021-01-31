@@ -275,8 +275,9 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 
 	// Validate add_ports/add_copro_ports if present.
 	addPorts := make(map[string]uint32)
-	d.ovsdber.parseAddPorts(ns.AddPorts, &addPorts)
-	d.ovsdber.parseAddPorts(ns.AddCoproPorts, &addPorts)
+	addPortsAcls := make(map[uint32]string)
+	d.ovsdber.parseAddPorts(ns.AddPorts, &addPorts, &addPortsAcls)
+	d.ovsdber.parseAddPorts(ns.AddCoproPorts, &addPorts, &addPortsAcls)
 
 	if operation == "create" {
 		d.InitBridge(ns)
@@ -477,9 +478,10 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 
 	add_ports := opMsg.AddPorts
 	add_interfaces := ""
+	addPortsAcls := make(map[uint32]string)
 	if add_ports != "" {
 		addPorts := make(map[string]uint32)
-		d.ovsdber.parseAddPorts(add_ports, &addPorts)
+		d.ovsdber.parseAddPorts(add_ports, &addPorts, &addPortsAcls)
 		for add_port, _ := range addPorts {
 			ofport := d.ovsdber.mustGetOfPortNumber(add_port)
 			add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofport, "Physical interface "+add_port, ns.BridgeVLAN, "")
@@ -489,7 +491,7 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 	add_copro_ports := opMsg.AddCoproPorts
 	if add_copro_ports != "" {
 		addPorts := make(map[string]uint32)
-		d.ovsdber.parseAddPorts(add_copro_ports, &addPorts)
+		d.ovsdber.parseAddPorts(add_copro_ports, &addPorts, &addPortsAcls)
 		for add_port, _ := range addPorts {
 			ofport := d.ovsdber.mustGetOfPortNumber(add_port)
 			add_interfaces += d.faucetconfrpcer.coproInterfaceYaml(ofport, "Physical interface "+add_port, "vlan_vid")
@@ -541,6 +543,9 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 			stackMirrorConfig.RemoteDpName,
 			stackMirrorConfig.RemoteMirrorPort,
 		)
+	}
+	for port_no, acls := range addPortsAcls {
+		d.faucetconfrpcer.mustSetPortAcl(ns.NetworkName, port_no, acls)
 	}
 	d.notifyMsgChan <- NotifyMsg{
 		Type:         "NETWORK",
@@ -733,8 +738,8 @@ func reconcileOvs(d *Driver, allPortDesc *map[string]map[uint32]string) {
 			continue
 		}
 		addPorts := make(map[string]uint32)
-		d.ovsdber.parseAddPorts(ns.AddPorts, &addPorts)
-		d.ovsdber.parseAddPorts(ns.AddCoproPorts, &addPorts)
+		d.ovsdber.parseAddPorts(ns.AddPorts, &addPorts, nil)
+		d.ovsdber.parseAddPorts(ns.AddCoproPorts, &addPorts, nil)
 
 		portDesc, have_port_desc := (*allPortDesc)[id]
 		if have_port_desc {
