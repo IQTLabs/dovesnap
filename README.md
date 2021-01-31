@@ -100,13 +100,13 @@ This option sets the MAC address of OVS' "local" port on the switch.
 
 `-o ovs.bridge.add_ports=eno123/8`
 
-Dovesnap will connect `eno123` to the Docker network, and attempt to use OVS OFPort 8 (OVS will select another port number, if for some reason port 8 is already in use). You can specify more ports with commas. The OFPort specification is optional - if not present dovesnap will select the next free port number.
+Dovesnap will connect `eno123` to the Docker network, and attempt to use OVS OFPort 8 (OVS will select another port number, if for some reason port 8 is already in use). You can specify more ports with commas. The OFPort specification is optional - if not present dovesnap will select the next free port number. If specifying a port, you can also specify a third parameter - the ACL name to be applied to the port.
 
 ##### Adding a physical port for coprocessing
 
 `-o ovs.bridge.add_copro_ports=eno123/8`
 
-Dovesnap will connect `eno123` to the Docker network as a FAUCET coprocessor port, and attempt to use OVS OFPort 8 (OVS will select another port number, if for some reason port 8 is already in use). You can specify more ports with commas. The OFPort specification is optional - if not present dovesnap will select the next free port number.
+Dovesnap will connect `eno123` to the Docker network as a FAUCET coprocessor port, and attempt to use OVS OFPort 8 (OVS will select another port number, if for some reason port 8 is already in use). You can specify more ports with commas. The OFPort specification is optional - if not present dovesnap will select the next free port number. If specifying a port, you can also specify a third parameter - the ACL name to be applied to the port.
 
 ##### Specifying a specific VLAN to use
 
