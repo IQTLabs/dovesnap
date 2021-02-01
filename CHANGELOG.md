@@ -1,3 +1,10 @@
+# v0.16.0 (2021-02-02)
+
+- retry failed dump-ports-desc calls
+- add VLAN output ACL
+- upgrade OVS 2.14.1
+- upgrade faucetconfrpc, certstrap
+
 # v0.15.0 (2021-01-21)
 
 - Add ovs.bridge.add_copro_ports
