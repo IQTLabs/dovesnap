@@ -1,9 +1,11 @@
 #!/usr/bin/python3
 
 import argparse
+import json
 import re
 import os
 import subprocess
+import requests
 import docker
 from faucetconfrpc.faucetconfrpc_client_lib import FaucetConfRpcClient
 from graphviz import Digraph
@@ -64,12 +66,6 @@ class GraphDovesnap:
 
     def _scrape_ovs(self, cmd):
         return self._scrape_container_cmd(self.OVS_NAME, cmd, strict=False)
-
-    def _get_dovesnap_networks(self, client):
-        return client.networks(filters={'driver': self.DRIVER_NAME})
-
-    def _dovesnap_bridgename(self, net_id):
-        return 'ovsbr-%s' % net_id[:5]
 
     def _get_vm_options(self, faucetconfrpc_client, network, ofport):
         vm_options = []
@@ -147,15 +143,6 @@ class GraphDovesnap:
                 results.append((ifname, mac, iflink, peeriflink))
         return results
 
-    def _scrape_container_ip(self, container_id, iflink):
-        lines = self._scrape_container_cmd(
-            self.DOVESNAP_NAME, ['ip', 'netns', 'exec', container_id, 'ip', '-o', 'addr'], strict=False)
-        if lines is not None:
-            matching_lines = self._get_matching_lines(lines, r'^%u:.+inet\s+(\S+).+$' % iflink)
-            for match in matching_lines:
-                return match[1]
-        return None
-
     def _scrape_bridge_ports(self, bridgename):
         lines = self._scrape_ovs(['ovs-ofctl', 'dump-ports-desc', bridgename])
         port_desc = {}
@@ -185,20 +172,6 @@ class GraphDovesnap:
     def _scrape_host_veth(self):
         return self._scrape_cmd(['ip', '-o', 'link', 'show', 'type', 'veth'])
 
-    def _scrape_container_veths(self):
-        container_veths = {}
-        lines = self._scrape_host_veth()
-        if lines is not None:
-            matching_lines = self._get_matching_lines(
-                lines,
-                r'^(\d+):\s+([^\@]+)\@.+link\/ether\s+(\S+).+link-netnsid\s+(\d+).*$')
-            for match in matching_lines:
-                iflink = int(match[1])
-                ifname = match[2]
-                mac = match[3]
-                container_veths[iflink] = (ifname, mac)
-        return container_veths
-
     def _scrape_patch_veths(self):
         patch_veths = {}
         lines = self._scrape_host_veth()
@@ -214,9 +187,6 @@ class GraphDovesnap:
             assert len(patch_veths) % 2 == 0
         return patch_veths
 
-    def _get_network_mode(self, network):
-        return network['Options'].get('ovs.bridge.mode', 'flat')
-
     def _get_lb_port(self, network):
         return network['Options'].get('ovs.bridge.lbport', self.DOVESNAP_MIRROR)
 
@@ -231,7 +201,24 @@ class GraphDovesnap:
                 args[arg_l[0]] = ""
         return args
 
+    def output_graph(self, nodes, edges):
+        dot = Digraph()
+        for node, node_labels in nodes.items():
+            dot.node(node, '\n'.join(node_labels))
+        for edge_a, edge_b, edge_ports in edges:
+            edge_label = ' : '.join([str(port) for port in edge_ports])
+            dot.edge(edge_a, edge_b, edge_label)
+        dot.format = 'png'
+        dot.render(self.args.output)
+        # leave only PNG
+        os.remove(self.args.output)
+
     def build_graph(self):
+        networks_json = {}
+        for status_addr in self.args.status_addrs.split(','):
+            status_url = 'http://%s/networks' % status_addr
+            resp = requests.get(status_url)
+            networks_json.update(json.loads(resp.text))
         client = docker.APIClient(base_url=self.DOCKER_URL)
         if not client.ping():
             raise GraphDovesnapException('cannot connect to docker')
@@ -242,53 +229,50 @@ class GraphDovesnap:
             self.args.key, self.args.cert, self.args.ca, ':'.join([self.args.server, self.args.port]))
         if not faucetconfrpc_client:
             raise GraphDovesnapException('cannot connect to faucetconfrpc')
+        nodes = {}
+        edges = []
 
-        dot = Digraph()
-        dovesnap_inspect = client.inspect_container(dovesnap['Id'])
-        dovesnap_args = self._get_container_args(dovesnap_inspect)
-        networks = self._get_dovesnap_networks(client)
-        container_veths = self._scrape_container_veths()
+        # TODO: get options list from status server
+        dovesnap_args = self._get_container_args(client.inspect_container(dovesnap['Id']))
+        # TODO: poll OVS from other hosts.
         patch_veths = self._scrape_patch_veths()
         all_port_desc = self._scrape_all_bridge_ports()
         unresolved_links = []
         network_id_name = {}
-        for network in networks:
-            network_id = network['Id']
-            network_name = network['Name']
-            network = client.inspect_network(network_id)
-            bridgename = self._dovesnap_bridgename(network_id)
+        for network_id, network in networks_json.items():
+            network_name = network['NetworkName']
+            bridgename = network['BridgeName']
+            mode = network['Mode']
+            network_inspect = client.inspect_network(network_id)
             options = ['%s: %s' % (option.split('.')[-1], optionval)
-                for option, optionval in network['Options'].items()]
-            network_label = '\n'.join([network_name, bridgename] + options)
+                for option, optionval in network_inspect['Options'].items()]
             network_id_name[bridgename] = network_id
-            dot.node(network_id, network_label)
+            nodes[network_id] = [network_name, bridgename] + options
             container_ports = set()
-            for container_id, container in network['Containers'].items():
+            for container in network['Containers'].values():
+                container_id = container['Id']
                 container_name = container['Name']
-                container_inspect = client.inspect_container(container_id)
-                for ifname, mac, iflink, peeriflink in self._scrape_container_iface(container_id):
-                    if peeriflink in container_veths:
-                        br_ifname, _ = container_veths[peeriflink]
-                        labels = ['%s: %s' % (label.split('.')[-1], labelval)
-                            for label, labelval in container_inspect['Config']['Labels'].items()]
-                        host_label = [container_name, "", "Container", ifname, mac]
-                        ip = self._scrape_container_ip(container_id, iflink)
-                        if ip:
-                            host_label.append(ip)
-                        host_label.extend(labels)
-                        ofport = all_port_desc[bridgename][br_ifname]
-                        container_ports.add(ofport)
-                        edge_label = '%u' % ofport
-                        dot.node(container_id, '\n'.join(host_label))
-                        dot.edge(network_id, container_id, edge_label)
-                        break
-            mode = self._get_network_mode(network)
+                ip = container.get('HostIP', None)
+                mac = container['MacAddress']
+                ofport = container['OFPort']
+                labels = container['Labels']
+                # TODO: need inside-container eth name from status server
+                ifname = 'eth0'
+                display_labels = ['%s: %s' % (label.split('.')[-1], labelval)
+                    for label, labelval in labels.items()]
+                host_label = [container_name, '', 'Container', ifname, mac]
+                if ip:
+                    host_label.append(ip)
+                host_label.extend(display_labels)
+                container_ports.add(ofport)
+                nodes[container_id] = host_label
+                edges.append((network_id, container_id, [ofport]))
             for br_desc, ofport in all_port_desc[bridgename].items():
                 if ofport in container_ports:
                     continue
                 if ofport == self.OFP_LOCAL:
                     if mode == 'nat':
-                        dot.edge(network_id, 'NAT')
+                        edges.append((network_id, 'NAT', [self.OFP_LOCAL]))
                 elif br_desc in patch_veths:
                     unresolved_links.append((bridgename, br_desc, ofport))
                 else:
@@ -296,12 +280,12 @@ class GraphDovesnap:
                         vm_desc = self._scrape_vm_iface(br_desc)
                         vm_options = self._get_vm_options(
                             faucetconfrpc_client, network['Name'], ofport)
-                        vm_desc += '\n'+vm_options
-                        dot.node(br_desc, vm_desc)
+                        nodes[br_desc] = ['', vm_desc, vm_options]
                     else:
+                        # TODO: scrape external iface name and MAC from status server
                         external_desc = self._scrape_external_iface(br_desc)
-                        dot.node(br_desc, external_desc)
-                    dot.edge(network_id, br_desc, str(ofport))
+                        nodes[br_desc] = [external_desc]
+                    edges.append((network_id, br_desc, [ofport]))
 
         non_container_bridges = set()
 
@@ -312,7 +296,7 @@ class GraphDovesnap:
             for peer_bridgename, port_desc in all_port_desc.items():
                 if peer_br_desc in port_desc:
                     peer_ofport = port_desc[peer_br_desc]
-                    dot.edge(network_id, peer_bridgename, '%u : %u' % (ofport, peer_ofport))
+                    edges.append((network_id, peer_bridgename, [ofport, peer_ofport]))
                     if peer_bridgename not in network_id_name:
                         non_container_bridges.add(peer_bridgename)
                     break
@@ -325,14 +309,12 @@ class GraphDovesnap:
                 if br_desc in patch_veths:
                     continue
                 if br_desc == dovesnap_args.get('mirror_bridge_in', ''):
-                    dot.edge(br_desc, bridgename, str(ofport))
+                    edges.append((br_desc, bridgename, [ofport]))
                 else:
-                    dot.edge(bridgename, br_desc, str(ofport))
+                    edges.append((bridgename, br_desc, [ofport]))
 
-        dot.format = 'png'
-        dot.render(self.args.output)
-        # leave only PNG
-        os.remove(self.args.output)
+        self.output_graph(nodes, edges)
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -349,6 +331,8 @@ def main():
                         help='FaucetConfRPC server name')
     parser.add_argument('--output', '-o', default='dovesnapviz',
                         help='Output basename of image to write')
+    parser.add_argument('--status_addrs', '-u', default='localhost:9401',
+                        help='Command separated list of dovesnap status URLs to scrape')
     args = parser.parse_args()
     g = GraphDovesnap(args)
     g.build_graph()
