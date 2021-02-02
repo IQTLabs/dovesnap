@@ -23,18 +23,18 @@ func patchName(a string, b string) string {
 	return name
 }
 
-func parsePortDesc(output string, portDesc *map[uint32]string) {
+func parsePortDesc(output string, portDesc *map[OFPortType]string) {
 	ofportNumberDump := regexp.MustCompile(`^\s*(\d+)\((\S+)\).+$`)
 	for _, line := range strings.Split(string(output), "\n") {
 		match := ofportNumberDump.FindAllStringSubmatch(line, -1)
 		if len(match) > 0 {
 			ofport, _ := ParseUint32(match[0][1])
-			(*portDesc)[ofport] = match[0][2]
+			(*portDesc)[OFPortType(ofport)] = match[0][2]
 		}
 	}
 }
 
-func mustScrapePortDesc(bridgeName string, portDesc *map[uint32]string) {
+func mustScrapePortDesc(bridgeName string, portDesc *map[OFPortType]string) {
 	// Periodically OVS can falsely return:
 	// "FAILED: [dump-ports-desc ovsbr-508ac], ovs-ofctl: ovsbr-508ac is not a bridge or a socket\n"
 	// Handle just this call with a backoff/retry.
@@ -49,7 +49,7 @@ func mustScrapePortDesc(bridgeName string, portDesc *map[uint32]string) {
 	panic(err)
 }
 
-func scrapePortDesc(bridgeName string, portDesc *map[uint32]string) error {
+func scrapePortDesc(bridgeName string, portDesc *map[OFPortType]string) error {
 	output, err := OfCtl("dump-ports-desc", bridgeName)
 	if err != nil {
 		return err
@@ -58,8 +58,8 @@ func scrapePortDesc(bridgeName string, portDesc *map[uint32]string) error {
 	return nil
 }
 
-func (ovsdber *ovsdber) mustLowestFreePortOnBridge(bridgeName string) uint32 {
-	portDesc := make(map[uint32]string)
+func (ovsdber *ovsdber) mustLowestFreePortOnBridge(bridgeName string) OFPortType {
+	portDesc := make(map[OFPortType]string)
 	mustScrapePortDesc(bridgeName, &portDesc)
 	existingOfPorts := []int{}
 	for ofport, _ := range portDesc {
@@ -74,10 +74,10 @@ func (ovsdber *ovsdber) mustLowestFreePortOnBridge(bridgeName string) uint32 {
 		}
 		intLowestFreePort++
 	}
-	return uint32(intLowestFreePort)
+	return OFPortType(intLowestFreePort)
 }
 
-func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag uint) (uint32, string, error) {
+func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag uint) (OFPortType, string, error) {
 	lowestFreePort := ovsdber.mustLowestFreePortOnBridge(bridgeName)
 	if tag != 0 {
 		value, err := VsCtl("add-port", bridgeName, portName, fmt.Sprintf("tag=%u", tag), "--", "set", "Interface", portName, fmt.Sprintf("ofport_request=%d", lowestFreePort))
@@ -87,7 +87,7 @@ func (ovsdber *ovsdber) addInternalPort(bridgeName string, portName string, tag 
 	return lowestFreePort, value, err
 }
 
-func (ovsdber *ovsdber) mustAddInternalPort(bridgeName string, portName string, tag uint) (uint32, string) {
+func (ovsdber *ovsdber) mustAddInternalPort(bridgeName string, portName string, tag uint) (OFPortType, string) {
 	lowestFreePort, value, err := ovsdber.addInternalPort(bridgeName, portName, tag)
 	if err != nil {
 		panic(err)
@@ -95,7 +95,7 @@ func (ovsdber *ovsdber) mustAddInternalPort(bridgeName string, portName string, 
 	return lowestFreePort, value
 }
 
-func (ovsdber *ovsdber) mustAddPatchPort(bridgeName string, bridgeNamePeer string, port uint32, portPeer uint32) (uint32, uint32) {
+func (ovsdber *ovsdber) mustAddPatchPort(bridgeName string, bridgeNamePeer string, port OFPortType, portPeer OFPortType) (OFPortType, OFPortType) {
 	if port == 0 {
 		port = ovsdber.mustLowestFreePortOnBridge(bridgeName)
 	}
@@ -141,13 +141,12 @@ func (ovsdber *ovsdber) mustDeletePort(bridgeName string, portName string) {
 	mustVsCtl("del-port", bridgeName, portName)
 }
 
-func (ovsdber *ovsdber) mustGetOfPortNumber(portName string) uint32 {
-	ofport := mustVsCtl("get", "Interface", portName, "ofport")
-	ofportNum, err := ParseUint32(ofport)
+func (ovsdber *ovsdber) mustGetOfPort(portName string) OFPortType {
+	ofPort, err := ParseUint32(mustVsCtl("get", "Interface", portName, "ofport"))
 	if err != nil {
 		panic(err)
 	}
-	return ofportNum
+	return OFPortType(ofPort)
 }
 
 func (ovsdber *ovsdber) addVxlanPort(bridgeName string, portName string, peerAddress string) (string, error) {

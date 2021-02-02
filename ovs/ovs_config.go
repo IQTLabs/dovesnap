@@ -46,17 +46,17 @@ const (
 	modeFlat = "flat"
 	modeNAT  = "nat"
 
-	bridgePrefix             = "ovsbr-"
-	containerEthName         = "eth"
-	mirrorBridgeName         = "mirrorbr"
-	netNsPath                = "/var/run/netns"
-	ofPortLocal       uint32 = 4294967294
-	ovsPortPrefix            = "ovs-veth0-"
-	patchPrefix              = "ovp"
-	peerOvsPortPrefix        = "ethc"
-	stackDpidPrefix          = "0x0E0F00"
-	ovsStartupRetries        = 5
-	dockerRetries            = 3
+	bridgePrefix                 = "ovsbr-"
+	containerEthName             = "eth"
+	mirrorBridgeName             = "mirrorbr"
+	netNsPath                    = "/var/run/netns"
+	ofPortLocal       OFPortType = 4294967294
+	ovsPortPrefix                = "ovs-veth0-"
+	patchPrefix                  = "ovp"
+	peerOvsPortPrefix            = "ethc"
+	stackDpidPrefix              = "0x0E0F00"
+	ovsStartupRetries            = 5
+	dockerRetries                = 3
 )
 
 var (
@@ -67,10 +67,18 @@ var (
 )
 
 type StackMirrorConfig struct {
-	LbPort           uint32
-	TunnelVid        uint32
+	LbPort           OFPortType
+	TunnelVid        OFVidType
 	RemoteDpName     string
-	RemoteMirrorPort uint32
+	RemoteMirrorPort OFPortType
+}
+
+func makeDynamicNetworkState() DynamicNetworkState {
+	return DynamicNetworkState{
+		Containers:       make(map[string]ContainerState),
+		ExternalPorts:    make(map[string]ExternalPortState),
+		OtherBridgePorts: make(map[string]OtherBridgePortState),
+	}
 }
 
 func mustGetInternalOption(r *networkplugin.CreateNetworkRequest) bool {
@@ -218,15 +226,15 @@ func truncateID(id string) string {
 	return id[:5]
 }
 
-func (d *Driver) mustGetStackBridgeLink() (string, uint32) {
-	return d.stackMirrorInterface[0], uint32(defaultUint(d.stackMirrorInterface[1], 0))
+func (d *Driver) mustGetStackBridgeLink() (string, OFPortType) {
+	return d.stackMirrorInterface[0], OFPortType(defaultUint(d.stackMirrorInterface[1], 0))
 }
 
 func (d *Driver) getStackMirrorConfig(r *networkplugin.CreateNetworkRequest) StackMirrorConfig {
 	lbPort := mustGetLbPort(r)
 	var tunnelVid uint = 0
 	remoteDpName := ""
-	var mirrorPort uint32 = 0
+	var mirrorPort OFPortType = 0
 
 	if usingStackMirroring(d) {
 		tunnelVid = mustGetTunnelVid(r)
@@ -234,10 +242,10 @@ func (d *Driver) getStackMirrorConfig(r *networkplugin.CreateNetworkRequest) Sta
 	}
 
 	return StackMirrorConfig{
-		LbPort:           uint32(lbPort),
-		TunnelVid:        uint32(tunnelVid),
+		LbPort:           OFPortType(lbPort),
+		TunnelVid:        OFVidType(tunnelVid),
 		RemoteDpName:     remoteDpName,
-		RemoteMirrorPort: uint32(mirrorPort),
+		RemoteMirrorPort: OFPortType(mirrorPort),
 	}
 }
 
@@ -261,12 +269,20 @@ func (d *Driver) getStackDP() (string, string, error) {
 	return dpid, dpName, nil
 }
 
+func (d *Driver) mustGetStackDPName() string {
+	_, stackDpName, err := d.getStackDP()
+	if err != nil {
+		panic(err)
+	}
+	return stackDpName
+}
+
 func (d *Driver) mustGetLoopbackDP() string {
 	engineId, _ := d.getShortEngineID()
 	return "lb" + engineId
 }
 
-func (d *Driver) mustGetStackingInterface(stackingInterface string) (string, uint32, string) {
+func (d *Driver) mustGetStackingInterface(stackingInterface string) (string, OFPortType, string) {
 	stackSlice := strings.Split(stackingInterface, ":")
 	remoteDP := stackSlice[0]
 	remotePort, err := ParseUint32(stackSlice[1])
@@ -277,7 +293,7 @@ func (d *Driver) mustGetStackingInterface(stackingInterface string) (string, uin
 	if err != nil {
 		panic(fmt.Errorf("Unable to convert local port to an unsigned integer because: [ %s ]", err))
 	}
-	return remoteDP, uint32(remotePort), localInterface
+	return remoteDP, OFPortType(remotePort), localInterface
 }
 
 func (d *Driver) mustGetStackBridgeConfig() (string, string, uint64, string) {
@@ -344,26 +360,25 @@ func getNetworkStateFromResource(r *types.NetworkResource) (NetworkState, error)
 	dpid, uintDpid := mustGetBridgeDpidFromResource(r)
 	gateway, mask := getGatewayFromResource(r)
 	ns = NetworkState{
-		NetworkName:       r.Name,
-		BridgeName:        mustGetBridgeNameFromResource(r),
-		BridgeDpid:        dpid,
-		BridgeDpidUint:    uintDpid,
-		BridgeVLAN:        getUintOptionFromResource(r, vlanOption, defaultVLAN),
-		MTU:               getUintOptionFromResource(r, mtuOption, defaultMTU),
-		Mode:              getStrOptionFromResource(r, modeOption, defaultMode),
-		FlatBindInterface: getStrOptionFromResource(r, bindInterfaceOption, ""),
-		AddPorts:          getStrOptionFromResource(r, bridgeAddPorts, ""),
-		AddCoproPorts:     getStrOptionFromResource(r, bridgeAddCoproPorts, ""),
-		UseDHCP:           parseBool(getStrOptionFromResource(r, dhcpOption, "")),
-		Userspace:         parseBool(getStrOptionFromResource(r, userspaceOption, "")),
-		Gateway:           gateway,
-		GatewayMask:       mask,
-		NATAcl:            getStrOptionFromResource(r, NATAclOption, ""),
-		OvsLocalMac:       getStrOptionFromResource(r, ovsLocalMacOption, ""),
-		Controller:        getStrOptionFromResource(r, bridgeController, ""),
-		Containers:        make(map[string]ContainerState),
-		ExternalPorts:     make(map[string]ExternalPortState),
-		VLANOutAcl:        getStrOptionFromResource(r, vlanOutAclOption, ""),
+		NetworkName:          r.Name,
+		BridgeName:           mustGetBridgeNameFromResource(r),
+		BridgeDpid:           dpid,
+		BridgeDpidUint:       uintDpid,
+		BridgeVLAN:           getUintOptionFromResource(r, vlanOption, defaultVLAN),
+		MTU:                  getUintOptionFromResource(r, mtuOption, defaultMTU),
+		Mode:                 getStrOptionFromResource(r, modeOption, defaultMode),
+		FlatBindInterface:    getStrOptionFromResource(r, bindInterfaceOption, ""),
+		AddPorts:             getStrOptionFromResource(r, bridgeAddPorts, ""),
+		AddCoproPorts:        getStrOptionFromResource(r, bridgeAddCoproPorts, ""),
+		UseDHCP:              parseBool(getStrOptionFromResource(r, dhcpOption, "")),
+		Userspace:            parseBool(getStrOptionFromResource(r, userspaceOption, "")),
+		Gateway:              gateway,
+		GatewayMask:          mask,
+		NATAcl:               getStrOptionFromResource(r, NATAclOption, ""),
+		VLANOutAcl:           getStrOptionFromResource(r, vlanOutAclOption, ""),
+		OvsLocalMac:          getStrOptionFromResource(r, ovsLocalMacOption, ""),
+		Controller:           getStrOptionFromResource(r, bridgeController, ""),
+		DynamicNetworkStates: makeDynamicNetworkState(),
 	}
 	return ns, err
 }
@@ -372,7 +387,7 @@ func (d *Driver) getStackMirrorConfigFromResource(r *types.NetworkResource) Stac
 	lbPort := getUintOptionFromResource(r, bridgeLbPort, defaultLbPort)
 	var tunnelVid uint = 0
 	remoteDpName := ""
-	var mirrorPort uint32 = 0
+	var mirrorPort OFPortType = 0
 
 	if usingStackMirroring(d) {
 		vlan := getUintOptionFromResource(r, vlanOption, defaultVLAN)
@@ -381,9 +396,9 @@ func (d *Driver) getStackMirrorConfigFromResource(r *types.NetworkResource) Stac
 	}
 
 	return StackMirrorConfig{
-		LbPort:           uint32(lbPort),
-		TunnelVid:        uint32(tunnelVid),
+		LbPort:           OFPortType(lbPort),
+		TunnelVid:        OFVidType(tunnelVid),
 		RemoteDpName:     remoteDpName,
-		RemoteMirrorPort: uint32(mirrorPort),
+		RemoteMirrorPort: OFPortType(mirrorPort),
 	}
 }
