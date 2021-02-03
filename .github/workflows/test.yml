@@ -7,12 +7,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Docker Login
+      env:
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_TOKEN }}
+      run: |
+        echo "${DOCKER_PASSWORD}" | docker login --username "${{ secrets.DOCKER_USERNAME }}" --password-stdin
     - name: go format
       run: ./tests/codecheck.sh
   standalone_noconfig_int_test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Docker Login
+      env:
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_TOKEN }}
+      run: |
+        echo "${DOCKER_PASSWORD}" | docker login --username "${{ secrets.DOCKER_USERNAME }}" --password-stdin
     - name: standalone_int_test
       run: |
         ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_standalone_noconfig.sh
@@ -20,6 +30,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Docker Login
+      env:
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_TOKEN }}
+      run: |
+        echo "${DOCKER_PASSWORD}" | docker login --username "${{ secrets.DOCKER_USERNAME }}" --password-stdin
     - name: standalone_int_test
       run: |
         ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_standalone.sh
@@ -27,6 +42,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Docker Login
+      env:
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_TOKEN }}
+      run: |
+        echo "${DOCKER_PASSWORD}" | docker login --username "${{ secrets.DOCKER_USERNAME }}" --password-stdin
     - name: stack_int_test
       run: |
         ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_stack.sh
@@ -34,6 +54,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Docker Login
+      env:
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_TOKEN }}
+      run: |
+        echo "${DOCKER_PASSWORD}" | docker login --username "${{ secrets.DOCKER_USERNAME }}" --password-stdin
     - name: mirrorbridge_int_test
       run: |
         ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_mirrorbridge.sh
@@ -41,6 +66,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Docker Login
+      env:
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_TOKEN }}
+      run: |
+        echo "${DOCKER_PASSWORD}" | docker login --username "${{ secrets.DOCKER_USERNAME }}" --password-stdin
     - name: mirrorbridge_int_test
       run: |
         ./tests/install_test.sh && ./tests/test_dovesnap_dhcp.sh
