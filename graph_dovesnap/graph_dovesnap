@@ -18,11 +18,8 @@ class GraphDovesnapException(Exception):
 class GraphDovesnap:
 
     DOVESNAP_NAME = 'dovesnap_plugin'
-    OVS_NAME = 'dovesnap_ovs'
-    DRIVER_NAME = 'ovs'
     OFP_LOCAL = 4294967294
     DOCKER_URL = 'unix://var/run/docker.sock'
-    PATCH_PREFIX = 'ovp'
     VM_PREFIX = 'vnet'
     DOVESNAP_MIRROR = '99'
 
@@ -64,9 +61,6 @@ class GraphDovesnap:
         except (subprocess.CalledProcessError, FileNotFoundError):
             return []
 
-    def _scrape_ovs(self, cmd):
-        return self._scrape_container_cmd(self.OVS_NAME, cmd, strict=False)
-
     def _get_vm_options(self, faucetconfrpc_client, network, ofport):
         vm_options = []
         conf = faucetconfrpc_client.get_config_file()
@@ -81,14 +75,6 @@ class GraphDovesnap:
             if ofport in mirrored_ports:
                 vm_options.append('mirror: true')
         return '\n'.join(vm_options)
-
-    def _scrape_external_iface(self, name):
-        desc = [name, '', 'External Interface']
-        output = self._scrape_cmd(['ifconfig', name])
-        if output:
-            mac = output[1].split()[1]
-            desc.append(mac)
-        return '\n'.join(desc)
 
     def _network_lookup(self, name):
         output = self._scrape_cmd(['nslookup', name])
@@ -128,68 +114,6 @@ class GraphDovesnap:
                 matching_lines.append(match)
         return matching_lines
 
-    def _scrape_container_iface(self, container_id):
-        lines = self._scrape_container_cmd(
-            self.DOVESNAP_NAME, ['ip', 'netns', 'exec', container_id, 'ip', '-o', 'link', 'show'], strict=False)
-        results = []
-        if lines is not None:
-            matching_lines = self._get_matching_lines(
-                lines, r'^(\d+):\s+([^\@]+)\@if(\d+):.+link\/ether\s+(\S+).+$')
-            for match in matching_lines:
-                iflink = int(match[1])
-                ifname = match[2]
-                peeriflink = int(match[3])
-                mac = match[4]
-                results.append((ifname, mac, iflink, peeriflink))
-        return results
-
-    def _scrape_bridge_ports(self, bridgename):
-        lines = self._scrape_ovs(['ovs-ofctl', 'dump-ports-desc', bridgename])
-        port_desc = {}
-        if lines is not None:
-            matching_lines = self._get_matching_lines(
-                lines, r'^\s*(\d+|LOCAL)\((\S+)\).+$')
-            for match in matching_lines:
-                port = match[1]
-                desc = match[2]
-                if port == 'LOCAL':
-                    port = self.OFP_LOCAL
-                port = int(port)
-                port_desc[desc] = port
-        return port_desc
-
-    def _scrape_all_bridge_ports(self):
-        all_port_desc = {}
-        lines = self._scrape_ovs(['ovs-vsctl', 'list-br'])
-        if lines is not None:
-            matching_lines = self._get_matching_lines(
-                lines, r'^(\S+)$')
-            for match in matching_lines:
-                bridgename = match[0]
-                all_port_desc[bridgename] = self._scrape_bridge_ports(bridgename)
-        return all_port_desc
-
-    def _scrape_host_veth(self):
-        return self._scrape_cmd(['ip', '-o', 'link', 'show', 'type', 'veth'])
-
-    def _scrape_patch_veths(self):
-        patch_veths = {}
-        lines = self._scrape_host_veth()
-        if lines is not None:
-            matching_lines = self._get_matching_lines(
-                lines,
-                r'^\d+:\s+(%s[^\@]+)\@([^\:\s]+).+link\/ether\s+(\S+).+$' % self.PATCH_PREFIX)
-            for match in matching_lines:
-                ifname = match[1]
-                peerifname = match[2]
-                mac = match[3]
-                patch_veths[ifname] = (peerifname, mac)
-            assert len(patch_veths) % 2 == 0
-        return patch_veths
-
-    def _get_lb_port(self, network):
-        return network['Options'].get('ovs.bridge.lbport', self.DOVESNAP_MIRROR)
-
     def _get_container_args(self, container_inspect):
         args = {}
         for arg_str in container_inspect['Config']['Cmd']:
@@ -213,6 +137,13 @@ class GraphDovesnap:
         # leave only PNG
         os.remove(self.args.output)
 
+    def _format_labels(self, labels):
+        return ['%s: %s' % (label.split('.')[-1], labelval) for label, labelval in labels.items()]
+
+    def _scrape_network_options(self, client, network_id):
+        network_inspect = client.inspect_network(network_id)
+        return self._format_labels(network_inspect['Options'])
+
     def build_graph(self):
         networks_json = {}
         for status_addr in self.args.status_addrs.split(','):
@@ -232,86 +163,48 @@ class GraphDovesnap:
         nodes = {}
         edges = []
 
-        # TODO: get options list from status server
         dovesnap_args = self._get_container_args(client.inspect_container(dovesnap['Id']))
-        # TODO: poll OVS from other hosts.
-        patch_veths = self._scrape_patch_veths()
-        all_port_desc = self._scrape_all_bridge_ports()
-        unresolved_links = []
-        network_id_name = {}
         for network_id, network in networks_json.items():
             network_name = network['NetworkName']
             bridgename = network['BridgeName']
             mode = network['Mode']
-            network_inspect = client.inspect_network(network_id)
-            options = ['%s: %s' % (option.split('.')[-1], optionval)
-                for option, optionval in network_inspect['Options'].items()]
-            network_id_name[bridgename] = network_id
+            options = self._scrape_network_options(client, network_id)
             nodes[network_id] = [network_name, bridgename] + options
-            container_ports = set()
-            for container in network['Containers'].values():
+            dynamic_state = network['DynamicNetworkStates']
+            for container in dynamic_state['Containers'].values():
                 container_id = container['Id']
                 container_name = container['Name']
-                ip = container.get('HostIP', None)
-                mac = container['MacAddress']
-                ofport = container['OFPort']
                 labels = container['Labels']
-                # TODO: need inside-container eth name from status server
-                ifname = 'eth0'
-                display_labels = ['%s: %s' % (label.split('.')[-1], labelval)
-                    for label, labelval in labels.items()]
-                host_label = [container_name, '', 'Container', ifname, mac]
+                ifname = container['IfName']
+                macaddress = container['MacAddress']
+                ofport = container['OFPort']
+                ip = container.get('HostIP', None)
+                host_label = [container_name, '', 'Container', ifname, macaddress]
                 if ip:
                     host_label.append(ip)
-                host_label.extend(display_labels)
-                container_ports.add(ofport)
+                host_label.extend(self._format_labels(labels))
                 nodes[container_id] = host_label
                 edges.append((network_id, container_id, [ofport]))
-            for br_desc, ofport in all_port_desc[bridgename].items():
-                if ofport in container_ports:
-                    continue
+            for extifname, extif in dynamic_state['ExternalPorts'].items():
+                ofport = extif['OFPort']
                 if ofport == self.OFP_LOCAL:
                     if mode == 'nat':
                         edges.append((network_id, 'NAT', [self.OFP_LOCAL]))
-                elif br_desc in patch_veths:
-                    unresolved_links.append((bridgename, br_desc, ofport))
                 else:
-                    if br_desc.startswith(self.VM_PREFIX):
-                        vm_desc = self._scrape_vm_iface(br_desc)
+                    if extifname.startswith(self.VM_PREFIX):
+                        vm_desc = self._scrape_vm_iface(extifname)
                         vm_options = self._get_vm_options(
                             faucetconfrpc_client, network['Name'], ofport)
-                        nodes[br_desc] = ['', vm_desc, vm_options]
+                        nodes[extifname] = ['', vm_desc, vm_options]
                     else:
-                        # TODO: scrape external iface name and MAC from status server
-                        external_desc = self._scrape_external_iface(br_desc)
-                        nodes[br_desc] = [external_desc]
-                    edges.append((network_id, br_desc, [ofport]))
-
-        non_container_bridges = set()
-
-        # wire up links to non container bridges.
-        for bridgename, br_desc, ofport in unresolved_links:
-            network_id = network_id_name[bridgename]
-            peer_br_desc = patch_veths[br_desc][0]
-            for peer_bridgename, port_desc in all_port_desc.items():
-                if peer_br_desc in port_desc:
-                    peer_ofport = port_desc[peer_br_desc]
-                    edges.append((network_id, peer_bridgename, [ofport, peer_ofport]))
-                    if peer_bridgename not in network_id_name:
-                        non_container_bridges.add(peer_bridgename)
-                    break
-
-        # resolve any remaining ports, on non container bridges.
-        for bridgename in non_container_bridges:
-            for br_desc, ofport in all_port_desc[bridgename].items():
-                if ofport == self.OFP_LOCAL:
-                    continue
-                if br_desc in patch_veths:
-                    continue
-                if br_desc == dovesnap_args.get('mirror_bridge_in', ''):
-                    edges.append((br_desc, bridgename, [ofport]))
-                else:
-                    edges.append((bridgename, br_desc, [ofport]))
+                        macaddress = extif['MacAddress']
+                        nodes[extifname] = '\n'.join((extifname, '', 'External Interface', macaddress))
+                    edges.append((network_id, extifname, [ofport]))
+            for otherbrif in dynamic_state['OtherBridgePorts'].values():
+                ofport = otherbrif['OFPort']
+                peer_ofport = otherbrif['PeerOFPort']
+                peer_bridgename = otherbrif['PeerBridgeName']
+                edges.append((network_id, peer_bridgename, [ofport, peer_ofport]))
 
         self.output_graph(nodes, edges)
 

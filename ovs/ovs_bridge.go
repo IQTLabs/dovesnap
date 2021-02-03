@@ -80,7 +80,7 @@ func (ovsdber *ovsdber) makeLoopbackBridge(bridgeName string) (err error) {
 	return err
 }
 
-func (ovsdber *ovsdber) parseAddPorts(add_ports string, addPorts *map[string]uint32, addPortsAcls *map[uint32]string) {
+func (ovsdber *ovsdber) parseAddPorts(add_ports string, addPorts *map[string]OFPortType, addPortsAcls *map[OFPortType]string) {
 	if add_ports == "" {
 		return
 	}
@@ -94,9 +94,9 @@ func (ovsdber *ovsdber) parseAddPorts(add_ports string, addPorts *map[string]uin
 			if err != nil {
 				panic(err)
 			}
-			(*addPorts)[add_port] = port_no
+			(*addPorts)[add_port] = OFPortType(port_no)
 			if len(add_port_params) == 3 && addPortsAcls != nil {
-				(*addPortsAcls)[port_no] = add_port_params[2]
+				(*addPortsAcls)[OFPortType(port_no)] = add_port_params[2]
 			}
 		}
 	}
@@ -136,7 +136,7 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 	}
 
 	if add_ports != "" {
-		addPorts := make(map[string]uint32)
+		addPorts := make(map[string]OFPortType)
 		ovsdber.parseAddPorts(add_ports, &addPorts, nil)
 		for add_port, number := range addPorts {
 			if number > 0 {
