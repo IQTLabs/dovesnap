@@ -44,6 +44,8 @@ dps:
         0xfffffffe:
             native_vlan: 100
             opstatus_reconf: false
+            # TODO: workaround for FAUCET bug handling change of pipeline upon ACL change with stacking.
+            acls_in: [allowall]
     interface_ranges:
         2-10:
             native_vlan: 100
@@ -76,6 +78,8 @@ restart_wait_dovesnap
 echo creating testcon
 # github test runner can't use ping.
 docker pull busybox
+# TODO: wait for stack to come up before adding a tunnel. FAUCET can miss the mirror via tunnel request if it is made before the stack comes up.
+wait_stack_state 3 4
 docker run -d --label="dovesnap.faucet.portacl=ratelimitit" --label="dovesnap.faucet.mirror=true" --net=testnet --rm --name=testcon busybox sleep 1h
 RET=$?
 if [ "$RET" != "0" ] ; then
@@ -96,6 +100,8 @@ PACKETS=$(docker exec -t $OVSID ovs-ofctl dump-flows rootsw table=0,dl_vlan=356|
 echo $PACKETS
 if [ "$PACKETS" == "" ] ; then
         echo no packets were tunnelled
+        docker exec -t $OVSID ovs-ofctl dump-flows rootsw
+        docker exec -t $OVSID ovs-ofctl dump-flows $BRIDGE
         exit 1
 fi
 

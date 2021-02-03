@@ -100,19 +100,27 @@ This option sets the MAC address of OVS' "local" port on the switch.
 
 `-o ovs.bridge.add_ports=eno123/8`
 
-Dovesnap will connect `eno123` to the Docker network, and attempt to use OVS OFPort 8 (OVS will select another port number, if for some reason port 8 is already in use). You can specify more ports with commas. The OFPort specification is optional - if not present dovesnap will select the next free port number.
+Dovesnap will connect `eno123` to the Docker network, and attempt to use OVS OFPort 8 (OVS will select another port number, if for some reason port 8 is already in use). You can specify more ports with commas. The OFPort specification is optional - if not present dovesnap will select the next free port number. If specifying a port, you can also specify a third parameter - the ACL name to be applied to the port.
 
 ##### Adding a physical port for coprocessing
 
 `-o ovs.bridge.add_copro_ports=eno123/8`
 
-Dovesnap will connect `eno123` to the Docker network as a FAUCET coprocessor port, and attempt to use OVS OFPort 8 (OVS will select another port number, if for some reason port 8 is already in use). You can specify more ports with commas. The OFPort specification is optional - if not present dovesnap will select the next free port number.
+Dovesnap will connect `eno123` to the Docker network as a FAUCET coprocessor port, and attempt to use OVS OFPort 8 (OVS will select another port number, if for some reason port 8 is already in use). You can specify more ports with commas. The OFPort specification is optional - if not present dovesnap will select the next free port number. If specifying a port, you can also specify a third parameter - the ACL name to be applied to the port.
 
 ##### Specifying a specific VLAN to use
 
 `-o ovs.bridge.vlan=100`
 
 This adds the VLAN tag of 100 for the Docker network. The default is 100.
+
+#### Specifying an VLAN output ACL to use
+
+`-o vlanOutAclOption=allowall`
+
+This adds the output ACL `allowall` to the VLAN used on the docker network.
+
+NOTE: this enables use of Faucet's egress pipeline feature, which is currently experimental and works only on OVS.
 
 ##### Specifying a specific VLAN to use for the mirror tunnel
 

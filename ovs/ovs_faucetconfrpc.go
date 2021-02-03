@@ -86,9 +86,32 @@ func (c *faucetconfrpcer) mustSetFaucetConfigFile(config_yaml string) {
 	}
 }
 
-func (c *faucetconfrpcer) mustDeleteDpInterface(dpName string, ofport uint32) {
+func (c *faucetconfrpcer) mustSetPortAcl(dpName string, portNo OFPortType, acls string) {
+	req := &faucetconfserver.SetPortAclRequest{
+		DpName: dpName,
+		PortNo: uint32(portNo),
+		Acls:   acls,
+	}
+	_, err := c.client.SetPortAcl(context.Background(), req)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (c *faucetconfrpcer) mustSetVlanOutAcl(vlan_name string, acl_out string) {
+	req := &faucetconfserver.SetVlanOutAclRequest{
+		VlanName: vlan_name,
+		AclOut:   acl_out,
+	}
+	_, err := c.client.SetVlanOutAcl(context.Background(), req)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (c *faucetconfrpcer) mustDeleteDpInterface(dpName string, ofport OFPortType) {
 	interfaces := &faucetconfserver.InterfaceInfo{
-		PortNo: ofport,
+		PortNo: uint32(ofport),
 	}
 	interfacesConf := []*faucetconfserver.DpInfo{
 		{
@@ -124,11 +147,11 @@ func (c *faucetconfrpcer) mustDeleteDp(dpName string) {
 	}
 }
 
-func (c *faucetconfrpcer) mustAddPortMirror(dpName string, ofport uint32, mirrorofport uint32) {
+func (c *faucetconfrpcer) mustAddPortMirror(dpName string, ofport OFPortType, mirrorofport OFPortType) {
 	req := &faucetconfserver.AddPortMirrorRequest{
 		DpName:       dpName,
-		PortNo:       ofport,
-		MirrorPortNo: mirrorofport,
+		PortNo:       uint32(ofport),
+		MirrorPortNo: uint32(mirrorofport),
 	}
 	_, err := c.client.AddPortMirror(context.Background(), req)
 	if err != nil {
@@ -136,13 +159,13 @@ func (c *faucetconfrpcer) mustAddPortMirror(dpName string, ofport uint32, mirror
 	}
 }
 
-func (c *faucetconfrpcer) mustSetRemoteMirrorPort(dpName string, ofport uint32, vid uint32, remoteDpName string, remoteofport uint32) {
+func (c *faucetconfrpcer) mustSetRemoteMirrorPort(dpName string, ofport OFPortType, vid OFVidType, remoteDpName string, remoteofport OFPortType) {
 	req := &faucetconfserver.SetRemoteMirrorPortRequest{
 		DpName:       dpName,
-		PortNo:       ofport,
-		TunnelVid:    vid,
+		PortNo:       uint32(ofport),
+		TunnelVid:    uint32(vid),
 		RemoteDpName: remoteDpName,
-		RemotePortNo: remoteofport,
+		RemotePortNo: uint32(remoteofport),
 	}
 	_, err := c.client.SetRemoteMirrorPort(context.Background(), req)
 	if err != nil {
@@ -150,19 +173,35 @@ func (c *faucetconfrpcer) mustSetRemoteMirrorPort(dpName string, ofport uint32, 
 	}
 }
 
-func (c *faucetconfrpcer) coproInterfaceYaml(ofport uint32, description string, strategy string) string {
+func (c *faucetconfrpcer) coproInterfaceYaml(ofport OFPortType, description string, strategy string) string {
 	return fmt.Sprintf("%d: {description: %s, coprocessor: {strategy: %s}},", ofport, description, strategy)
 }
 
-func (c *faucetconfrpcer) vlanInterfaceYaml(ofport uint32, description string, vlan uint, acls_in string) string {
+func (c *faucetconfrpcer) vlanInterfaceYaml(ofport OFPortType, description string, vlan uint, acls_in string) string {
 	return fmt.Sprintf("%d: {description: %s, native_vlan: %d, acls_in: [%s]},", ofport, description, vlan, acls_in)
 }
 
-func (c *faucetconfrpcer) stackInterfaceYaml(ofport uint32, remoteDpName string, remoteOfport uint32) string {
+func (c *faucetconfrpcer) stackInterfaceYaml(ofport OFPortType, remoteDpName string, remoteOfport OFPortType) string {
 	return fmt.Sprintf("%d: {description: stack link to %s, stack: {dp: %s, port: %d}},", ofport, remoteDpName, remoteDpName, remoteOfport)
 }
 
-func (c *faucetconfrpcer) mergeInterfacesYaml(dpName string, uintDpid uint64, description string, addInterfaces string) string {
-	return fmt.Sprintf("{dps: {%s: {dp_id: %d, description: OVS Bridge %s, interfaces: {%s}}}}",
-		dpName, uintDpid, description, addInterfaces)
+func (c *faucetconfrpcer) mergeDpInterfacesMinimalYaml(dpName string, addInterfaces string) string {
+	return fmt.Sprintf("%s: {interfaces: {%s}},", dpName, addInterfaces)
+}
+
+func (c *faucetconfrpcer) mergeDpInterfacesYaml(dpName string, uintDpid uint64, description string, addInterfaces string, egressPipeline bool) string {
+	egressPipelineStr := "false"
+	if egressPipeline {
+		egressPipelineStr = "true"
+	}
+	return fmt.Sprintf("%s: {dp_id: %d, description: %s, hardware: %s, egress_pipeline: %s, interfaces: {%s}},",
+		dpName, uintDpid, description, "Open vSwitch", egressPipelineStr, addInterfaces)
+}
+
+func (c *faucetconfrpcer) mergeSingleDpMinimalYaml(dpName string, addInterfaces string) string {
+	return fmt.Sprintf("{dps: {%s}}", c.mergeDpInterfacesMinimalYaml(dpName, addInterfaces))
+}
+
+func (c *faucetconfrpcer) mergeSingleDpYaml(dpName string, uintDpid uint64, description string, addInterfaces string, egressPipeline bool) string {
+	return fmt.Sprintf("{dps: {%s}}", c.mergeDpInterfacesYaml(dpName, uintDpid, description, addInterfaces, egressPipeline))
 }
