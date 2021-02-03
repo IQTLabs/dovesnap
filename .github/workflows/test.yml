@@ -11,8 +11,9 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-      - name: go format
+      - name: Checkout repo
         uses: actions/checkout@v2
+      - name: go format
         run: ./tests/codecheck.sh
   standalone_noconfig_int_test:
     runs-on: ubuntu-latest
@@ -22,8 +23,9 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-      - name: standalone_noconfig_int_test
+      - name: Checkout repo
         uses: actions/checkout@v2
+      - name: standalone_noconfig_int_test
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_standalone_noconfig.sh
   standalone_int_test:
@@ -34,8 +36,9 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-      - name: standalone_int_test
+      - name: Checkout repo
         uses: actions/checkout@v2
+      - name: standalone_int_test
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_standalone.sh
   stack_int_test:
@@ -46,8 +49,9 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-      - name: stack_int_test
+      - name: Checkout repo
         uses: actions/checkout@v2
+      - name: stack_int_test
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_stack.sh
   mirrorbridge_int_test:
@@ -58,8 +62,9 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-      - name: mirrorbridge_int_test
+      - name: Checkout repo
         uses: actions/checkout@v2
+      - name: mirrorbridge_int_test
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_mirrorbridge.sh
   dhcp_int_test:
@@ -70,7 +75,8 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-      - name: dhcp_int_test
+      - name: Checkout repo
         uses: actions/checkout@v2
+      - name: dhcp_int_test
         run: |
           ./tests/install_test.sh && ./tests/test_dovesnap_dhcp.sh
