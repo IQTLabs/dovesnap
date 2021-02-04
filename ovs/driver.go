@@ -3,7 +3,9 @@ package ovs
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"os"
 	"os/exec"
 	"reflect"
 	"strings"
@@ -117,6 +119,7 @@ type Driver struct {
 	stackDefaultControllers string
 	mirrorBridgeIn          string
 	mirrorBridgeOut         string
+	lastDhcpMtime           time.Time
 	networks                map[string]NetworkState
 	dovesnapOpChan          chan DovesnapOp
 	notifyMsgChan           chan NotifyMsg
@@ -674,7 +677,9 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 		}
 	}
 
-	udhcpcCmd := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/udhcpc", "-f", "-R", "-i", defaultInterface)
+	udhcpcCmd := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/udhcpc", "-f", "-R", "-i", defaultInterface, "-s", "/udhcpclog.sh")
+	udhcpcCmd.Env = os.Environ()
+	udhcpcCmd.Env = append(udhcpcCmd.Env, fmt.Sprintf("CONTAINER_ID=%s", containerInspect.ID))
 	// TODO: If DHCP in use, need background process to obtain IP address.
 	if ns.UseDHCP {
 		err = udhcpcCmd.Start()
@@ -765,6 +770,33 @@ func mustHandleLeaveContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]O
 			"id":   containerMap.containerInspect.ID,
 			"port": fmt.Sprintf("%d", ofPort),
 		},
+	}
+}
+
+func reconcileDhcpIp(d *Driver) {
+	stat, err := os.Stat("/var/run/udhcpc.updated")
+	if err != nil {
+		return
+	}
+	mtime := stat.ModTime()
+	if mtime == d.lastDhcpMtime {
+		return
+	}
+	d.lastDhcpMtime = mtime
+	for _, ns := range d.networks {
+		if !ns.UseDHCP {
+			continue
+		}
+		for containerid, container := range ns.DynamicNetworkStates.Containers {
+			ipFile := fmt.Sprintf("/var/run/%s-ipv4.txt", container.Id)
+			content, err := ioutil.ReadFile(ipFile)
+			if err != nil {
+				continue
+			}
+			container.HostIP = strings.Trim(string(content), " \n")
+			ns.DynamicNetworkStates.Containers[containerid] = container
+			log.Infof("HostIP for %s updated: %s", container.Id, container.HostIP)
+		}
 	}
 }
 
@@ -871,9 +903,9 @@ func (d *Driver) resourceManager() {
 			default:
 				log.Errorf("Unknown resource manager message: %s", opMsg)
 			}
-		// TODO: also need a task to set slow container metadata (Eg. DHCP IP address)
 		case <-time.After(time.Second * 3):
 			reconcileOvs(d, &AllPortDesc)
+			reconcileDhcpIp(d)
 		}
 	}
 }
@@ -991,6 +1023,7 @@ func NewDriver(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName s
 		stackDefaultControllers: flagDefaultControllers,
 		mirrorBridgeIn:          flagMirrorBridgeIn,
 		mirrorBridgeOut:         flagMirrorBridgeOut,
+		lastDhcpMtime:           time.Unix(0, 0),
 		networks:                make(map[string]NetworkState),
 		dovesnapOpChan:          make(chan DovesnapOp, 2),
 		notifyMsgChan:           make(chan NotifyMsg, 2),
