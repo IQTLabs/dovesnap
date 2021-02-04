@@ -57,8 +57,10 @@ wait_mirror 1
 sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
 echo verifying networking
 wait_for_container_ip 100.64.0
+wait_for_status_container_ip 100.64.0
 docker restart testcon
 wait_for_container_ip 100.64.0
+wait_for_status_container_ip 100.64.0
 
 sudo kill $(cat $UCP)
 
