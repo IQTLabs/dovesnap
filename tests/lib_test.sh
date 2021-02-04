@@ -238,6 +238,24 @@ init_ovs ()
         docker exec -t $OVSID /bin/sh -c 'for i in `ovs-vsctl list-br` ; do ovs-vsctl del-br $i ; done' || exit 1
 }
 
+wait_for_container_ip ()
+{
+        i=0
+        IP=$1
+        OUT=""
+        while [ "$OUT" == "" ] && [ "$i" != 30 ] ; do
+                echo waiting for container IP: $i 
+                OUT=$(docker exec -t testcon ifconfig|grep "inet addr:$IP"|cat)
+                ((i=i+1))
+                sleep 1
+        done
+        if [ "$OUT" == "" ] ; then
+                echo No IP
+                exit 1
+        fi
+        echo $OUT
+}
+
 wait_for_pcap_match ()
 {
         i=0
