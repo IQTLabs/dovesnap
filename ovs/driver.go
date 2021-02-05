@@ -44,6 +44,7 @@ type OtherBridgePortState struct {
 }
 
 type DynamicNetworkState struct {
+	ShortEngineId    string
 	Containers       map[string]ContainerState
 	ExternalPorts    map[string]ExternalPortState
 	OtherBridgePorts map[string]OtherBridgePortState
@@ -307,7 +308,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		VLANOutAcl:           vlanOutAcl,
 		OvsLocalMac:          ovsLocalMac,
 		Controller:           controller,
-		DynamicNetworkStates: makeDynamicNetworkState(),
+		DynamicNetworkStates: makeDynamicNetworkState(d.shortEngineId),
 	}
 
 	// Validate add_ports/add_copro_ports if present.
@@ -502,7 +503,7 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 
 	log.Debugf("network ID: %s", opMsg.NetworkID)
 	netInspect := d.dockerer.mustGetNetworkInspectFromID(opMsg.NetworkID)
-	inspectNs, err := getNetworkStateFromResource(&netInspect)
+	inspectNs, err := getNetworkStateFromResource(&netInspect, d.shortEngineId)
 	if err != nil {
 		panic(err)
 	}
@@ -942,7 +943,7 @@ func (d *Driver) restoreNetworks() {
 	netlist := d.dockerer.mustGetNetworkList()
 	for id, _ := range netlist {
 		netInspect := d.dockerer.mustGetNetworkInspectFromID(id)
-		ns, err := getNetworkStateFromResource(&netInspect)
+		ns, err := getNetworkStateFromResource(&netInspect, d.shortEngineId)
 		if err != nil {
 			panic(err)
 		}
