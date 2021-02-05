@@ -220,24 +220,25 @@ class GraphDovesnap:
                         edges.append((' '.join((engine_id, mirror_in)), peer_bridgename, [mirror_in]))
                     if mirror_out:
                         edges.append((peer_bridgename, ' '.join((engine_id, mirror_out)), [mirror_out]))
-            stack_links = set()
-            for dp, dp_conf in faucet_conf.get('dps', {}).items():
-                network_id = network_name_id.get(dp, None)
-                if network_id:
-                    continue
-                for interface, interface_conf in dp_conf.get('interfaces', {}).items():
-                    stack_conf = interface_conf.get('stack', None)
-                    if stack_conf:
-                        stack_dp = stack_conf['dp']
-                        stack_port = stack_conf['port']
-                        peer_network_id = network_name_id.get(stack_dp, stack_dp)
-                        if peer_network_id in nodes:
-                            continue
-                        stack_key = tuple(sorted([str(i) for i in (interface, stack_port, dp, peer_network_id)]))
-                        if stack_key in stack_links:
-                            continue
-                        stack_links.add(stack_key)
-                        edges.append((dp, peer_network_id, [interface, stack_port]))
+            if faucet_conf:
+                stack_links = set()
+                for dp, dp_conf in faucet_conf.get('dps', {}).items():
+                    network_id = network_name_id.get(dp, None)
+                    if network_id:
+                        continue
+                    for interface, interface_conf in dp_conf.get('interfaces', {}).items():
+                        stack_conf = interface_conf.get('stack', None)
+                        if stack_conf:
+                            stack_dp = stack_conf['dp']
+                            stack_port = stack_conf['port']
+                            peer_network_id = network_name_id.get(stack_dp, stack_dp)
+                            if peer_network_id in nodes:
+                                continue
+                            stack_key = tuple(sorted([str(i) for i in (interface, stack_port, dp, peer_network_id)]))
+                            if stack_key in stack_links:
+                                continue
+                            stack_links.add(stack_key)
+                            edges.append((dp, peer_network_id, [interface, stack_port]))
 
         self.output_graph(nodes, edges)
 
