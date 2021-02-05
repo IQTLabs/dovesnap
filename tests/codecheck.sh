@@ -8,5 +8,9 @@ if [ "$GOFMTOUT" != "" ] ; then
 	exit 1
 fi
 
+pip3 install -r codecheck-requirements.txt
+# pytype needs .py
+cp graph_dovesnap/graph_dovesnap /tmp/graph_dovesnap.py && pytype /tmp/graph_dovesnap.py && rm -f /tmp/graph_dovesnap.py
+
 echo ok
 exit 0

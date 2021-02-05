@@ -71,8 +71,9 @@ type StackMirrorConfig struct {
 	RemoteMirrorPort OFPortType
 }
 
-func makeDynamicNetworkState() DynamicNetworkState {
+func makeDynamicNetworkState(shortEngineId string) DynamicNetworkState {
 	return DynamicNetworkState{
+		ShortEngineId:    shortEngineId,
 		Containers:       make(map[string]ContainerState),
 		ExternalPorts:    make(map[string]ExternalPortState),
 		OtherBridgePorts: make(map[string]OtherBridgePortState),
@@ -326,7 +327,7 @@ func getGatewayFromResource(r *types.NetworkResource) (string, string) {
 	return "", ""
 }
 
-func getNetworkStateFromResource(r *types.NetworkResource) (NetworkState, error) {
+func getNetworkStateFromResource(r *types.NetworkResource, shortEngineId string) (NetworkState, error) {
 	var err error = nil
 	ns := NetworkState{}
 	defer func() {
@@ -355,7 +356,7 @@ func getNetworkStateFromResource(r *types.NetworkResource) (NetworkState, error)
 		VLANOutAcl:           getStrOptionFromResource(r, vlanOutAclOption, ""),
 		OvsLocalMac:          getStrOptionFromResource(r, ovsLocalMacOption, ""),
 		Controller:           getStrOptionFromResource(r, bridgeController, ""),
-		DynamicNetworkStates: makeDynamicNetworkState(),
+		DynamicNetworkStates: makeDynamicNetworkState(shortEngineId),
 	}
 	return ns, err
 }
