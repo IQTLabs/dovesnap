@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -130,6 +131,7 @@ type Driver struct {
 	dovesnapOpChan          chan DovesnapOp
 	notifyMsgChan           chan NotifyMsg
 	webResponseChan         chan string
+	authIPs                 []net.IPNet
 }
 
 func (d *Driver) createLoopbackBridge() error {
@@ -866,6 +868,32 @@ func reconcileOvs(d *Driver, allPortDesc *map[string]map[OFPortType]string) {
 	}
 }
 
+func getRemoteIp(r *http.Request) net.IP {
+	var possibleIPs = []string{r.Header.Get("X-REAL-IP"), r.Header.Get("X-FORWARDED-FOR"), r.RemoteAddr}
+	for _, possibleIP := range possibleIPs {
+		for _, hostPort := range strings.Split(possibleIP, ",") {
+			ip, _, err := net.SplitHostPort(hostPort)
+			if err != nil {
+				continue
+			}
+			netIP := net.ParseIP(ip)
+			if netIP != nil {
+				return netIP
+			}
+		}
+	}
+	return nil
+}
+
+func isAuthIP(requestIP net.IP, authIPs []net.IPNet) bool {
+	for _, authIP := range authIPs {
+		if authIP.Contains(requestIP) {
+			return true
+		}
+	}
+	return false
+}
+
 func mustHandleNetworks(d *Driver) {
 	encodedMsg, err := json.Marshal(d.networks)
 	if err != nil {
@@ -989,7 +1017,14 @@ func (d *Driver) getWebResponse(w http.ResponseWriter, operation string) {
 }
 
 func (d *Driver) handleNetworksWeb(w http.ResponseWriter, r *http.Request) {
-	d.getWebResponse(w, "networks")
+	remoteIP := getRemoteIp(r)
+	authIP := isAuthIP(remoteIP, d.authIPs)
+	log.Debugf(fmt.Sprintf("web request from %s, authorized %v", remoteIP, authIP))
+	if authIP {
+		d.getWebResponse(w, "networks")
+	} else {
+		fmt.Fprintf(w, "not authorized")
+	}
 }
 
 func (d *Driver) runWeb(port int) {
@@ -1000,7 +1035,7 @@ func (d *Driver) runWeb(port int) {
 	}
 }
 
-func NewDriver(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string, flagMirrorBridgeIn string, flagMirrorBridgeOut string, flagStatusServerPort int) *Driver {
+func NewDriver(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string, flagMirrorBridgeIn string, flagMirrorBridgeOut string, flagStatusServerPort int, flagStatusAuthIPs string) *Driver {
 	log.Infof("Initializing dovesnap")
 	ensureDirExists(netNsPath)
 
@@ -1027,6 +1062,14 @@ func NewDriver(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName s
 		dovesnapOpChan:          make(chan DovesnapOp, 2),
 		notifyMsgChan:           make(chan NotifyMsg, 2),
 		webResponseChan:         make(chan string, 2),
+	}
+
+	for _, authIP := range strings.Split(flagStatusAuthIPs, ",") {
+		_, ipnet, err := net.ParseCIDR(authIP)
+		if err != nil {
+			panic(err)
+		}
+		d.authIPs = append(d.authIPs, *ipnet)
 	}
 
 	d.dockerer.mustGetDockerClient()
