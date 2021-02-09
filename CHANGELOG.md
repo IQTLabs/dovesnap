@@ -1,3 +1,9 @@
+# v0.17.0 (2021-02-09)
+
+- Dovesnap populates status server with DHCP addresses for containers
+- graph script can generate a global view across multiple dovesnaps
+- Upgrade docker, pytype
+
 # v0.16.0 (2021-02-02)
 
 - retry failed dump-ports-desc calls
