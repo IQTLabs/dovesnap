@@ -37,6 +37,8 @@ func main() {
 		"mirror_bridge_out", "", "output interface from mirror bridge")
 	flagStatusServerPort := flag.Int(
 		"status_port", 9401, "port for status server")
+	flagStatusAuthIPs := flag.String(
+		"status_auth_ips", "127.0.0.0/8,::1/128", "list of authorized IPs for status server")
 	flag.Parse()
 	if *flagTrace {
 		log.SetLevel(log.TraceLevel)
@@ -54,7 +56,8 @@ func main() {
 		*flagDefaultControllers,
 		*flagMirrorBridgeIn,
 		*flagMirrorBridgeOut,
-		*flagStatusServerPort)
+		*flagStatusServerPort,
+		*flagStatusAuthIPs)
 	log.Infof("New Docker driver created")
 	h := network.NewHandler(d)
 	log.Infof("Getting ready to serve new Docker driver")
