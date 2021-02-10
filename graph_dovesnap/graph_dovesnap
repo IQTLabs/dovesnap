@@ -171,7 +171,11 @@ class GraphDovesnap:
             network_name = network['NetworkName']
             bridgename = network['BridgeName']
             mode = network['Mode']
-            options = self._scrape_network_options(client, network_id)
+            try:
+                options = self._scrape_network_options(client, network_id + 'x')
+            except docker.errors.NotFound:
+                # TODO: assume remote docker, fall back to TCP URL
+                options = []
             nodes[network_id] = [network_name, bridgename] + options
             dynamic_state = network['DynamicNetworkStates']
             engine_id = dynamic_state['ShortEngineId']
