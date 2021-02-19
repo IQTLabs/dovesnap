@@ -116,7 +116,7 @@ This adds the VLAN tag of 100 for the Docker network. The default is 100.
 
 #### Specifying an VLAN output ACL to use
 
-`-o vlanOutAclOption=allowall`
+`-o ovs.bridge.vlan_out_acl=allowall`
 
 This adds the output ACL `allowall` to the VLAN used on the docker network.
 
