@@ -156,6 +156,11 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 		}
 	}
 
+	if controller != "" {
+		// Delete default OVS switching flow(s)
+		mustOfCtl("del-flows", bridgeName)
+	}
+
 	// Bring the bridge up
 	err := interfaceUp(bridgeName)
 	if err != nil {
