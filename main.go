@@ -45,6 +45,9 @@ func main() {
 	} else if *flagDebug {
 		log.SetLevel(log.DebugLevel)
 	}
+	flag.VisitAll(func(f *flag.Flag) {
+		log.Infof("flag: %s: %s", f.Name, f.Value)
+	})
 	d := ovs.NewDriver(
 		*flagFaucetconfrpcClientName,
 		*flagFaucetconfrpcServerName,
