@@ -152,10 +152,11 @@ func (d *Driver) createMirrorBridge() {
 		log.Debugf("mirror bridge already exists")
 		return
 	}
-	log.Debugf("creating mirror bridge")
+	log.Debugf("creating mirror bridge with output interface %s", d.mirrorBridgeOut)
 	add_ports := d.mirrorBridgeOut
 	if len(d.mirrorBridgeIn) > 0 {
 		add_ports += "," + d.mirrorBridgeIn
+		log.Debugf("adding mirror bridge input from %s", d.mirrorBridgeIn)
 	}
 	err = d.ovsdber.createBridge(d.mirrorBridgeName, "", "", add_ports, true, false, "")
 	if err != nil {
