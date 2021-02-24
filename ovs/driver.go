@@ -134,6 +134,10 @@ type Driver struct {
 	authIPs                 []net.IPNet
 }
 
+const (
+	chanSize		= 10
+)
+
 func (d *Driver) createLoopbackBridge() error {
 	_, err := d.ovsdber.addBridgeExists(d.loopbackBridgeName)
 	if err != nil {
@@ -1060,9 +1064,9 @@ func NewDriver(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName s
 		lastDhcpMtime:           time.Unix(0, 0),
 		networks:                make(map[string]NetworkState),
 		stackMirrorConfigs:      make(map[string]StackMirrorConfig),
-		dovesnapOpChan:          make(chan DovesnapOp, 2),
-		notifyMsgChan:           make(chan NotifyMsg, 2),
-		webResponseChan:         make(chan string, 2),
+		dovesnapOpChan:          make(chan DovesnapOp, chanSize),
+		notifyMsgChan:           make(chan NotifyMsg, chanSize),
+		webResponseChan:         make(chan string, chanSize),
 	}
 
 	for _, authIP := range strings.Split(flagStatusAuthIPs, ",") {
