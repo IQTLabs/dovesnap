@@ -135,7 +135,7 @@ type Driver struct {
 }
 
 const (
-	chanSize		= 10
+	chanSize = 10
 )
 
 func (d *Driver) createLoopbackBridge() error {
