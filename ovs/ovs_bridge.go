@@ -60,7 +60,7 @@ func (ovsdber *ovsdber) mustDeleteBridge(bridgeName string) string {
 	return mustVsCtl("del-br", bridgeName)
 }
 
-func (ovsdber *ovsdber) makeMirrorBridge(bridgeName string, mirrorBridgeOutPort uint) {
+func (ovsdber *ovsdber) makeMirrorBridge(bridgeName string, mirrorBridgeOutPort OFPortType) {
 	mustOfCtl("del-flows", bridgeName)
 	mustOfCtl("add-flow", bridgeName, "priority=0,actions=drop")
 	mustOfCtl("add-flow", bridgeName, fmt.Sprintf("priority=1,actions=output:%d", mirrorBridgeOutPort))
