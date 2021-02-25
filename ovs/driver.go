@@ -162,7 +162,7 @@ func (d *Driver) createMirrorBridge() {
 	if err != nil {
 		panic(err)
 	}
-	d.ovsdber.makeMirrorBridge(d.mirrorBridgeName, 1)
+	d.ovsdber.makeMirrorBridge(d.mirrorBridgeName, d.ovsdber.mustGetOfPort(d.mirrorBridgeOut))
 }
 
 func (d *Driver) createStackingBridge() error {
