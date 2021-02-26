@@ -170,6 +170,10 @@ These options are supplied when starting a container.
 
 An ACL will be applied to the port associated with the container. The ACL must already exist in FAUCET (e.g. by adding it to `faucet.yaml`).
 
+If a container is connected to multiple dovesnap networks, it is possible to specify different ACLs per network:
+
+`--label="dovesnap.faucet.portacl=<networkname>:<aclname>/..."`
+
 #### Mirroring
 
 `--label="dovesnap.faucet.mirror=true"`
