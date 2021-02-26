@@ -1,3 +1,12 @@
+# v0.18.0 (2021-02-26)
+
+- Fix mirror bridge may not be initialized correctly due to port number assignment
+- Add network name specific mirror and ACL options
+- Fix deadlock between Dovesnap and Docker when creating a lot of containers
+- Delete all flows when creating a bridge to disable default switching
+- Log all CLI arguments for debugging
+- Upgrade docker, grafana, grpc, logrus, prometheus, pytype
+
 # v0.17.0 (2021-02-09)
 
 - Dovesnap populates status server with DHCP addresses for containers
