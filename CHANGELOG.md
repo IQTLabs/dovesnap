@@ -5,6 +5,7 @@
 - Fix deadlock between Dovesnap and Docker when creating a lot of containers
 - Delete all flows when creating a bridge to disable default switching
 - Log all CLI arguments for debugging
+- Upgrade OVS to 2.14.2
 - Upgrade docker, grafana, grpc, logrus, prometheus, pytype
 
 # v0.17.0 (2021-02-09)
