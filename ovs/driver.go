@@ -548,7 +548,8 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 	}
 	mode := opMsg.Mode
 	if mode == "nat" {
-		add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofPortLocal, "OVS Port for NAT", ns.BridgeVLAN, ns.NATAcl)
+		netAcl := getAclForNetwork(ns.NATAcl, ns.NetworkName)
+		add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofPortLocal, "OVS Port for NAT", ns.BridgeVLAN, netAcl)
 		ns.DynamicNetworkStates.ExternalPorts[inspectNs.BridgeName] = getExternalPortState(inspectNs.BridgeName, ofPortLocal)
 	}
 	if usingMirrorBridge(d) {
@@ -579,8 +580,9 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 		configYaml = fmt.Sprintf("{dps: {%s %s}}", localDpYaml, remoteDpYaml)
 	}
 	d.faucetconfrpcer.mustSetFaucetConfigFile(configYaml)
-	if ns.VLANOutAcl != "" {
-		d.faucetconfrpcer.mustSetVlanOutAcl(fmt.Sprintf("%d", ns.BridgeVLAN), ns.VLANOutAcl)
+	vlanOutAcl := getAclForNetwork(ns.VLANOutAcl, ns.NetworkName)
+	if vlanOutAcl != "" {
+		d.faucetconfrpcer.mustSetVlanOutAcl(fmt.Sprintf("%d", ns.BridgeVLAN), vlanOutAcl)
 	}
 	if usingStackMirroring(d) {
 		stackMirrorConfig := d.stackMirrorConfigs[opMsg.NetworkID]
@@ -593,7 +595,10 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 		)
 	}
 	for port_no, acls := range addPortsAcls {
-		d.faucetconfrpcer.mustSetPortAcl(ns.NetworkName, port_no, acls)
+		networkAcls := getAclForNetwork(acls, ns.NetworkName)
+		if networkAcls != "" {
+			d.faucetconfrpcer.mustSetPortAcl(ns.NetworkName, port_no, networkAcls)
+		}
 	}
 	d.notifyMsgChan <- NotifyMsg{
 		Type:         "NETWORK",
@@ -663,13 +668,16 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 		mustAddGatewayPortMap(ns.BridgeName, ipProto, gatewayIP, hostIP, hostPort, port)
 	}
 
-	portacl := ""
-	portacl, ok := containerInspect.Config.Labels["dovesnap.faucet.portacl"]
-	if ok && len(portacl) > 0 {
-		log.Infof("Set portacl %s on %s", portacl, containerInspect.Name)
+	portAcl := ""
+	portAcl, ok := containerInspect.Config.Labels["dovesnap.faucet.portacl"]
+	if ok && len(portAcl) > 0 {
+		portAcl = getAclForNetwork(portAcl, ns.NetworkName)
+		if portAcl != "" {
+			log.Infof("Set portacl %s on %s", portAcl, containerInspect.Name)
+		}
 	}
 	add_interfaces := d.faucetconfrpcer.vlanInterfaceYaml(
-		ofPort, fmt.Sprintf("%s %s", containerInspect.Name, truncateID(containerInspect.ID)), ns.BridgeVLAN, portacl)
+		ofPort, fmt.Sprintf("%s %s", containerInspect.Name, truncateID(containerInspect.ID)), ns.BridgeVLAN, portAcl)
 
 	d.faucetconfrpcer.mustSetFaucetConfigFile(d.faucetconfrpcer.mergeSingleDpMinimalYaml(
 		ns.NetworkName, add_interfaces))
