@@ -180,6 +180,10 @@ If a container is connected to multiple dovesnap networks, it is possible to spe
 
 The container's traffic (both sent and received) will be mirrored to a port on the bridge (see above).
 
+If a container is connected to multiple dovesnap networks, it is possible to specify different mirror options for each network:
+
+`--label="dovesnap.faucet.mirror=<networkname>:<true>/..."`
+
 #### MAC prefix
 
 `--label="dovesnap.faucet.mac_prefix=0e:99`

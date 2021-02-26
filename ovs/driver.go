@@ -683,7 +683,7 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 		ns.NetworkName, add_interfaces))
 
 	mirror, ok := containerInspect.Config.Labels["dovesnap.faucet.mirror"]
-	if ok && parseBool(mirror) {
+	if ok && parseBool(getStrForNetwork(mirror, ns.NetworkName)) {
 		log.Infof("Mirroring container %s", containerInspect.Name)
 		stackMirrorConfig := d.stackMirrorConfigs[opMsg.NetworkID]
 		if usingStackMirroring(d) || usingMirrorBridge(d) {
