@@ -548,7 +548,7 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 	}
 	mode := opMsg.Mode
 	if mode == "nat" {
-		netAcl := getAclForNetwork(ns.NATAcl, ns.NetworkName)
+		netAcl := getStrForNetwork(ns.NATAcl, ns.NetworkName)
 		add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofPortLocal, "OVS Port for NAT", ns.BridgeVLAN, netAcl)
 		ns.DynamicNetworkStates.ExternalPorts[inspectNs.BridgeName] = getExternalPortState(inspectNs.BridgeName, ofPortLocal)
 	}
@@ -580,7 +580,7 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 		configYaml = fmt.Sprintf("{dps: {%s %s}}", localDpYaml, remoteDpYaml)
 	}
 	d.faucetconfrpcer.mustSetFaucetConfigFile(configYaml)
-	vlanOutAcl := getAclForNetwork(ns.VLANOutAcl, ns.NetworkName)
+	vlanOutAcl := getStrForNetwork(ns.VLANOutAcl, ns.NetworkName)
 	if vlanOutAcl != "" {
 		d.faucetconfrpcer.mustSetVlanOutAcl(fmt.Sprintf("%d", ns.BridgeVLAN), vlanOutAcl)
 	}
@@ -595,7 +595,7 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 		)
 	}
 	for port_no, acls := range addPortsAcls {
-		networkAcls := getAclForNetwork(acls, ns.NetworkName)
+		networkAcls := getStrForNetwork(acls, ns.NetworkName)
 		if networkAcls != "" {
 			d.faucetconfrpcer.mustSetPortAcl(ns.NetworkName, port_no, networkAcls)
 		}
@@ -671,7 +671,7 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 	portAcl := ""
 	portAcl, ok := containerInspect.Config.Labels["dovesnap.faucet.portacl"]
 	if ok && len(portAcl) > 0 {
-		portAcl = getAclForNetwork(portAcl, ns.NetworkName)
+		portAcl = getStrForNetwork(portAcl, ns.NetworkName)
 		if portAcl != "" {
 			log.Infof("Set portacl %s on %s", portAcl, containerInspect.Name)
 		}
@@ -683,7 +683,7 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 		ns.NetworkName, add_interfaces))
 
 	mirror, ok := containerInspect.Config.Labels["dovesnap.faucet.mirror"]
-	if ok && parseBool(mirror) {
+	if ok && parseBool(getStrForNetwork(mirror, ns.NetworkName)) {
 		log.Infof("Mirroring container %s", containerInspect.Name)
 		stackMirrorConfig := d.stackMirrorConfigs[opMsg.NetworkID]
 		if usingStackMirroring(d) || usingMirrorBridge(d) {

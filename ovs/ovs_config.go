@@ -327,20 +327,20 @@ func getGatewayFromResource(r *types.NetworkResource) (string, string) {
 	return "", ""
 }
 
-func getAclForNetwork(aclsStr string, networkName string) string {
-	networkAcls := ""
-	networksAclsList := strings.Split(aclsStr, "/")
-	for _, networksAclsPairStr := range networksAclsList {
-		networkAclsPair := strings.Split(networksAclsPairStr, ":")
-		if len(networkAclsPair) == 1 {
-			networkAcls = networkAclsPair[0]
-		} else if len(networkAclsPair) == 2 {
-			if networkName == networkAclsPair[0] {
-				networkAcls = networkAclsPair[1]
+func getStrForNetwork(networkStr string, networkName string) string {
+	networkStrs := ""
+	networksStrsList := strings.Split(networkStr, "/")
+	for _, networksStrsPairStr := range networksStrsList {
+		networkStrsPair := strings.Split(networksStrsPairStr, ":")
+		if len(networkStrsPair) == 1 {
+			networkStrs = networkStrsPair[0]
+		} else if len(networkStrsPair) == 2 {
+			if networkName == networkStrsPair[0] {
+				networkStrs = networkStrsPair[1]
 			}
 		}
 	}
-	return networkAcls
+	return networkStrs
 }
 
 func getNetworkStateFromResource(r *types.NetworkResource, shortEngineId string) (NetworkState, error) {
