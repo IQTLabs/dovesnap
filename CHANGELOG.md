@@ -1,3 +1,8 @@
+# v0.19.0 (2021-03-05)
+
+- Use c65sdn faucet/gauge docker images
+- Upgrade pytype, docker, faucetconfrpc
+
 # v0.18.0 (2021-02-26)
 
 - Fix mirror bridge may not be initialized correctly due to port number assignment
