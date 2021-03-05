@@ -39,7 +39,7 @@ services:
       - faucetconfrpc
   faucetconfrpc:
     restart: always
-    image: 'iqtlabs/faucetconfrpc:v0.22.16'
+    image: 'iqtlabs/faucetconfrpc:v0.22.17'
     environment:
       PYTHONUNBUFFERED: '1'
     networks:
