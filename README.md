@@ -82,7 +82,7 @@ There are two `ovs.bridge.mode` modes, `flat` and `nat`. The default mode is `fl
 
 If NAT is in use, you can specify `-p <outside port>:<inside port>` when starting a container. dovesnap will provision a DNAT rule, via the network's gateway from the outside port to the inside port on that container. This mapping won't show up in `docker ps`, as dovesnap is not using docker-proxy.
 
-You can also specify an input ACL for the NAT port with `-o ovs.bridge.nat_acl=<acl>`
+You can also specify an input ACL for the NAT port with `-o ovs.bridge.nat_acl=<acl>`, and a default ACL for container ports with `-o ovs.bridge.default_acl=<acl>`.
 
 ##### Userspace mode
 
@@ -95,6 +95,8 @@ This requests a user space ("netdev"), rather than kernel space switch from OVS.
 `-o ovs.bridge.ovs_local_mac=0e:01:00:00:00:03`
 
 This option sets the MAC address of OVS' "local" port on the switch.
+
+You can set the MAC address on a container, with `docker run --mac-address <mac>` (https://docs.docker.com/engine/reference/run/#network-settings)
 
 ##### Adding a physical port/real VLAN
 

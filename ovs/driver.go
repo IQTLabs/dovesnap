@@ -68,6 +68,7 @@ type NetworkState struct {
 	Userspace            bool
 	NATAcl               string
 	VLANOutAcl           string
+	DefaultAcl           string
 	OvsLocalMac          string
 	Controller           string
 	DynamicNetworkStates DynamicNetworkState
@@ -280,6 +281,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 	natAcl := mustGetNATAcl(r)
 	ovsLocalMac := mustGetOvsLocalMac(r)
 	vlanOutAcl := mustGetBridgeVLANOutAcl(r)
+	defaultAcl := mustGetDefaultAcl(r)
 
 	if useDHCP {
 		if mode != "flat" {
@@ -313,6 +315,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		Userspace:            useUserspace,
 		NATAcl:               natAcl,
 		VLANOutAcl:           vlanOutAcl,
+		DefaultAcl:           defaultAcl,
 		OvsLocalMac:          ovsLocalMac,
 		Controller:           controller,
 		DynamicNetworkStates: makeDynamicNetworkState(d.shortEngineId),
@@ -328,6 +331,8 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 	if operation == "create" {
 		d.InitBridge(ns, stackMirrorConfig)
 	}
+
+	mustSetInterfaceMTU(ns.BridgeName, ns.MTU)
 
 	createMsg := DovesnapOp{
 		NewNetworkState:      ns,
@@ -670,10 +675,16 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 
 	portAcl := ""
 	portAcl, ok := containerInspect.Config.Labels["dovesnap.faucet.portacl"]
+	defaultAcl := ns.DefaultAcl
 	if ok && len(portAcl) > 0 {
 		portAcl = getStrForNetwork(portAcl, ns.NetworkName)
 		if portAcl != "" {
 			log.Infof("Set portacl %s on %s", portAcl, containerInspect.Name)
+		}
+	} else if len(defaultAcl) > 0 {
+		portAcl = getStrForNetwork(defaultAcl, ns.NetworkName)
+		if defaultAcl != "" {
+			log.Infof("set default portacl %s on %s", portAcl, containerInspect.Name)
 		}
 	}
 	add_interfaces := d.faucetconfrpcer.vlanInterfaceYaml(
