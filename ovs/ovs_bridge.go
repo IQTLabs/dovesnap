@@ -135,15 +135,14 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 		ovsConfigCmds = append(ovsConfigCmds, controllers)
 	}
 
-	if add_ports != "" {
-		addPorts := make(map[string]OFPortType)
-		ovsdber.parseAddPorts(add_ports, &addPorts, nil)
-		for add_port, number := range addPorts {
-			if number > 0 {
-				ovsConfigCmds = append(ovsConfigCmds, []string{"add-port", bridgeName, add_port, "--", "set", "Interface", add_port, fmt.Sprintf("ofport_request=%d", number)})
-			} else {
-				ovsConfigCmds = append(ovsConfigCmds, []string{"add-port", bridgeName, add_port})
-			}
+	addPorts := make(map[string]OFPortType)
+	ovsdber.parseAddPorts(add_ports, &addPorts, nil)
+
+	for add_port, number := range addPorts {
+		if number > 0 {
+			ovsConfigCmds = append(ovsConfigCmds, []string{"add-port", bridgeName, add_port, "--", "set", "Interface", add_port, fmt.Sprintf("ofport_request=%d", number)})
+		} else {
+			ovsConfigCmds = append(ovsConfigCmds, []string{"add-port", bridgeName, add_port})
 		}
 	}
 
@@ -161,10 +160,20 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 		mustOfCtl("del-flows", bridgeName)
 	}
 
+	for add_port, _ := range addPorts {
+		ofPort, err := d.getOfPort(add_port)
+		if err != nil {
+			log.Errorf("Cannot add port %s to %s", add_port, bridgeName)
+			// At least one add ports config failed, so delete the bridge.
+			VsCtl("del-br", bridgeName)
+			return err
+		}
+	}
+
 	// Bring the bridge up
 	err := interfaceUp(bridgeName)
 	if err != nil {
-		log.Warnf("Error enabling bridge: [ %s ]", err)
+		log.Errorf("Error enabling bridge: [ %s ]", err)
 		VsCtl("del-br", bridgeName)
 	}
 	return err

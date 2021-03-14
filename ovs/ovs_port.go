@@ -141,8 +141,16 @@ func (ovsdber *ovsdber) mustDeletePort(bridgeName string, portName string) {
 	mustVsCtl("del-port", bridgeName, portName)
 }
 
-func (ovsdber *ovsdber) mustGetOfPort(portName string) OFPortType {
+func (ovsdber *ovsdber) getOfPort(portName string) (uint32, error) {
 	ofPort, err := ParseUint32(mustVsCtl("get", "Interface", portName, "ofport"))
+	if err != nil {
+		return 0, err
+	}
+	return ofPort
+}
+
+func (ovsdber *ovsdber) mustGetOfPort(portName string) OFPortType {
+	ofPort, err := getOfPort(portName)
 	if err != nil {
 		panic(err)
 	}
