@@ -141,12 +141,20 @@ func (ovsdber *ovsdber) mustDeletePort(bridgeName string, portName string) {
 	mustVsCtl("del-port", bridgeName, portName)
 }
 
-func (ovsdber *ovsdber) mustGetOfPort(portName string) OFPortType {
+func (ovsdber *ovsdber) getOfPort(portName string) (OFPortType, error) {
 	ofPort, err := ParseUint32(mustVsCtl("get", "Interface", portName, "ofport"))
+	if err != nil {
+		return OFPortType(0), err
+	}
+	return OFPortType(ofPort), nil
+}
+
+func (ovsdber *ovsdber) mustGetOfPort(portName string) OFPortType {
+	ofPort, err := ovsdber.getOfPort(portName)
 	if err != nil {
 		panic(err)
 	}
-	return OFPortType(ofPort)
+	return ofPort
 }
 
 func (ovsdber *ovsdber) addVxlanPort(bridgeName string, portName string, peerAddress string) (string, error) {
