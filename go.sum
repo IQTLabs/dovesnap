@@ -60,8 +60,8 @@ github.com/google/go-cmp v0.5.2/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/
 github.com/google/uuid v1.1.2/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/gorilla/mux v1.8.0 h1:i40aqfkR1h2SlN9hojwV5ZA91wcXFOvkdNIeFDP5koI=
 github.com/gorilla/mux v1.8.0/go.mod h1:DVbg23sWSpFRCP0SfiEN6jmj59UnW/n46BH5rLB71So=
-github.com/iqtlabs/faucetconfrpc v0.22.17 h1:4A7iVOMEtCD5U5CodKacxBXrFRqhETzePUayiCTUtB0=
-github.com/iqtlabs/faucetconfrpc v0.22.17/go.mod h1:Ovi12f0sV1UrXzTXxdWYYJhZhs11LD03z1NYa9F9Fzc=
+github.com/iqtlabs/faucetconfrpc v0.22.18 h1:0nU4fTeLwZzzwqjGyUikHt9pbPCqUhIZ+LqL4Lkmveg=
+github.com/iqtlabs/faucetconfrpc v0.22.18/go.mod h1:Ovi12f0sV1UrXzTXxdWYYJhZhs11LD03z1NYa9F9Fzc=
 github.com/kenshaw/baseconv v0.1.0 h1:eZd+ZgNkU8jxjp/dTwAhPwI923cz1PE7ARRKUPXjZ5A=
 github.com/kenshaw/baseconv v0.1.0/go.mod h1:yy9zGmnnR6vgOxOQb702nVdAG30JhyYZpj/5/m0siRI=
 github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQLJ+jE2L00=
