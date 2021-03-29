@@ -490,6 +490,14 @@ func mustHandleDeleteNetwork(d *Driver, opMsg DovesnapOp) {
 		}
 	}
 
+	if ns.Mode == modeNAT {
+		gatewayIP := ns.Gateway + "/" + ns.GatewayMask
+		if err := natOut(gatewayIP, "-D"); err != nil {
+			log.Fatalf("Could not delete NAT rules for bridge %s because %v", ns.BridgeName, err)
+			panic(err)
+		}
+	}
+
 	d.mustDeleteBridge(ns.BridgeName)
 
 	delete(d.networks, opMsg.NetworkID)
