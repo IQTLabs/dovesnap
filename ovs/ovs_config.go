@@ -42,8 +42,9 @@ const (
 	defaultTunnelVLANOffset = 256
 	defaultVLAN             = 100
 
-	modeFlat = "flat"
-	modeNAT  = "nat"
+	modeFlat   = "flat"
+	modeNAT    = "nat"
+	modeRouted = "routed"
 
 	bridgePrefix                 = "ovsbr-"
 	containerEthName             = "eth"
@@ -60,8 +61,9 @@ const (
 
 var (
 	validModes = map[string]bool{
-		modeNAT:  true,
-		modeFlat: true,
+		modeNAT:    true,
+		modeFlat:   true,
+		modeRouted: true,
 	}
 )
 

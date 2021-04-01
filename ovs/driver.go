@@ -560,9 +560,9 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 		}
 	}
 	mode := opMsg.Mode
-	if mode == "nat" {
+	if mode == "nat" || mode == "routed" {
 		netAcl := getStrForNetwork(ns.NATAcl, ns.NetworkName)
-		add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofPortLocal, "OVS Port for NAT", ns.BridgeVLAN, netAcl)
+		add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofPortLocal, "OVS Port default gateway", ns.BridgeVLAN, netAcl)
 		ns.DynamicNetworkStates.ExternalPorts[inspectNs.BridgeName] = getExternalPortState(inspectNs.BridgeName, ofPortLocal)
 	}
 	if usingMirrorBridge(d) {
