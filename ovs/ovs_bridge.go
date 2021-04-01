@@ -188,32 +188,25 @@ func (d *Driver) initBridge(ns NetworkState, controller string, dpid string, add
 		log.Errorf("Error creating bridge: %s", err)
 		return err
 	}
-	bridgeMode := ns.Mode
-	switch bridgeMode {
-	case modeNAT:
-		{
-			gatewayIP := ns.Gateway + "/" + ns.GatewayMask
-			if err := setInterfaceIP(bridgeName, gatewayIP); err != nil {
-				log.Debugf("Error assigning address: %s on bridge: %s with an error of: %s", gatewayIP, bridgeName, err)
-			}
+	if ns.Mode == modeNAT || ns.Mode == modeRouted {
+		gatewayIP := ns.Gateway + "/" + ns.GatewayMask
+		if err := setInterfaceIP(bridgeName, gatewayIP); err != nil {
+			log.Debugf("Error assigning address: %s on bridge: %s with an error of: %s", gatewayIP, bridgeName, err)
+		}
 
-			// Validate that the IPAddress is there!
-			_, err := getIfaceAddr(bridgeName)
-			if err != nil {
-				log.Fatalf("No IP address found on bridge %s", bridgeName)
-				return err
-			}
+		// Validate that the IPAddress is there!
+		_, err := getIfaceAddr(bridgeName)
+		if err != nil {
+			log.Fatalf("No IP address found on bridge %s", bridgeName)
+			return err
+		}
 
-			// Add NAT rules for iptables
+		// Add NAT rules for iptables
+		if ns.Mode == modeNAT {
 			if err = natOut(gatewayIP, "-I"); err != nil {
 				log.Fatalf("Could not set NAT rules for bridge %s because %v", bridgeName, err)
 				return err
 			}
-		}
-
-	case modeFlat:
-		{
-			// NIC is already added to the bridge in createBridge
 		}
 	}
 	return nil

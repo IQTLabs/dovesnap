@@ -74,15 +74,17 @@ These options are supplied at `docker network create` time.
 
 ##### Bridge modes
 
-There are two `ovs.bridge.mode` modes, `flat` and `nat`. The default mode is `flat`.
+There are three `ovs.bridge.mode` modes, `flat`, `nat`, and `routed`. The default mode is `flat`.
 
-- `flat` causes dovesnap to provide connectivity only between containers on this docker network - not to other networks.
+- `flat` causes dovesnap to provide connectivity only between containers on this docker network - not to other networks (essentially, provide a VLAN - no routing).
 
-- `nat` causes dovesnap to provision NAT for the docker network.
+- `nat` causes dovesnap to provision a gateway, and NAT, for the docker network.
+
+- `routed` causes dovesnap to provision a gateway, for the docker network. An upstream network may provide NAT if needed.
 
 If NAT is in use, you can specify `-p <outside port>:<inside port>` when starting a container. dovesnap will provision a DNAT rule, via the network's gateway from the outside port to the inside port on that container. This mapping won't show up in `docker ps`, as dovesnap is not using docker-proxy.
 
-You can also specify an input ACL for the NAT port with `-o ovs.bridge.nat_acl=<acl>`, and a default ACL for container ports with `-o ovs.bridge.default_acl=<acl>`.
+You can also specify an input ACL for the gateway's port with `-o ovs.bridge.nat_acl=<acl>`, and a default ACL for container ports with `-o ovs.bridge.default_acl=<acl>`.
 
 ##### Userspace mode
 
