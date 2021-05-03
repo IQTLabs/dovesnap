@@ -1,3 +1,9 @@
+# v0.20.0 (2021-05-04)
+
+- Use c65sdn faucet/gauge docker images
+- Upgrade pytype, docker, faucetconfrpc, prometheus, grafana
+- Add routed mode
+
 # v0.19.0 (2021-03-05)
 
 - Use c65sdn faucet/gauge docker images
