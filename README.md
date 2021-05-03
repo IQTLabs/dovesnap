@@ -74,15 +74,17 @@ These options are supplied at `docker network create` time.
 
 ##### Bridge modes
 
-There are two `ovs.bridge.mode` modes, `flat` and `nat`. The default mode is `flat`.
+There are three `ovs.bridge.mode` modes, `flat`, `nat`, and `routed`. The default mode is `flat`.
 
-- `flat` causes dovesnap to provide connectivity only between containers on this docker network - not to other networks.
+- `flat` causes dovesnap to provide connectivity only between containers on this docker network - not to other networks (essentially, provide a VLAN - no routing).
 
-- `nat` causes dovesnap to provision NAT for the docker network.
+- `nat` causes dovesnap to provision a gateway, and NAT, for the docker network.
+
+- `routed` causes dovesnap to provision a gateway, for the docker network. An upstream network may provide NAT if needed.
 
 If NAT is in use, you can specify `-p <outside port>:<inside port>` when starting a container. dovesnap will provision a DNAT rule, via the network's gateway from the outside port to the inside port on that container. This mapping won't show up in `docker ps`, as dovesnap is not using docker-proxy.
 
-You can also specify an input ACL for the NAT port with `-o ovs.bridge.nat_acl=<acl>`
+You can also specify an input ACL for the gateway's port with `-o ovs.bridge.nat_acl=<acl>`, and a default ACL for container ports with `-o ovs.bridge.default_acl=<acl>`.
 
 ##### Userspace mode
 
@@ -95,6 +97,8 @@ This requests a user space ("netdev"), rather than kernel space switch from OVS.
 `-o ovs.bridge.ovs_local_mac=0e:01:00:00:00:03`
 
 This option sets the MAC address of OVS' "local" port on the switch.
+
+You can set the MAC address on a container, with `docker run --mac-address <mac>` (https://docs.docker.com/engine/reference/run/#network-settings)
 
 ##### Adding a physical port/real VLAN
 
@@ -116,7 +120,7 @@ This adds the VLAN tag of 100 for the Docker network. The default is 100.
 
 #### Specifying an VLAN output ACL to use
 
-`-o vlanOutAclOption=allowall`
+`-o ovs.bridge.vlan_out_acl=allowall`
 
 This adds the output ACL `allowall` to the VLAN used on the docker network.
 
@@ -170,11 +174,19 @@ These options are supplied when starting a container.
 
 An ACL will be applied to the port associated with the container. The ACL must already exist in FAUCET (e.g. by adding it to `faucet.yaml`).
 
+If a container is connected to multiple dovesnap networks, it is possible to specify different ACLs per network:
+
+`--label="dovesnap.faucet.portacl=<networkname>:<aclname>/..."`
+
 #### Mirroring
 
 `--label="dovesnap.faucet.mirror=true"`
 
 The container's traffic (both sent and received) will be mirrored to a port on the bridge (see above).
+
+If a container is connected to multiple dovesnap networks, it is possible to specify different mirror options for each network:
+
+`--label="dovesnap.faucet.mirror=<networkname>:<true>/..."`
 
 #### MAC prefix
 

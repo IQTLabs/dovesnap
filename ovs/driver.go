@@ -3,7 +3,10 @@ package ovs
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net"
 	"net/http"
+	"os"
 	"os/exec"
 	"reflect"
 	"strings"
@@ -42,6 +45,7 @@ type OtherBridgePortState struct {
 }
 
 type DynamicNetworkState struct {
+	ShortEngineId    string
 	Containers       map[string]ContainerState
 	ExternalPorts    map[string]ExternalPortState
 	OtherBridgePorts map[string]OtherBridgePortState
@@ -64,6 +68,7 @@ type NetworkState struct {
 	Userspace            bool
 	NATAcl               string
 	VLANOutAcl           string
+	DefaultAcl           string
 	OvsLocalMac          string
 	Controller           string
 	DynamicNetworkStates DynamicNetworkState
@@ -117,20 +122,29 @@ type Driver struct {
 	stackDefaultControllers string
 	mirrorBridgeIn          string
 	mirrorBridgeOut         string
+	lastDhcpMtime           time.Time
+	shortEngineId           string
+	mirrorBridgeName        string
+	loopbackBridgeName      string
+	stackDpName             string
 	networks                map[string]NetworkState
+	stackMirrorConfigs      map[string]StackMirrorConfig
 	dovesnapOpChan          chan DovesnapOp
 	notifyMsgChan           chan NotifyMsg
 	webResponseChan         chan string
-	stackMirrorConfigs      map[string]StackMirrorConfig
+	authIPs                 []net.IPNet
 }
 
+const (
+	chanSize = 10
+)
+
 func (d *Driver) createLoopbackBridge() error {
-	bridgeName := d.mustGetLoopbackDP()
-	_, err := d.ovsdber.addBridgeExists(bridgeName)
+	_, err := d.ovsdber.addBridgeExists(d.loopbackBridgeName)
 	if err != nil {
 		return err
 	}
-	err = d.ovsdber.makeLoopbackBridge(bridgeName)
+	err = d.ovsdber.makeLoopbackBridge(d.loopbackBridgeName)
 	if err != nil {
 		return err
 	}
@@ -138,21 +152,22 @@ func (d *Driver) createLoopbackBridge() error {
 }
 
 func (d *Driver) createMirrorBridge() {
-	_, err := d.ovsdber.bridgeExists(mirrorBridgeName)
+	_, err := d.ovsdber.bridgeExists(d.mirrorBridgeName)
 	if err == nil {
 		log.Debugf("mirror bridge already exists")
 		return
 	}
-	log.Debugf("creating mirror bridge")
+	log.Debugf("creating mirror bridge with output interface %s", d.mirrorBridgeOut)
 	add_ports := d.mirrorBridgeOut
 	if len(d.mirrorBridgeIn) > 0 {
 		add_ports += "," + d.mirrorBridgeIn
+		log.Debugf("adding mirror bridge input from %s", d.mirrorBridgeIn)
 	}
-	err = d.ovsdber.createBridge(mirrorBridgeName, "", "", add_ports, true, false, "")
+	err = d.ovsdber.createBridge(d.mirrorBridgeName, "", "", add_ports, true, false, "")
 	if err != nil {
 		panic(err)
 	}
-	d.ovsdber.makeMirrorBridge(mirrorBridgeName, 1)
+	d.ovsdber.makeMirrorBridge(d.mirrorBridgeName, d.ovsdber.mustGetOfPort(d.mirrorBridgeOut))
 }
 
 func (d *Driver) createStackingBridge() error {
@@ -223,19 +238,17 @@ func (d *Driver) InitBridge(ns NetworkState, sc StackMirrorConfig) {
 	}
 	if usingMirrorBridge(d) {
 		log.Debugf("configuring mirror bridge port for %s", ns.BridgeName)
-		d.mustAddPatchPort(ns.BridgeName, mirrorBridgeName, sc.LbPort, 0)
-		mirrorPortName := patchName(mirrorBridgeName, ns.BridgeName)
+		d.mustAddPatchPort(ns.BridgeName, d.mirrorBridgeName, sc.LbPort, 0)
+		mirrorPortName := patchName(d.mirrorBridgeName, ns.BridgeName)
 		mirrorOfPort := d.ovsdber.mustGetOfPort(mirrorPortName)
 		flowStr := fmt.Sprintf("priority=2,in_port=%d,dl_vlan=0xffff,actions=mod_vlan_vid:%d,output:1", mirrorOfPort, ns.BridgeVLAN)
-		mustOfCtl("add-flow", mirrorBridgeName, flowStr)
+		mustOfCtl("add-flow", d.mirrorBridgeName, flowStr)
 	}
 	if usingStacking(d) {
-		stackDpName := d.mustGetStackDPName()
-		d.mustAddPatchPort(ns.BridgeName, stackDpName, 0, 0)
+		d.mustAddPatchPort(ns.BridgeName, d.stackDpName, 0, 0)
 	}
 	if usingStackMirroring(d) {
-		lbBridgeName := d.mustGetLoopbackDP()
-		d.mustAddPatchPort(ns.BridgeName, lbBridgeName, sc.LbPort, 0)
+		d.mustAddPatchPort(ns.BridgeName, d.loopbackBridgeName, sc.LbPort, 0)
 	}
 }
 
@@ -268,6 +281,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 	natAcl := mustGetNATAcl(r)
 	ovsLocalMac := mustGetOvsLocalMac(r)
 	vlanOutAcl := mustGetBridgeVLANOutAcl(r)
+	defaultAcl := mustGetDefaultAcl(r)
 
 	if useDHCP {
 		if mode != "flat" {
@@ -301,9 +315,10 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		Userspace:            useUserspace,
 		NATAcl:               natAcl,
 		VLANOutAcl:           vlanOutAcl,
+		DefaultAcl:           defaultAcl,
 		OvsLocalMac:          ovsLocalMac,
 		Controller:           controller,
-		DynamicNetworkStates: makeDynamicNetworkState(),
+		DynamicNetworkStates: makeDynamicNetworkState(d.shortEngineId),
 	}
 
 	// Validate add_ports/add_copro_ports if present.
@@ -316,6 +331,8 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 	if operation == "create" {
 		d.InitBridge(ns, stackMirrorConfig)
 	}
+
+	mustSetInterfaceMTU(ns.BridgeName, ns.MTU)
 
 	createMsg := DovesnapOp{
 		NewNetworkState:      ns,
@@ -463,15 +480,21 @@ func mustHandleDeleteNetwork(d *Driver, opMsg DovesnapOp) {
 	d.faucetconfrpcer.mustDeleteDp(ns.NetworkName)
 
 	if usingMirrorBridge(d) {
-		d.mustDeletePatchPort(ns.BridgeName, mirrorBridgeName)
+		d.mustDeletePatchPort(ns.BridgeName, d.mirrorBridgeName)
 	}
 
 	if usingStacking(d) {
-		stackDpName := d.mustGetStackDPName()
-		d.mustDeletePatchPort(ns.BridgeName, stackDpName)
+		d.mustDeletePatchPort(ns.BridgeName, d.stackDpName)
 		if usingStackMirroring(d) {
-			lbBridgeName := d.mustGetLoopbackDP()
-			d.mustDeletePatchPort(ns.BridgeName, lbBridgeName)
+			d.mustDeletePatchPort(ns.BridgeName, d.loopbackBridgeName)
+		}
+	}
+
+	if ns.Mode == modeNAT {
+		gatewayIP := ns.Gateway + "/" + ns.GatewayMask
+		if err := natOut(gatewayIP, "-D"); err != nil {
+			log.Fatalf("Could not delete NAT rules for bridge %s because %v", ns.BridgeName, err)
+			panic(err)
 		}
 	}
 
@@ -500,7 +523,7 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 
 	log.Debugf("network ID: %s", opMsg.NetworkID)
 	netInspect := d.dockerer.mustGetNetworkInspectFromID(opMsg.NetworkID)
-	inspectNs, err := getNetworkStateFromResource(&netInspect)
+	inspectNs, err := getNetworkStateFromResource(&netInspect, d.shortEngineId)
 	if err != nil {
 		panic(err)
 	}
@@ -537,41 +560,42 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 		}
 	}
 	mode := opMsg.Mode
-	if mode == "nat" {
-		add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofPortLocal, "OVS Port for NAT", ns.BridgeVLAN, ns.NATAcl)
+	if mode == "nat" || mode == "routed" {
+		netAcl := getStrForNetwork(ns.NATAcl, ns.NetworkName)
+		add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofPortLocal, "OVS Port default gateway", ns.BridgeVLAN, netAcl)
 		ns.DynamicNetworkStates.ExternalPorts[inspectNs.BridgeName] = getExternalPortState(inspectNs.BridgeName, ofPortLocal)
 	}
 	if usingMirrorBridge(d) {
 		log.Debugf("configuring mirror bridge port for %s", ns.BridgeName)
 		stackMirrorConfig := d.stackMirrorConfigs[opMsg.NetworkID]
-		mirrorPortName := patchName(ns.BridgeName, mirrorBridgeName)
-		peerMirrorPortName := patchName(mirrorBridgeName, ns.BridgeName)
+		mirrorPortName := patchName(ns.BridgeName, d.mirrorBridgeName)
+		peerMirrorPortName := patchName(d.mirrorBridgeName, ns.BridgeName)
 		ofPort := stackMirrorConfig.LbPort
 		peerOfPort := d.mustGetOfPort(peerMirrorPortName)
 		add_interfaces += fmt.Sprintf("%d: {description: mirror, output_only: true},", ofPort)
 		ns.DynamicNetworkStates.OtherBridgePorts[mirrorPortName] = OtherBridgePortState{
-			Name: mirrorPortName, PeerName: peerMirrorPortName, OFPort: ofPort, PeerOFPort: peerOfPort, PeerBridgeName: mirrorBridgeName}
+			Name: mirrorPortName, PeerName: peerMirrorPortName, OFPort: ofPort, PeerOFPort: peerOfPort, PeerBridgeName: d.mirrorBridgeName}
 	}
 	configYaml := d.faucetconfrpcer.mergeSingleDpYaml(
 		ns.NetworkName, ns.BridgeDpidUint, "OVS Bridge "+ns.BridgeName, add_interfaces, egressPipeline)
 	if usingStacking(d) {
-		stackDpName := d.mustGetStackDPName()
-		ofPortName := patchName(ns.BridgeName, stackDpName)
-		peerOfPortName := patchName(stackDpName, ns.BridgeName)
+		ofPortName := patchName(ns.BridgeName, d.stackDpName)
+		peerOfPortName := patchName(d.stackDpName, ns.BridgeName)
 		ofPort := d.mustGetOfPort(ofPortName)
 		peerOfPort := d.mustGetOfPort(peerOfPortName)
 		ns.DynamicNetworkStates.OtherBridgePorts[ofPortName] = OtherBridgePortState{
-			Name: ofPortName, PeerName: peerOfPortName, OFPort: ofPort, PeerOFPort: peerOfPort, PeerBridgeName: stackDpName}
+			Name: ofPortName, PeerName: peerOfPortName, OFPort: ofPort, PeerOFPort: peerOfPort, PeerBridgeName: d.stackDpName}
 		localDpYaml := d.faucetconfrpcer.mergeDpInterfacesYaml(ns.NetworkName, ns.BridgeDpidUint, "OVS Bridge "+ns.BridgeName,
-			add_interfaces+d.faucetconfrpcer.stackInterfaceYaml(ofPort, stackDpName, peerOfPort), egressPipeline)
+			add_interfaces+d.faucetconfrpcer.stackInterfaceYaml(ofPort, d.stackDpName, peerOfPort), egressPipeline)
 		remoteDpYaml := fmt.Sprintf("%s: {interfaces: {%s}}",
-			stackDpName,
+			d.stackDpName,
 			d.faucetconfrpcer.stackInterfaceYaml(peerOfPort, ns.NetworkName, ofPort))
 		configYaml = fmt.Sprintf("{dps: {%s %s}}", localDpYaml, remoteDpYaml)
 	}
 	d.faucetconfrpcer.mustSetFaucetConfigFile(configYaml)
-	if ns.VLANOutAcl != "" {
-		d.faucetconfrpcer.mustSetVlanOutAcl(fmt.Sprintf("%d", ns.BridgeVLAN), ns.VLANOutAcl)
+	vlanOutAcl := getStrForNetwork(ns.VLANOutAcl, ns.NetworkName)
+	if vlanOutAcl != "" {
+		d.faucetconfrpcer.mustSetVlanOutAcl(fmt.Sprintf("%d", ns.BridgeVLAN), vlanOutAcl)
 	}
 	if usingStackMirroring(d) {
 		stackMirrorConfig := d.stackMirrorConfigs[opMsg.NetworkID]
@@ -584,7 +608,10 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 		)
 	}
 	for port_no, acls := range addPortsAcls {
-		d.faucetconfrpcer.mustSetPortAcl(ns.NetworkName, port_no, acls)
+		networkAcls := getStrForNetwork(acls, ns.NetworkName)
+		if networkAcls != "" {
+			d.faucetconfrpcer.mustSetPortAcl(ns.NetworkName, port_no, networkAcls)
+		}
 	}
 	d.notifyMsgChan <- NotifyMsg{
 		Type:         "NETWORK",
@@ -654,19 +681,28 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 		mustAddGatewayPortMap(ns.BridgeName, ipProto, gatewayIP, hostIP, hostPort, port)
 	}
 
-	portacl := ""
-	portacl, ok := containerInspect.Config.Labels["dovesnap.faucet.portacl"]
-	if ok && len(portacl) > 0 {
-		log.Infof("Set portacl %s on %s", portacl, containerInspect.Name)
+	portAcl := ""
+	portAcl, ok := containerInspect.Config.Labels["dovesnap.faucet.portacl"]
+	defaultAcl := ns.DefaultAcl
+	if ok && len(portAcl) > 0 {
+		portAcl = getStrForNetwork(portAcl, ns.NetworkName)
+		if portAcl != "" {
+			log.Infof("Set portacl %s on %s", portAcl, containerInspect.Name)
+		}
+	} else if len(defaultAcl) > 0 {
+		portAcl = getStrForNetwork(defaultAcl, ns.NetworkName)
+		if defaultAcl != "" {
+			log.Infof("set default portacl %s on %s", portAcl, containerInspect.Name)
+		}
 	}
 	add_interfaces := d.faucetconfrpcer.vlanInterfaceYaml(
-		ofPort, fmt.Sprintf("%s %s", containerInspect.Name, truncateID(containerInspect.ID)), ns.BridgeVLAN, portacl)
+		ofPort, fmt.Sprintf("%s %s", containerInspect.Name, truncateID(containerInspect.ID)), ns.BridgeVLAN, portAcl)
 
 	d.faucetconfrpcer.mustSetFaucetConfigFile(d.faucetconfrpcer.mergeSingleDpMinimalYaml(
 		ns.NetworkName, add_interfaces))
 
 	mirror, ok := containerInspect.Config.Labels["dovesnap.faucet.mirror"]
-	if ok && parseBool(mirror) {
+	if ok && parseBool(getStrForNetwork(mirror, ns.NetworkName)) {
 		log.Infof("Mirroring container %s", containerInspect.Name)
 		stackMirrorConfig := d.stackMirrorConfigs[opMsg.NetworkID]
 		if usingStackMirroring(d) || usingMirrorBridge(d) {
@@ -674,8 +710,9 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 		}
 	}
 
-	udhcpcCmd := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/udhcpc", "-f", "-R", "-i", defaultInterface)
-	// TODO: If DHCP in use, need background process to obtain IP address.
+	udhcpcCmd := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/udhcpc", "-f", "-R", "-i", defaultInterface, "-s", "/udhcpclog.sh")
+	udhcpcCmd.Env = os.Environ()
+	udhcpcCmd.Env = append(udhcpcCmd.Env, fmt.Sprintf("CONTAINER_ID=%s", containerInspect.ID))
 	if ns.UseDHCP {
 		err = udhcpcCmd.Start()
 		if err != nil {
@@ -768,6 +805,33 @@ func mustHandleLeaveContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]O
 	}
 }
 
+func reconcileDhcpIp(d *Driver) {
+	stat, err := os.Stat(fmt.Sprintf("%s/udhcpc.updated", dhcpStatePath))
+	if err != nil {
+		return
+	}
+	mtime := stat.ModTime()
+	if mtime == d.lastDhcpMtime {
+		return
+	}
+	d.lastDhcpMtime = mtime
+	for _, ns := range d.networks {
+		if !ns.UseDHCP {
+			continue
+		}
+		for containerid, container := range ns.DynamicNetworkStates.Containers {
+			ipFile := fmt.Sprintf("%s/%s-ipv4.txt", dhcpStatePath, container.Id)
+			content, err := ioutil.ReadFile(ipFile)
+			if err != nil {
+				continue
+			}
+			container.HostIP = strings.Trim(string(content), " \n")
+			ns.DynamicNetworkStates.Containers[containerid] = container
+			log.Infof("HostIP for %s updated: %s", container.Id, container.HostIP)
+		}
+	}
+}
+
 func reconcileOvs(d *Driver, allPortDesc *map[string]map[OFPortType]string) {
 	for id, ns := range d.networks {
 		stackMirrorConfig := d.stackMirrorConfigs[id]
@@ -836,6 +900,32 @@ func reconcileOvs(d *Driver, allPortDesc *map[string]map[OFPortType]string) {
 	}
 }
 
+func getRemoteIp(r *http.Request) net.IP {
+	var possibleIPs = []string{r.Header.Get("X-REAL-IP"), r.Header.Get("X-FORWARDED-FOR"), r.RemoteAddr}
+	for _, possibleIP := range possibleIPs {
+		for _, hostPort := range strings.Split(possibleIP, ",") {
+			ip, _, err := net.SplitHostPort(hostPort)
+			if err != nil {
+				continue
+			}
+			netIP := net.ParseIP(ip)
+			if netIP != nil {
+				return netIP
+			}
+		}
+	}
+	return nil
+}
+
+func isAuthIP(requestIP net.IP, authIPs []net.IPNet) bool {
+	for _, authIP := range authIPs {
+		if authIP.Contains(requestIP) {
+			return true
+		}
+	}
+	return false
+}
+
 func mustHandleNetworks(d *Driver) {
 	encodedMsg, err := json.Marshal(d.networks)
 	if err != nil {
@@ -871,9 +961,9 @@ func (d *Driver) resourceManager() {
 			default:
 				log.Errorf("Unknown resource manager message: %s", opMsg)
 			}
-		// TODO: also need a task to set slow container metadata (Eg. DHCP IP address)
 		case <-time.After(time.Second * 3):
 			reconcileOvs(d, &AllPortDesc)
+			reconcileDhcpIp(d)
 		}
 	}
 }
@@ -913,7 +1003,7 @@ func (d *Driver) restoreNetworks() {
 	netlist := d.dockerer.mustGetNetworkList()
 	for id, _ := range netlist {
 		netInspect := d.dockerer.mustGetNetworkInspectFromID(id)
-		ns, err := getNetworkStateFromResource(&netInspect)
+		ns, err := getNetworkStateFromResource(&netInspect, d.shortEngineId)
 		if err != nil {
 			panic(err)
 		}
@@ -959,7 +1049,14 @@ func (d *Driver) getWebResponse(w http.ResponseWriter, operation string) {
 }
 
 func (d *Driver) handleNetworksWeb(w http.ResponseWriter, r *http.Request) {
-	d.getWebResponse(w, "networks")
+	remoteIP := getRemoteIp(r)
+	authIP := isAuthIP(remoteIP, d.authIPs)
+	log.Debugf(fmt.Sprintf("web request from %s, authorized %v", remoteIP, authIP))
+	if authIP {
+		d.getWebResponse(w, "networks")
+	} else {
+		fmt.Fprintf(w, "not authorized")
+	}
 }
 
 func (d *Driver) runWeb(port int) {
@@ -970,7 +1067,7 @@ func (d *Driver) runWeb(port int) {
 	}
 }
 
-func NewDriver(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string, flagMirrorBridgeIn string, flagMirrorBridgeOut string, flagStatusServerPort int) *Driver {
+func NewDriver(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string, flagMirrorBridgeIn string, flagMirrorBridgeOut string, flagStatusServerPort int, flagStatusAuthIPs string) *Driver {
 	log.Infof("Initializing dovesnap")
 	ensureDirExists(netNsPath)
 
@@ -991,14 +1088,27 @@ func NewDriver(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName s
 		stackDefaultControllers: flagDefaultControllers,
 		mirrorBridgeIn:          flagMirrorBridgeIn,
 		mirrorBridgeOut:         flagMirrorBridgeOut,
+		lastDhcpMtime:           time.Unix(0, 0),
 		networks:                make(map[string]NetworkState),
-		dovesnapOpChan:          make(chan DovesnapOp, 2),
-		notifyMsgChan:           make(chan NotifyMsg, 2),
-		webResponseChan:         make(chan string, 2),
 		stackMirrorConfigs:      make(map[string]StackMirrorConfig),
+		dovesnapOpChan:          make(chan DovesnapOp, chanSize),
+		notifyMsgChan:           make(chan NotifyMsg, chanSize),
+		webResponseChan:         make(chan string, chanSize),
+	}
+
+	for _, authIP := range strings.Split(flagStatusAuthIPs, ",") {
+		_, ipnet, err := net.ParseCIDR(authIP)
+		if err != nil {
+			panic(err)
+		}
+		d.authIPs = append(d.authIPs, *ipnet)
 	}
 
 	d.dockerer.mustGetDockerClient()
+	d.shortEngineId = d.dockerer.mustGetShortEngineID()
+	d.mirrorBridgeName = d.mustGetMirrorBrName()
+	d.loopbackBridgeName = d.mustGetLoopbackBrName()
+	d.stackDpName = d.mustGetStackDPName()
 	d.faucetconfrpcer.mustGetGRPCClient(flagFaucetconfrpcClientName, flagFaucetconfrpcServerName, flagFaucetconfrpcServerPort, flagFaucetconfrpcKeydir)
 
 	d.ovsdber.waitForOvs()

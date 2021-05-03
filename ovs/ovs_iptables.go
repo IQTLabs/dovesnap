@@ -15,23 +15,19 @@ func mustIptablesRaw(args ...string) []byte {
 }
 
 // TODO: reconcile with what libnetwork does and port mappings
-func natOut(cidr string) error {
+func natOut(cidr string, op string) error {
 	masquerade := []string{
 		"POSTROUTING", "-t", "nat",
 		"-s", cidr,
 		"-j", "MASQUERADE",
 	}
-	if _, err := iptables.Raw(
-		append([]string{"-C"}, masquerade...)...,
-	); err != nil {
-		incl := append([]string{"-I"}, masquerade...)
-		if output, err := iptables.Raw(incl...); err != nil {
-			return err
-		} else if len(output) > 0 {
-			return &iptables.ChainError{
-				Chain:  "POSTROUTING",
-				Output: output,
-			}
+	incl := append([]string{op}, masquerade...)
+	if output, err := iptables.Raw(incl...); err != nil {
+		return err
+	} else if len(output) > 0 {
+		return &iptables.ChainError{
+			Chain:  "POSTROUTING",
+			Output: output,
 		}
 	}
 	_, err := iptables.Raw("-P", "FORWARD", "ACCEPT")

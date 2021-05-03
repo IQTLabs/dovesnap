@@ -21,6 +21,7 @@ class GraphDovesnap:
     OFP_LOCAL = 4294967294
     DOCKER_URL = 'unix://var/run/docker.sock'
     VM_PREFIX = 'vnet'
+    MIRROR_PREFIX = 'mirror'
     DOVESNAP_MIRROR = '99'
 
     def __init__(self, args):
@@ -46,12 +47,13 @@ class GraphDovesnap:
     def _scrape_container_cmd(self, name, cmd, strict=True):
         client_hi = docker.DockerClient(base_url=self.DOCKER_URL)
         container = self._get_named_container_hi(client_hi, name, strict=strict)
-        try:
-            (dump_exit, output) = container.exec_run(cmd)
-            if dump_exit == 0:
-                return output.decode('utf-8').splitlines()
-        except subprocess.CalledProcessError:
-            pass
+        if container:
+            try:
+                (dump_exit, output) = container.exec_run(cmd)
+                if dump_exit == 0:
+                    return output.decode('utf-8').splitlines()
+            except subprocess.CalledProcessError:
+                pass
         return None
 
     def _scrape_cmd(self, cmd):
@@ -61,10 +63,9 @@ class GraphDovesnap:
         except (subprocess.CalledProcessError, FileNotFoundError):
             return []
 
-    def _get_vm_options(self, faucetconfrpc_client, network, ofport):
+    def _get_vm_options(self, faucet_conf, network, ofport):
         vm_options = []
-        conf = faucetconfrpc_client.get_config_file()
-        interfaces = conf['dps'][network]['interfaces']
+        interfaces = faucet_conf['dps'][network]['interfaces']
         interface = interfaces[ofport]
         acls_in = interface.get('acls_in', None)
         if acls_in:
@@ -160,17 +161,25 @@ class GraphDovesnap:
             self.args.key, self.args.cert, self.args.ca, ':'.join([self.args.server, self.args.port]))
         if not faucetconfrpc_client:
             raise GraphDovesnapException('cannot connect to faucetconfrpc')
+        faucet_conf = faucetconfrpc_client.get_config_file()
+        dovesnap_args = self._get_container_args(client.inspect_container(dovesnap['Id']))
         nodes = {}
         edges = []
+        network_name_id = {}
 
-        dovesnap_args = self._get_container_args(client.inspect_container(dovesnap['Id']))
         for network_id, network in networks_json.items():
             network_name = network['NetworkName']
             bridgename = network['BridgeName']
             mode = network['Mode']
-            options = self._scrape_network_options(client, network_id)
+            try:
+                options = self._scrape_network_options(client, network_id + 'x')
+            except docker.errors.NotFound:
+                # TODO: assume remote docker, fall back to TCP URL
+                options = []
             nodes[network_id] = [network_name, bridgename] + options
             dynamic_state = network['DynamicNetworkStates']
+            engine_id = dynamic_state['ShortEngineId']
+            network_name_id[network_name] = network_id
             for container in dynamic_state['Containers'].values():
                 container_id = container['Id']
                 container_name = container['Name']
@@ -186,15 +195,17 @@ class GraphDovesnap:
                 nodes[container_id] = host_label
                 edges.append((network_id, container_id, [ofport]))
             for extifname, extif in dynamic_state['ExternalPorts'].items():
+                extifname = ' '.join((engine_id, extifname))
                 ofport = extif['OFPort']
                 if ofport == self.OFP_LOCAL:
                     if mode == 'nat':
                         edges.append((network_id, 'NAT', [self.OFP_LOCAL]))
                 else:
+                    # TODO: Move VM inspection inside dovesnap so can work across hosts.
                     if extifname.startswith(self.VM_PREFIX):
                         vm_desc = self._scrape_vm_iface(extifname)
                         vm_options = self._get_vm_options(
-                            faucetconfrpc_client, network['Name'], ofport)
+                            faucet_conf, network['Name'], ofport)
                         nodes[extifname] = ['', vm_desc, vm_options]
                     else:
                         macaddress = extif['MacAddress']
@@ -205,6 +216,33 @@ class GraphDovesnap:
                 peer_ofport = otherbrif['PeerOFPort']
                 peer_bridgename = otherbrif['PeerBridgeName']
                 edges.append((network_id, peer_bridgename, [ofport, peer_ofport]))
+                if peer_bridgename.startswith(self.MIRROR_PREFIX) and peer_bridgename not in nodes:
+                    nodes[peer_bridgename] = ['mirror bridge', peer_bridgename]
+                    mirror_in = dovesnap_args.get('mirror_bridge_in', None)
+                    mirror_out = dovesnap_args.get('mirror_bridge_out', None)
+                    if mirror_in:
+                        edges.append((' '.join((engine_id, mirror_in)), peer_bridgename, [mirror_in]))
+                    if mirror_out:
+                        edges.append((peer_bridgename, ' '.join((engine_id, mirror_out)), [mirror_out]))
+            if faucet_conf:
+                stack_links = set()
+                for dp, dp_conf in faucet_conf.get('dps', {}).items():
+                    network_id = network_name_id.get(dp, None)
+                    if network_id:
+                        continue
+                    for interface, interface_conf in dp_conf.get('interfaces', {}).items():
+                        stack_conf = interface_conf.get('stack', None)
+                        if stack_conf:
+                            stack_dp = stack_conf['dp']
+                            stack_port = stack_conf['port']
+                            peer_network_id = network_name_id.get(stack_dp, stack_dp)
+                            if peer_network_id in nodes:
+                                continue
+                            stack_key = tuple(sorted([str(i) for i in (interface, stack_port, dp, peer_network_id)]))
+                            if stack_key in stack_links:
+                                continue
+                            stack_links.add(stack_key)
+                            edges.append((dp, peer_network_id, [interface, stack_port]))
 
         self.output_graph(nodes, edges)
 

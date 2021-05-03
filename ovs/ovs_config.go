@@ -1,7 +1,6 @@
 package ovs
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -9,7 +8,6 @@ import (
 
 	"github.com/docker/docker/api/types"
 	networkplugin "github.com/docker/go-plugins-helpers/network"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -35,6 +33,7 @@ const (
 	userspaceOption     = "ovs.bridge.userspace"
 	ovsLocalMacOption   = "ovs.bridge.ovs_local_mac"
 	vlanOutAclOption    = "ovs.bridge.vlan_out_acl"
+	defaultAclOption    = "ovs.bridge.default_acl"
 
 	defaultLbPort           = 99
 	defaultMTU              = 1500
@@ -43,13 +42,14 @@ const (
 	defaultTunnelVLANOffset = 256
 	defaultVLAN             = 100
 
-	modeFlat = "flat"
-	modeNAT  = "nat"
+	modeFlat   = "flat"
+	modeNAT    = "nat"
+	modeRouted = "routed"
 
 	bridgePrefix                 = "ovsbr-"
 	containerEthName             = "eth"
-	mirrorBridgeName             = "mirrorbr"
 	netNsPath                    = "/var/run/netns"
+	dhcpStatePath                = "/var/run"
 	ofPortLocal       OFPortType = 4294967294
 	ovsPortPrefix                = "ovs-veth0-"
 	patchPrefix                  = "ovp"
@@ -61,8 +61,9 @@ const (
 
 var (
 	validModes = map[string]bool{
-		modeNAT:  true,
-		modeFlat: true,
+		modeNAT:    true,
+		modeFlat:   true,
+		modeRouted: true,
 	}
 )
 
@@ -73,8 +74,9 @@ type StackMirrorConfig struct {
 	RemoteMirrorPort OFPortType
 }
 
-func makeDynamicNetworkState() DynamicNetworkState {
+func makeDynamicNetworkState(shortEngineId string) DynamicNetworkState {
 	return DynamicNetworkState{
+		ShortEngineId:    shortEngineId,
 		Containers:       make(map[string]ContainerState),
 		ExternalPorts:    make(map[string]ExternalPortState),
 		OtherBridgePorts: make(map[string]OtherBridgePortState),
@@ -159,6 +161,10 @@ func mustGetBridgeVLAN(r *networkplugin.CreateNetworkRequest) uint {
 
 func mustGetBridgeVLANOutAcl(r *networkplugin.CreateNetworkRequest) string {
 	return getGenericOption(r, vlanOutAclOption)
+}
+
+func mustGetDefaultAcl(r *networkplugin.CreateNetworkRequest) string {
+	return getGenericOption(r, defaultAclOption)
 }
 
 func mustGetBridgeAddPorts(r *networkplugin.CreateNetworkRequest) string {
@@ -249,37 +255,21 @@ func (d *Driver) getStackMirrorConfig(r *networkplugin.CreateNetworkRequest) Sta
 	}
 }
 
-func (d *Driver) getShortEngineID() (string, error) {
-	info, err := d.dockerer.client.Info(context.Background())
-	if err != nil {
-		return "", err
-	}
-	log.Debugf("Docker Engine ID %s:", info.ID)
-	engineId := base36to16(strings.Split(info.ID, ":")[0])
-	return engineId, nil
-}
-
-func (d *Driver) getStackDP() (string, string, error) {
-	engineId, err := d.getShortEngineID()
-	if err != nil {
-		return "", "", err
-	}
-	dpid := stackDpidPrefix + engineId
-	dpName := "dovesnap" + engineId
-	return dpid, dpName, nil
-}
-
 func (d *Driver) mustGetStackDPName() string {
-	_, stackDpName, err := d.getStackDP()
-	if err != nil {
-		panic(err)
-	}
-	return stackDpName
+	return "dovesnap" + d.shortEngineId
 }
 
-func (d *Driver) mustGetLoopbackDP() string {
-	engineId, _ := d.getShortEngineID()
-	return "lb" + engineId
+func (d *Driver) mustGetStackDP() (string, string) {
+	dpid := stackDpidPrefix + d.shortEngineId
+	return dpid, d.mustGetStackDPName()
+}
+
+func (d *Driver) mustGetLoopbackBrName() string {
+	return "lb" + d.shortEngineId
+}
+
+func (d *Driver) mustGetMirrorBrName() string {
+	return "mirror" + d.shortEngineId
 }
 
 func (d *Driver) mustGetStackingInterface(stackingInterface string) (string, OFPortType, string) {
@@ -297,16 +287,11 @@ func (d *Driver) mustGetStackingInterface(stackingInterface string) (string, OFP
 }
 
 func (d *Driver) mustGetStackBridgeConfig() (string, string, uint64, string) {
-	dpid, dpName, err := d.getStackDP()
-	if err != nil {
-		panic(err)
-	}
-
+	dpid, dpName := d.mustGetStackDP()
 	hostname, err := os.Hostname()
 	if err != nil {
 		panic(err)
 	}
-
 	uintDpid := mustGetUintFromHexStr(dpid)
 	return hostname, dpid, uintDpid, dpName
 }
@@ -349,7 +334,23 @@ func getGatewayFromResource(r *types.NetworkResource) (string, string) {
 	return "", ""
 }
 
-func getNetworkStateFromResource(r *types.NetworkResource) (NetworkState, error) {
+func getStrForNetwork(networkStr string, networkName string) string {
+	networkStrs := ""
+	networksStrsList := strings.Split(networkStr, "/")
+	for _, networksStrsPairStr := range networksStrsList {
+		networkStrsPair := strings.Split(networksStrsPairStr, ":")
+		if len(networkStrsPair) == 1 {
+			networkStrs = networkStrsPair[0]
+		} else if len(networkStrsPair) == 2 {
+			if networkName == networkStrsPair[0] {
+				networkStrs = networkStrsPair[1]
+			}
+		}
+	}
+	return networkStrs
+}
+
+func getNetworkStateFromResource(r *types.NetworkResource, shortEngineId string) (NetworkState, error) {
 	var err error = nil
 	ns := NetworkState{}
 	defer func() {
@@ -376,9 +377,10 @@ func getNetworkStateFromResource(r *types.NetworkResource) (NetworkState, error)
 		GatewayMask:          mask,
 		NATAcl:               getStrOptionFromResource(r, NATAclOption, ""),
 		VLANOutAcl:           getStrOptionFromResource(r, vlanOutAclOption, ""),
+		DefaultAcl:           getStrOptionFromResource(r, defaultAclOption, ""),
 		OvsLocalMac:          getStrOptionFromResource(r, ovsLocalMacOption, ""),
 		Controller:           getStrOptionFromResource(r, bridgeController, ""),
-		DynamicNetworkStates: makeDynamicNetworkState(),
+		DynamicNetworkStates: makeDynamicNetworkState(shortEngineId),
 	}
 	return ns, err
 }

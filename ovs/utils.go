@@ -125,6 +125,14 @@ func mustSetInterfaceMac(name string, macAddress string) {
 	}
 }
 
+func mustSetInterfaceMTU(name string, mtu uint) {
+	iface := mustGetLinkByName(name)
+	err := netlink.LinkSetMTU(iface, int(mtu))
+	if err != nil {
+		panic(err)
+	}
+}
+
 // Set the IP addr of a netlink interface
 func setInterfaceIP(name string, rawIP string) error {
 	retries := 2

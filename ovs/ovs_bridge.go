@@ -60,7 +60,7 @@ func (ovsdber *ovsdber) mustDeleteBridge(bridgeName string) string {
 	return mustVsCtl("del-br", bridgeName)
 }
 
-func (ovsdber *ovsdber) makeMirrorBridge(bridgeName string, mirrorBridgeOutPort uint) {
+func (ovsdber *ovsdber) makeMirrorBridge(bridgeName string, mirrorBridgeOutPort OFPortType) {
 	mustOfCtl("del-flows", bridgeName)
 	mustOfCtl("add-flow", bridgeName, "priority=0,actions=drop")
 	mustOfCtl("add-flow", bridgeName, fmt.Sprintf("priority=1,actions=output:%d", mirrorBridgeOutPort))
@@ -135,15 +135,14 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 		ovsConfigCmds = append(ovsConfigCmds, controllers)
 	}
 
-	if add_ports != "" {
-		addPorts := make(map[string]OFPortType)
-		ovsdber.parseAddPorts(add_ports, &addPorts, nil)
-		for add_port, number := range addPorts {
-			if number > 0 {
-				ovsConfigCmds = append(ovsConfigCmds, []string{"add-port", bridgeName, add_port, "--", "set", "Interface", add_port, fmt.Sprintf("ofport_request=%d", number)})
-			} else {
-				ovsConfigCmds = append(ovsConfigCmds, []string{"add-port", bridgeName, add_port})
-			}
+	addPorts := make(map[string]OFPortType)
+	ovsdber.parseAddPorts(add_ports, &addPorts, nil)
+
+	for add_port, number := range addPorts {
+		if number > 0 {
+			ovsConfigCmds = append(ovsConfigCmds, []string{"add-port", bridgeName, add_port, "--", "set", "Interface", add_port, fmt.Sprintf("ofport_request=%d", number)})
+		} else {
+			ovsConfigCmds = append(ovsConfigCmds, []string{"add-port", bridgeName, add_port})
 		}
 	}
 
@@ -151,9 +150,25 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 		_, err := VsCtl(cmd...)
 		if err != nil {
 			// At least one bridge config failed, so delete the bridge.
+			log.Errorf("bridge config of %s failed", bridgeName)
 			VsCtl("del-br", bridgeName)
 			return err
 		}
+	}
+
+	for add_port, _ := range addPorts {
+		_, err := ovsdber.getOfPort(add_port)
+		if err != nil {
+			// At least one add port failed, so delete the bridge.
+			log.Errorf("add port of %s failed", add_port)
+			VsCtl("del-br", bridgeName)
+			return err
+		}
+	}
+
+	if controller != "" {
+		// Delete default OVS switching flow(s)
+		mustOfCtl("del-flows", bridgeName)
 	}
 
 	// Bring the bridge up
@@ -173,32 +188,25 @@ func (d *Driver) initBridge(ns NetworkState, controller string, dpid string, add
 		log.Errorf("Error creating bridge: %s", err)
 		return err
 	}
-	bridgeMode := ns.Mode
-	switch bridgeMode {
-	case modeNAT:
-		{
-			gatewayIP := ns.Gateway + "/" + ns.GatewayMask
-			if err := setInterfaceIP(bridgeName, gatewayIP); err != nil {
-				log.Debugf("Error assigning address: %s on bridge: %s with an error of: %s", gatewayIP, bridgeName, err)
-			}
+	if ns.Mode == modeNAT || ns.Mode == modeRouted {
+		gatewayIP := ns.Gateway + "/" + ns.GatewayMask
+		if err := setInterfaceIP(bridgeName, gatewayIP); err != nil {
+			log.Debugf("Error assigning address: %s on bridge: %s with an error of: %s", gatewayIP, bridgeName, err)
+		}
 
-			// Validate that the IPAddress is there!
-			_, err := getIfaceAddr(bridgeName)
-			if err != nil {
-				log.Fatalf("No IP address found on bridge %s", bridgeName)
-				return err
-			}
+		// Validate that the IPAddress is there!
+		_, err := getIfaceAddr(bridgeName)
+		if err != nil {
+			log.Fatalf("No IP address found on bridge %s", bridgeName)
+			return err
+		}
 
-			// Add NAT rules for iptables
-			if err = natOut(gatewayIP); err != nil {
+		// Add NAT rules for iptables
+		if ns.Mode == modeNAT {
+			if err = natOut(gatewayIP, "-I"); err != nil {
 				log.Fatalf("Could not set NAT rules for bridge %s because %v", bridgeName, err)
 				return err
 			}
-		}
-
-	case modeFlat:
-		{
-			// NIC is already added to the bridge in createBridge
 		}
 	}
 	return nil
