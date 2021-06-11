@@ -32,7 +32,7 @@ services:
       - '--default_ofcontrollers=${STACK_OFCONTROLLERS}'
   ovs:
     restart: always
-    image: iqtlabs/openvswitch:v2.14.2
+    image: iqtlabs/openvswitch:v2.15.0
     volumes:
       - /usr/local/var/run/openvswitch:/usr/local/var/run/openvswitch
       - ovs-data:/etc/openvswitch
