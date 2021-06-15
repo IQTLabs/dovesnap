@@ -414,6 +414,8 @@ func (d *Driver) DiscoverDelete(r *networkplugin.DiscoveryNotification) error {
 
 func (d *Driver) DeleteEndpoint(r *networkplugin.DeleteEndpointRequest) error {
 	log.Debugf("Delete endpoint request: %+v", r)
+	localVethPair := vethPair(truncateID(r.EndpointID))
+	delVethPair(localVethPair)
 	return nil
 }
 
@@ -775,8 +777,6 @@ func mustHandleLeaveContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]O
 	}
 	portID := fmt.Sprintf(ovsPortPrefix + truncateID(opMsg.EndpointID))
 	ofPort := d.ovsdber.mustGetOfPort(portID)
-	localVethPair := vethPair(truncateID(opMsg.EndpointID))
-	delVethPair(localVethPair)
 
 	ns := d.networks[opMsg.NetworkID]
 	d.ovsdber.mustDeletePort(ns.BridgeName, portID)
