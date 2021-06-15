@@ -777,6 +777,10 @@ func mustHandleLeaveContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]O
 	}
 	portID := fmt.Sprintf(ovsPortPrefix + truncateID(opMsg.EndpointID))
 	ofPort := d.ovsdber.mustGetOfPort(portID)
+	// Must delete veth for the endpoint here - DeleteEndpoint happens before leave container,
+	// so we must the delete here to be able to remove the port sucessfully.
+	localVethPair := vethPair(truncateID(opMsg.EndpointID))
+	delVethPair(localVethPair)
 
 	ns := d.networks[opMsg.NetworkID]
 	d.ovsdber.mustDeletePort(ns.BridgeName, portID)
