@@ -67,6 +67,11 @@ clean_dirs()
         sleep 2
         FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml stop
         rm -rf $TMPDIR
+        VETHS="$(ip link | grep -E ':( ovs-veth|ovp)')"
+        if [ "$VETHS" != "" ] ; then
+                echo veths leaked: $VETHS
+                exit 1
+        fi
 }
 
 conf_faucet()
