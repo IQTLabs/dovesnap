@@ -357,6 +357,7 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 	}
 
 	d.dovesnapOpChan <- deleteMsg
+	d.blockUntilStateSynched()
 	return nil
 }
 
@@ -936,6 +937,16 @@ func mustHandleNetworks(d *Driver) {
 		panic(err)
 	}
 	d.webResponseChan <- fmt.Sprintf("%s", encodedMsg)
+}
+
+func (d *Driver) stateSynched() bool {
+	return len(d.dovesnapOpChan) == 0
+}
+
+func (d *Driver) blockUntilStateSynched() {
+	for !d.stateSynched() {
+		time.Sleep(time.Second)
+	}
 }
 
 func (d *Driver) resourceManager() {
