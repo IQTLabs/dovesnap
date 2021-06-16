@@ -15,7 +15,8 @@ services:
     extra_hosts:
       - 'faucetconfrpc:${FAUCETCONFRPC_IP}'
     depends_on:
-      - ovs
+      ovs:
+        condition: service_healthy
     cap_add:
       - NET_ADMIN
     privileged: true
@@ -33,6 +34,8 @@ services:
   ovs:
     restart: always
     image: iqtlabs/openvswitch:v2.14.2
+    healthcheck:
+      test: 'ovs-vsctl show'
     volumes:
       - /usr/local/var/run/openvswitch:/usr/local/var/run/openvswitch
       - ovs-data:/etc/openvswitch
