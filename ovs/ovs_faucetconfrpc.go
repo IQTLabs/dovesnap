@@ -20,7 +20,7 @@ type faucetconfrpcer struct {
 	client faucetconfserver.FaucetConfServerClient
 }
 
-func (c *faucetconfrpcer) mustGetGRPCClient(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string) {
+func (c *faucetconfrpcer) mustGetGRPCClient(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagFaucetconfrpcConnRetries int) {
 	crt_file := fmt.Sprintf("%s/%s.crt", flagFaucetconfrpcKeydir, flagFaucetconfrpcClientName)
 	key_file := fmt.Sprintf("%s/%s.key", flagFaucetconfrpcKeydir, flagFaucetconfrpcClientName)
 	ca_file := flagFaucetconfrpcKeydir + "/" + flagFaucetconfrpcServerName + "-ca.crt"
@@ -46,12 +46,18 @@ func (c *faucetconfrpcer) mustGetGRPCClient(flagFaucetconfrpcClientName string, 
 	// Connect to faucetconfrpc server.
 	addr := flagFaucetconfrpcServerName + ":" + strconv.Itoa(flagFaucetconfrpcServerPort)
 	log.Debugf("Connecting to RPC server: %v", addr)
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(creds), grpc.WithBlock(), grpc.WithTimeout(30*time.Second))
-	if err != nil {
-		panic(err)
+	timeout := time.Duration(1)
+	for i := 0; i < flagFaucetconfrpcConnRetries; i++ {
+		timeout = (timeout + 1) * 2
+		conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(creds), grpc.WithBlock(), grpc.WithTimeout(timeout*time.Second))
+		if err == nil {
+			log.Debugf("Connected to RPC server")
+			c.client = faucetconfserver.NewFaucetConfServerClient(conn)
+			return
+		}
+		time.Sleep(timeout * time.Second)
 	}
-	log.Debugf("Connected to RPC server")
-	c.client = faucetconfserver.NewFaucetConfServerClient(conn)
+	panic(fmt.Errorf("Cannot connect to RPC server"))
 }
 
 func (c *faucetconfrpcer) getDpNames() map[string]bool {

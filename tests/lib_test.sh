@@ -64,13 +64,17 @@ clean_dirs()
         sudo ./graph_dovesnap/graph_dovesnap -o /tmp/dovesnapviz || exit 1
         docker rm -f testcon || exit 1
         docker network rm testnet || exit 1
-        sleep 2
         FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml stop
         rm -rf $TMPDIR
         VETHS="$(ip link | grep -E ':( ovs-veth|ovp)')"
         if [ "$VETHS" != "" ] ; then
                 echo veths leaked: $VETHS
                 exit 1
+        fi
+        DIEC=$(docker system events --since=15m --until=0m --filter="container=dovesnap_plugin_1" --filter="event=die" | grep -v exitCode=0)
+        if [ "$DIEC" != "" ] ; then
+               echo dovesnap exited unexpectedly: $DIEC
+               exit 1
         fi
 }
 

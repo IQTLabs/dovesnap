@@ -357,7 +357,7 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 	}
 
 	d.dovesnapOpChan <- deleteMsg
-	d.blockUntilStateSynched()
+	d.BlockUntilStateSynched()
 	return nil
 }
 
@@ -941,7 +941,7 @@ func (d *Driver) stateSynched() bool {
 	return len(d.dovesnapOpChan) == 0
 }
 
-func (d *Driver) blockUntilStateSynched() {
+func (d *Driver) BlockUntilStateSynched() {
 	for !d.stateSynched() {
 		time.Sleep(time.Second)
 	}
@@ -1080,7 +1080,7 @@ func (d *Driver) runWeb(port int) {
 	}
 }
 
-func NewDriver(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string, flagMirrorBridgeIn string, flagMirrorBridgeOut string, flagStatusServerPort int, flagStatusAuthIPs string) *Driver {
+func NewDriver(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagFaucetconfrpcConnRetries int, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string, flagMirrorBridgeIn string, flagMirrorBridgeOut string, flagStatusServerPort int, flagStatusAuthIPs string) *Driver {
 	log.Infof("Initializing dovesnap")
 	ensureDirExists(netNsPath)
 
@@ -1122,7 +1122,12 @@ func NewDriver(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName s
 	d.mirrorBridgeName = d.mustGetMirrorBrName()
 	d.loopbackBridgeName = d.mustGetLoopbackBrName()
 	d.stackDpName = d.mustGetStackDPName()
-	d.faucetconfrpcer.mustGetGRPCClient(flagFaucetconfrpcClientName, flagFaucetconfrpcServerName, flagFaucetconfrpcServerPort, flagFaucetconfrpcKeydir)
+	d.faucetconfrpcer.mustGetGRPCClient(
+		flagFaucetconfrpcClientName,
+		flagFaucetconfrpcServerName,
+		flagFaucetconfrpcServerPort,
+		flagFaucetconfrpcKeydir,
+		flagFaucetconfrpcConnRetries)
 
 	d.ovsdber.waitForOvs()
 
