@@ -415,8 +415,6 @@ func (d *Driver) DiscoverDelete(r *networkplugin.DiscoveryNotification) error {
 
 func (d *Driver) DeleteEndpoint(r *networkplugin.DeleteEndpointRequest) error {
 	log.Debugf("Delete endpoint request: %+v", r)
-	localVethPair := vethPair(truncateID(r.EndpointID))
-	delVethPair(localVethPair)
 	return nil
 }
 
