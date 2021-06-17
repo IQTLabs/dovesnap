@@ -16,7 +16,7 @@ require (
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/google/go-cmp v0.5.2 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
-	github.com/iqtlabs/faucetconfrpc v0.22.19
+	github.com/iqtlabs/faucetconfrpc v0.22.20
 	github.com/kenshaw/baseconv v0.1.1
 	github.com/kr/text v0.2.0 // indirect
 	github.com/moby/term v0.0.0-20201216013528-df9cb8a40635 // indirect
