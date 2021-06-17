@@ -1,3 +1,8 @@
+# v0.21.0 (2021-06-17)
+
+- restart/shutdown handling improvements, and network deletes now blocking to avoid leaked veths or other resources.
+- Update pytype, docker, faucetconfrpc, prometheus, grafana, baseconv
+
 # v0.20.0 (2021-05-04)
 
 - Use c65sdn faucet/gauge docker images
