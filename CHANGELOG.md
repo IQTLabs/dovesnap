@@ -1,3 +1,8 @@
+# v0.22.0 (2021-06-22)
+
+- dovesnap plugin no longer needs privileged: true
+- update prometheus, grafana, pytype.
+
 # v0.21.0 (2021-06-17)
 
 - restart/shutdown handling improvements, and network deletes now blocking to avoid leaked veths or other resources.
