@@ -19,7 +19,10 @@ services:
         condition: service_healthy
     cap_add:
       - NET_ADMIN
-    privileged: true
+      - SYS_ADMIN
+      - SYS_CHROOT
+    # TODO: needed for ip netns inside container, provide minimal apparmor profile.
+    security_opt: ['apparmor:unconfined']
     command:
       - --debug
       - --faucetconfrpc_addr=faucetconfrpc
