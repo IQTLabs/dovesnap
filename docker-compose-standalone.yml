@@ -15,7 +15,7 @@ services:
       FAUCET_CONFIG_AUTO_REVERT: '1'
   gauge:
     restart: always
-    image: 'c65sdn/gauge:1.0.4'
+    image: 'c65sdn/gauge:1.0.5'
     networks:
       - dovesnap
     volumes:
