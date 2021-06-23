@@ -9,7 +9,7 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0 // indirect
-	github.com/docker/go-plugins-helpers v0.0.0-20200102110956-c9a8a2d92ccc
+	github.com/docker/go-plugins-helpers v0.0.0-20210623094020-7ef169fb8b8e
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20200219012139-4f65d685bdf9
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
