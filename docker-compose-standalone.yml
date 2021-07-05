@@ -2,7 +2,7 @@ version: '3.7'
 services:
   faucet:
     restart: always
-    image: 'c65sdn/faucet:1.0.5'
+    image: 'c65sdn/faucet:1.0.6'
     networks:
       - dovesnap
     volumes:
