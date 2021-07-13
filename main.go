@@ -79,6 +79,6 @@ func main() {
 	}()
 	sig := <-sigChan
 	log.Infof("Caught signal %v", sig)
-	d.BlockUntilStateSynched()
+	d.Quit()
 	os.Exit(0)
 }
