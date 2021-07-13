@@ -178,7 +178,8 @@ wait_acl ()
         OUTPUT=""
         while [ "$OUTPUT" != "meter" ] ; do
                 OUTPUT=$(docker exec -t $OVSID ovs-ofctl dump-flows -OOpenFlow13 $BRIDGE table=0|grep -o meter|cat)
-                echo waiting for meter flow in table 0
+                echo -n waiting for meter flow in table 0:
+                docker exec -t $OVSID ovs-ofctl dump-flows -OOpenFlow13 $BRIDGE table=0
                 sleep 1
         done
 }

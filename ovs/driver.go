@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -116,6 +117,8 @@ type Driver struct {
 	dockerer
 	faucetconfrpcer
 	ovsdber
+	resourceManagerWG       sync.WaitGroup
+	createDeleteNetworkWG   sync.WaitGroup
 	stackPriority1          string
 	stackingInterfaces      []string
 	stackMirrorInterface    []string
@@ -136,7 +139,7 @@ type Driver struct {
 }
 
 const (
-	chanSize = 10
+	chanSize = 64
 )
 
 func (d *Driver) createLoopbackBridge() error {
@@ -257,9 +260,6 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 	defer func() {
 		if rerr := recover(); rerr != nil {
 			err = fmt.Errorf("Cannot create network: %v", rerr)
-			if _, ok := d.networks[r.NetworkID]; ok {
-				delete(d.networks, r.NetworkID)
-			}
 		}
 	}()
 
@@ -345,6 +345,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		Operation:            operation,
 	}
 
+	d.createDeleteNetworkWG.Add(1)
 	d.dovesnapOpChan <- createMsg
 	return err
 }
@@ -356,8 +357,8 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 		Operation: "delete",
 	}
 
+	d.createDeleteNetworkWG.Add(1)
 	d.dovesnapOpChan <- deleteMsg
-	d.BlockUntilStateSynched()
 	return nil
 }
 
@@ -435,6 +436,8 @@ func (d *Driver) EndpointInfo(r *networkplugin.InfoRequest) (*networkplugin.Info
 
 func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse, error) {
 	log.Debugf("Join request: %+v", r)
+	// Wait for all creates to finish.
+	d.createDeleteNetworkWG.Wait()
 	localVethPair := vethPair(truncateID(r.EndpointID))
 	ns := d.networks[r.NetworkID]
 	res := &networkplugin.JoinResponse{
@@ -472,6 +475,7 @@ func mustHandleDeleteNetwork(d *Driver, opMsg DovesnapOp) {
 		if rerr := recover(); rerr != nil {
 			log.Errorf("mustHandleDeleteNetwork failed: %v", rerr)
 		}
+		d.createDeleteNetworkWG.Done()
 	}()
 
 	// remove the bridge from the faucet config if it exists
@@ -520,6 +524,7 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 		if rerr := recover(); rerr != nil {
 			log.Errorf("mustHandleCreateNetwork failed: %v", rerr)
 		}
+		d.createDeleteNetworkWG.Done()
 	}()
 
 	log.Debugf("network ID: %s", opMsg.NetworkID)
@@ -937,17 +942,9 @@ func mustHandleNetworks(d *Driver) {
 	d.webResponseChan <- fmt.Sprintf("%s", encodedMsg)
 }
 
-func (d *Driver) stateSynched() bool {
-	return len(d.dovesnapOpChan) == 0
-}
-
-func (d *Driver) BlockUntilStateSynched() {
-	for !d.stateSynched() {
-		time.Sleep(time.Second)
-	}
-}
-
 func (d *Driver) resourceManager() {
+	defer d.resourceManagerWG.Done()
+
 	// TODO: make all the mustHandle() hooks, be able to cleanly retry on a failure at any point
 	// E.g. a transient OVS DB or faucetconfrpc error.
 	OFPorts := make(map[string]OFPortContainer)
@@ -971,6 +968,9 @@ func (d *Driver) resourceManager() {
 				mustHandleLeaveContainer(d, opMsg, &OFPorts)
 			case "networks":
 				mustHandleNetworks(d)
+			case "quit":
+				log.Infof("processed quit")
+				return
 			default:
 				log.Errorf("Unknown resource manager message: %s", opMsg)
 			}
@@ -1021,38 +1021,29 @@ func (d *Driver) restoreNetworks() {
 			panic(err)
 		}
 		// TODO: verify dovesnap was restarted with the same arguments when restoring existing networks.
-		d.networks[id] = ns
 		sc := d.getStackMirrorConfigFromResource(&netInspect)
 		d.stackMirrorConfigs[id] = sc
 		log.Infof("restoring network %+v, %+v %+v", ns, sc, netInspect)
 		if ns.Controller == "" {
 			ns.Controller = d.stackDefaultControllers
 		}
-		if !d.ovsdber.ifUp(ns.BridgeName) {
-			log.Warnf("%s not up for %s, recreating", ns.BridgeName, ns.NetworkName)
-			createMsg := DovesnapOp{
-				NewNetworkState:      ns,
-				NewStackMirrorConfig: sc,
-				AddPorts:             ns.AddPorts,
-				Mode:                 ns.Mode,
-				NetworkID:            id,
-				EndpointID:           ns.BridgeName,
-				Operation:            "recreate",
-			}
-			d.dovesnapOpChan <- createMsg
-		} else {
-			createMsg := DovesnapOp{
-				NewNetworkState:      ns,
-				NewStackMirrorConfig: sc,
-				AddPorts:             ns.AddPorts,
-				Mode:                 ns.Mode,
-				NetworkID:            id,
-				EndpointID:           ns.BridgeName,
-				Operation:            "create",
-			}
-			d.dovesnapOpChan <- createMsg
+		createMsg := DovesnapOp{
+			NewNetworkState:      ns,
+			NewStackMirrorConfig: sc,
+			AddPorts:             ns.AddPorts,
+			Mode:                 ns.Mode,
+			NetworkID:            id,
+			EndpointID:           ns.BridgeName,
+			Operation:            "create",
 		}
+
+		if !d.ovsdber.ifUp(ns.BridgeName) {
+			createMsg.Operation = "recreate"
+		}
+		d.createDeleteNetworkWG.Add(1)
+		d.dovesnapOpChan <- createMsg
 	}
+	d.createDeleteNetworkWG.Wait()
 }
 
 func (d *Driver) getWebResponse(w http.ResponseWriter, operation string) {
@@ -1078,6 +1069,14 @@ func (d *Driver) runWeb(port int) {
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
 		panic(err)
 	}
+}
+
+func (d *Driver) Quit() {
+	quitMsg := DovesnapOp{
+		Operation: "quit",
+	}
+	d.dovesnapOpChan <- quitMsg
+	d.resourceManagerWG.Wait()
 }
 
 func NewDriver(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName string, flagFaucetconfrpcServerPort int, flagFaucetconfrpcKeydir string, flagFaucetconfrpcConnRetries int, flagStackPriority1 string, flagStackingInterfaces string, flagStackMirrorInterface string, flagDefaultControllers string, flagMirrorBridgeIn string, flagMirrorBridgeOut string, flagStatusServerPort int, flagStatusAuthIPs string) *Driver {
@@ -1152,9 +1151,10 @@ func NewDriver(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName s
 		log.Warnf("No stacking interface defined, not stacking DPs or creating a stacking bridge")
 	}
 
-	d.restoreNetworks()
-
+	d.resourceManagerWG.Add(1)
 	go d.resourceManager()
+
+	d.restoreNetworks()
 
 	go d.runWeb(flagStatusServerPort)
 
