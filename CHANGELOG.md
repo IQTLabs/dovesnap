@@ -1,3 +1,9 @@
+# v0.22.1 (2021-07-14)
+
+- Use waitgroups to synchronize create/delete operations, including on exit.
+- OVS 2.15.1
+- Update faucet, gauge, pylint, grpc, grafana, docker, prometheus
+
 # v0.22.0 (2021-06-22)
 
 - dovesnap plugin no longer needs privileged: true
