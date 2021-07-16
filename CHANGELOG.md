@@ -1,3 +1,25 @@
+# v0.22.1 (2021-07-14)
+
+- Use waitgroups to synchronize create/delete operations, including on exit.
+- OVS 2.15.1
+- Update faucet, gauge, pylint, grpc, grafana, docker, prometheus, faucetconfrpc
+
+# v0.22.0 (2021-06-22)
+
+- dovesnap plugin no longer needs privileged: true
+- update prometheus, grafana, pytype.
+
+# v0.21.0 (2021-06-17)
+
+- restart/shutdown handling improvements, and network deletes now blocking to avoid leaked veths or other resources.
+- Update pytype, docker, faucetconfrpc, prometheus, grafana, baseconv
+
+# v0.20.0 (2021-05-04)
+
+- Use c65sdn faucet/gauge docker images
+- Upgrade pytype, docker, faucetconfrpc, prometheus, grafana
+- Add routed mode
+
 # v0.19.0 (2021-03-05)
 
 - Use c65sdn faucet/gauge docker images

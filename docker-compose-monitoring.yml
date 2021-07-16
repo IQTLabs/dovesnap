@@ -2,7 +2,7 @@ version: '3.7'
 services:
     prometheus:
         restart: always
-        image: 'prom/prometheus:v2.26.0'
+        image: 'prom/prometheus:v2.28.1'
         user: 'root'
         ports:
             - '9090:9090'
@@ -14,7 +14,7 @@ services:
             - dovesnap
     grafana:
         restart: always
-        image: 'grafana/grafana:7.5.5'
+        image: 'grafana/grafana:8.0.6'
         user: 'root'
         ports:
             - '3000:3000'

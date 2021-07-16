@@ -2,6 +2,9 @@ package main
 
 import (
 	"flag"
+	"os"
+	"os/signal"
+	"syscall"
 
 	ovs "dovesnap/ovs"
 	"github.com/docker/go-plugins-helpers/network"
@@ -9,7 +12,7 @@ import (
 )
 
 const (
-	version = "0.19.0"
+	version = "0.22.0"
 )
 
 func main() {
@@ -23,6 +26,8 @@ func main() {
 		"faucetconfrpc_port", 59999, "port for faucetconfrpc server")
 	flagFaucetconfrpcKeydir := flag.String(
 		"faucetconfrpc_keydir", "/faucetconfrpc", "directory with keys for faucetconfrpc server")
+	flagFaucetconfrpcConnRetries := flag.Int(
+		"faucetconfrpc_connretries", 5, "number of retries to connect to faucetconfrpc server")
 	flagStackingInterfaces := flag.String(
 		"stacking_interfaces", "", "comma separated list of [dpname:port:interface_name] to use for stacking")
 	flagStackPriority1 := flag.String(
@@ -53,6 +58,7 @@ func main() {
 		*flagFaucetconfrpcServerName,
 		*flagFaucetconfrpcServerPort,
 		*flagFaucetconfrpcKeydir,
+		*flagFaucetconfrpcConnRetries,
 		*flagStackPriority1,
 		*flagStackingInterfaces,
 		*flagStackMirrorInterface,
@@ -64,5 +70,15 @@ func main() {
 	log.Infof("New Docker driver created")
 	h := network.NewHandler(d)
 	log.Infof("Getting ready to serve new Docker driver")
-	h.ServeUnix(ovs.DriverName, 0)
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM)
+	go func() {
+		h.ServeUnix(ovs.DriverName, 0)
+		log.Errorf("Unexpected server exit")
+		os.Exit(1)
+	}()
+	sig := <-sigChan
+	log.Infof("Caught signal %v", sig)
+	d.Quit()
+	os.Exit(0)
 }

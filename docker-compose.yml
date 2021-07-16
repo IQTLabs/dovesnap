@@ -15,10 +15,14 @@ services:
     extra_hosts:
       - 'faucetconfrpc:${FAUCETCONFRPC_IP}'
     depends_on:
-      - ovs
+      ovs:
+        condition: service_healthy
     cap_add:
       - NET_ADMIN
-    privileged: true
+      - SYS_ADMIN
+      - SYS_CHROOT
+    # TODO: needed for ip netns inside container, provide minimal apparmor profile.
+    security_opt: ['apparmor:unconfined']
     command:
       - --debug
       - --faucetconfrpc_addr=faucetconfrpc
@@ -32,7 +36,9 @@ services:
       - '--default_ofcontrollers=${STACK_OFCONTROLLERS}'
   ovs:
     restart: always
-    image: iqtlabs/openvswitch:v2.14.2
+    image: iqtlabs/openvswitch:v2.15.1
+    healthcheck:
+      test: 'ovs-vsctl show'
     volumes:
       - /usr/local/var/run/openvswitch:/usr/local/var/run/openvswitch
       - ovs-data:/etc/openvswitch

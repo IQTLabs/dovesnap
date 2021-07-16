@@ -28,6 +28,7 @@ if [ "$RET" != "0" ] ; then
         echo testcon container creation returned: $RET
         exit 1
 fi
+# test OVS and dovesnap recover state after OVS restart.
 restart_ovs
 wait_push_vlan 0 1
 sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
