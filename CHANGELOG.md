@@ -1,3 +1,8 @@
+# v0.22.2 (2021-07-21)
+
+- upgrade faucet, grafana, pytype
+- docker as a systemd service
+
 # v0.22.1 (2021-07-14)
 
 - Use waitgroups to synchronize create/delete operations, including on exit.
