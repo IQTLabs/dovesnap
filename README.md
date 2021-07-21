@@ -13,6 +13,10 @@ See also https://docs.faucet.nz for FAUCET documentation, including monitoring d
 * Optionally: additional physical interfaces to connect other hosts also running dovesnap
 * non-netfilter iptables. For Debian/Ubuntu, follow the legacy option at https://wiki.debian.org/iptables (`update-alternatives --set iptables /usr/sbin/iptables-legacy`). This requirement will be addressed in a future version.
 
+### Installing as a systemd service
+
+The `install.sh` and `uninstall.sh` scripts can be used to install and uninstall dovesnap as a systemd managed service. An upgrade can be accomplished by executing a `git pull` within `~dovesnap` as the `dovesnap` user, and restarting the service. Persistent configuration is stored in `~dovesnap/service.env`.
+
 ### QuickStart Instructions
 
 These instructions describe the most basic use of dovesnap - creating a docker network with Internet access, where dovesnap provides all the FAUCET infrastructure. See below for more advanced usage.
