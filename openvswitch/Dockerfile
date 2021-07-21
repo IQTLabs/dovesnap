@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3-pip pyt
  && rm -rf /var/lib/apt/lists/*
 # Configure supervisord
 RUN mkdir -p /var/log/supervisor/
-ADD supervisord.conf /etc/
+COPY supervisord.conf /etc/
 # Install supervisor_stdout
 WORKDIR /opt
 RUN git clone https://github.com/coderanger/supervisor-stdout && \
@@ -23,9 +23,9 @@ RUN wget https://www.openvswitch.org/releases/openvswitch-$OVS_VERSION.tar.gz --
  cp -r openvswitch/* / &&\
  rm -r openvswitch &&\
  rm openvswitch-$OVS_VERSION.tar.gz
-ADD configure-ovs.sh /usr/local/share/openvswitch/
+COPY configure-ovs.sh /usr/local/share/openvswitch/
 # Create the database
 RUN ovsdb-tool create /etc/openvswitch/conf.db /usr/local/share/openvswitch/vswitch.ovsschema
-ADD scripts /scripts
+COPY scripts /scripts
 CMD ["/usr/bin/supervisord"]
 HEALTHCHECK --interval=30s --timeout=5s CMD ovs-vsctl show
