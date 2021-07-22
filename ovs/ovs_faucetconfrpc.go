@@ -41,6 +41,7 @@ func (c *faucetconfrpcer) mustGetGRPCClient(flagFaucetconfrpcClientName string, 
 		ServerName:   flagFaucetconfrpcServerName,
 		Certificates: []tls.Certificate{certificate},
 		RootCAs:      certPool,
+		MinVersion:   tls.VersionTLS13,
 	})
 
 	// Connect to faucetconfrpc server.
