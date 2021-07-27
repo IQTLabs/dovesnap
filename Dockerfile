@@ -1,5 +1,10 @@
-FROM golang:1.16
+FROM golang:1.16 AS build
 LABEL maintainer="Charlie Lewis <clewis@iqt.org>"
+COPY . /go/src/dovesnap
+WORKDIR /go/src/dovesnap
+RUN go build -o /out/dovesnap .
+FROM debian:buster
+COPY --from=build /out/dovesnap /
 RUN apt-get update && apt-get install -y --no-install-recommends \
     iptables dbus go-dep && \
     apt-get clean && \
@@ -12,8 +17,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     udhcpc && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-COPY . /go/src/dovesnap
 COPY udhcpclog.sh /udhcpclog.sh
-WORKDIR /go/src/dovesnap
-RUN go install -v
-ENTRYPOINT ["dovesnap"]
+ENTRYPOINT ["/dovesnap"]
