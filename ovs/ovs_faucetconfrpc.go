@@ -58,7 +58,7 @@ func (c *faucetconfrpcer) mustGetGRPCClient(flagFaucetconfrpcClientName string, 
 		}
 		time.Sleep(timeout * time.Second)
 	}
-	panic(fmt.Errorf("Cannot connect to RPC server"))
+	panic(fmt.Errorf("cannot connect to RPC server"))
 }
 
 func (c *faucetconfrpcer) getDpNames() map[string]bool {

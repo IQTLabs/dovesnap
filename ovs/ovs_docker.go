@@ -20,7 +20,7 @@ func (c *dockerer) mustGetDockerClient() {
 	// TODO: https://github.com/moby/moby/issues/40185
 	client, err := client.NewEnvClient()
 	if err != nil {
-		panic(fmt.Errorf("Could not connect to docker: %s", err))
+		panic(fmt.Errorf("could not connect to docker: %s", err))
 	}
 	c.client = client
 }
@@ -43,7 +43,7 @@ func (c *dockerer) mustGetNetworkInspectFromID(NetworkID string) types.NetworkRe
 		}
 		time.Sleep(1 * time.Second)
 	}
-	panic(fmt.Errorf("Network %s not found", NetworkID))
+	panic(fmt.Errorf("network %s not found", NetworkID))
 }
 
 func (c *dockerer) mustGetNetworkNameFromID(NetworkID string) string {
@@ -53,7 +53,7 @@ func (c *dockerer) mustGetNetworkNameFromID(NetworkID string) string {
 func (c *dockerer) mustGetNetworkList() map[string]string {
 	networkList, err := c.client.NetworkList(context.Background(), types.NetworkListOptions{})
 	if err != nil {
-		panic(fmt.Errorf("Could not get docker networks: %s", err))
+		panic(fmt.Errorf("could not get docker networks: %s", err))
 	}
 	netlist := make(map[string]string)
 	for _, net := range networkList {
@@ -67,7 +67,7 @@ func (c *dockerer) mustGetNetworkList() map[string]string {
 func (c *dockerer) getContainerFromEndpoint(EndpointID string) (types.ContainerJSON, error) {
 	netlist := c.mustGetNetworkList()
 	for i := 0; i < dockerRetries; i++ {
-		for id, _ := range netlist {
+		for id := range netlist {
 			netInspect := c.mustGetNetworkInspectFromID(id)
 			for containerID, containerInfo := range netInspect.Containers {
 				if containerInfo.EndpointID == EndpointID {
@@ -81,5 +81,5 @@ func (c *dockerer) getContainerFromEndpoint(EndpointID string) (types.ContainerJ
 		}
 		time.Sleep(1 * time.Second)
 	}
-	return types.ContainerJSON{}, fmt.Errorf("Endpoint %s not found", EndpointID)
+	return types.ContainerJSON{}, fmt.Errorf("endpoint %s not found", EndpointID)
 }

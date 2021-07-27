@@ -50,7 +50,7 @@ func mustGetUintFromHexStr(dpid string) uint64 {
 	strVal, _ := bc.Convert(strings.ToLower(dpid[2:]), bc.DigitsHex, bc.DigitsDec)
 	uintVal := defaultUint(strVal, 0)
 	if uintVal == 0 {
-		panic(fmt.Errorf("Unable convert %s to an uint", strVal))
+		panic(fmt.Errorf("unable convert %s to an uint", strVal))
 	}
 	return uintVal
 }
@@ -87,7 +87,7 @@ func getIfaceAddr(name string) (*net.IPNet, error) {
 		return nil, err
 	}
 	if len(addrs) == 0 {
-		return nil, fmt.Errorf("Interface %s has no IP addresses", name)
+		return nil, fmt.Errorf("interface %s has no IP addresses", name)
 	}
 	if len(addrs) > 1 {
 		log.Infof("Interface [ %v ] has more than 1 IPv4 address. Defaulting to using [ %v ]\n", name, addrs[0].IP)
