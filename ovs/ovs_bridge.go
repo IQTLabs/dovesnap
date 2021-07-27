@@ -24,7 +24,7 @@ func (ovsdber *ovsdber) waitForOvs() {
 	}
 	_, err := ovsdber.show()
 	if err != nil {
-		panic(fmt.Errorf("Could not connect to open vswitch"))
+		panic(fmt.Errorf("could not connect to open vswitch"))
 	}
 	log.Infof("Connected to open vswitch")
 }
@@ -70,7 +70,7 @@ func (ovsdber *ovsdber) makeLoopbackBridge(bridgeName string) (err error) {
 	err = nil
 	defer func() {
 		if rerr := recover(); rerr != nil {
-			err = fmt.Errorf("Cannot makeLoopbackBridge: %v", rerr)
+			err = fmt.Errorf("cannot makeLoopbackBridge: %v", rerr)
 		}
 	}()
 
@@ -100,7 +100,6 @@ func (ovsdber *ovsdber) parseAddPorts(add_ports string, addPorts *map[string]OFP
 			}
 		}
 	}
-	return
 }
 
 func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid string, add_ports string, exists bool, userspace bool, ovsLocalMac string) error {
@@ -156,7 +155,7 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 		}
 	}
 
-	for add_port, _ := range addPorts {
+	for add_port := range addPorts {
 		_, err := ovsdber.getOfPort(add_port)
 		if err != nil {
 			// At least one add port failed, so delete the bridge.

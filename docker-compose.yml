@@ -1,3 +1,4 @@
+---
 version: '3.7'
 services:
   plugin:
@@ -21,7 +22,7 @@ services:
       - NET_ADMIN
       - SYS_ADMIN
       - SYS_CHROOT
-    # TODO: needed for ip netns inside container, provide minimal apparmor profile.
+    # TODO: needed for ip netns inside container, provide min apparmor profile.
     security_opt: ['apparmor:unconfined']
     command:
       - --debug

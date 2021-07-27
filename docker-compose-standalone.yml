@@ -1,3 +1,4 @@
+---
 version: '3.7'
 services:
   faucet:
@@ -59,4 +60,4 @@ services:
       - faucet
       - gauge
 networks:
-    dovesnap:
+  dovesnap:

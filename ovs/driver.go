@@ -259,7 +259,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 	err = nil
 	defer func() {
 		if rerr := recover(); rerr != nil {
-			err = fmt.Errorf("Cannot create network: %v", rerr)
+			err = fmt.Errorf("cannot create network: %v", rerr)
 		}
 	}()
 
@@ -549,7 +549,7 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 	if add_ports != "" {
 		addPorts := make(map[string]OFPortType)
 		d.ovsdber.parseAddPorts(add_ports, &addPorts, &addPortsAcls)
-		for add_port, _ := range addPorts {
+		for add_port := range addPorts {
 			ofPort := d.ovsdber.mustGetOfPort(add_port)
 			add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofPort, "Physical interface "+add_port, ns.BridgeVLAN, "")
 			ns.DynamicNetworkStates.ExternalPorts[add_port] = getExternalPortState(add_port, ofPort)
@@ -559,7 +559,7 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 	if add_copro_ports != "" {
 		addPorts := make(map[string]OFPortType)
 		d.ovsdber.parseAddPorts(add_copro_ports, &addPorts, &addPortsAcls)
-		for add_port, _ := range addPorts {
+		for add_port := range addPorts {
 			ofPort := d.ovsdber.mustGetOfPort(add_port)
 			add_interfaces += d.faucetconfrpcer.coproInterfaceYaml(ofPort, "Physical interface "+add_port, "vlan_vid")
 			ns.DynamicNetworkStates.ExternalPorts[add_port] = getExternalPortState(add_port, ofPort)
@@ -1014,7 +1014,7 @@ func (d *Driver) notifier() {
 
 func (d *Driver) restoreNetworks() {
 	netlist := d.dockerer.mustGetNetworkList()
-	for id, _ := range netlist {
+	for id := range netlist {
 		netInspect := d.dockerer.mustGetNetworkInspectFromID(id)
 		ns, err := getNetworkStateFromResource(&netInspect, d.shortEngineId)
 		if err != nil {
@@ -1085,7 +1085,7 @@ func NewDriver(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName s
 
 	stack_mirror_interface := strings.Split(flagStackMirrorInterface, ":")
 	if len(flagStackMirrorInterface) > 0 && len(stack_mirror_interface) != 2 {
-		panic(fmt.Errorf("Invalid stack mirror interface config: %s", flagStackMirrorInterface))
+		panic(fmt.Errorf("invalid stack mirror interface config: %s", flagStackMirrorInterface))
 	}
 	stacking_interfaces := strings.Split(flagStackingInterfaces, ",")
 	log.Debugf("Stacking interfaces: %v", stacking_interfaces)

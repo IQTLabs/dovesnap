@@ -205,7 +205,7 @@ func mustGetGatewayIP(r *networkplugin.CreateNetworkRequest) (string, string) {
 	if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
 		return parts[0], parts[1]
 	}
-	panic(fmt.Errorf("Cannot parse gateway IP: %s", gatewayIP))
+	panic(fmt.Errorf("cannot parse gateway IP: %s", gatewayIP))
 }
 
 func mustGetBindInterface(r *networkplugin.CreateNetworkRequest) string {
@@ -277,11 +277,11 @@ func (d *Driver) mustGetStackingInterface(stackingInterface string) (string, OFP
 	remoteDP := stackSlice[0]
 	remotePort, err := ParseUint32(stackSlice[1])
 	if err != nil {
-		panic(fmt.Errorf("Unable to convert remote port to an unsigned integer because: [ %s ]", err))
+		panic(fmt.Errorf("unable to convert remote port to an unsigned integer because: [ %s ]", err))
 	}
 	localInterface := stackSlice[2]
 	if err != nil {
-		panic(fmt.Errorf("Unable to convert local port to an unsigned integer because: [ %s ]", err))
+		panic(fmt.Errorf("unable to convert local port to an unsigned integer because: [ %s ]", err))
 	}
 	return remoteDP, OFPortType(remotePort), localInterface
 }

@@ -62,7 +62,7 @@ func (ovsdber *ovsdber) mustLowestFreePortOnBridge(bridgeName string) OFPortType
 	portDesc := make(map[OFPortType]string)
 	mustScrapePortDesc(bridgeName, &portDesc)
 	existingOfPorts := []int{}
-	for ofport, _ := range portDesc {
+	for ofport := range portDesc {
 		existingOfPorts = append(existingOfPorts, int(ofport))
 	}
 	sort.Ints(existingOfPorts)
