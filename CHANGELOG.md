@@ -2,7 +2,7 @@
 
 - reduce size of OVS and dovesnap containers (builders)
 - upgrade to golang 1.16
-- min TLS 1.3 version for faucetconfrpc 
+- min TLS 1.3 version for faucetconfrpc
 - pin more python dependencies (including graphviz, docker)
 
 # v0.22.2 (2021-07-21)
