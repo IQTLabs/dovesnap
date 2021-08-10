@@ -75,6 +75,11 @@ type NetworkState struct {
 	DynamicNetworkStates DynamicNetworkState
 }
 
+type DovesnapOpReply struct {
+	NewNetworkState    NetworkState
+	NewOFPortContainer OFPortContainer
+}
+
 type DovesnapOp struct {
 	NewNetworkState      NetworkState
 	NewStackMirrorConfig StackMirrorConfig
@@ -85,6 +90,8 @@ type DovesnapOp struct {
 	NetworkID            string
 	EndpointID           string
 	Options              map[string]interface{}
+	OFPort               OFPortType
+	Reply                chan DovesnapOpReply
 }
 
 type NotifyMsg struct {
@@ -436,10 +443,18 @@ func (d *Driver) EndpointInfo(r *networkplugin.InfoRequest) (*networkplugin.Info
 
 func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse, error) {
 	log.Debugf("Join request: %+v", r)
-	// Wait for all creates to finish.
-	d.createDeleteNetworkWG.Wait()
+	reservePortMsg := DovesnapOp{
+		NetworkID:  r.NetworkID,
+		EndpointID: r.EndpointID,
+		Operation:  "reserveport",
+		Reply:      make(chan DovesnapOpReply, 2),
+	}
+	d.dovesnapOpChan <- reservePortMsg
+	reservePortReply := <-reservePortMsg.Reply
+	ns := reservePortReply.NewNetworkState
+	ofPort := reservePortReply.NewOFPortContainer.OFPort
+	log.Debugf("Join endpoint %s:%s to %s", r.NetworkID, r.EndpointID, r.SandboxKey)
 	localVethPair := vethPair(truncateID(r.EndpointID))
-	ns := d.networks[r.NetworkID]
 	res := &networkplugin.JoinResponse{
 		InterfaceName: networkplugin.InterfaceName{
 			// SrcName gets renamed to DstPrefix + ID on the container iface
@@ -448,12 +463,12 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 		},
 		Gateway: ns.Gateway,
 	}
-	log.Debugf("Join endpoint %s:%s to %s", r.NetworkID, r.EndpointID, r.SandboxKey)
 	joinMsg := DovesnapOp{
 		NetworkID:  r.NetworkID,
 		EndpointID: r.EndpointID,
 		Options:    r.Options,
 		Operation:  "join",
+		OFPort:     ofPort,
 	}
 	d.dovesnapOpChan <- joinMsg
 	return res, nil
@@ -638,6 +653,24 @@ func mustGetPortMap(portMapRaw interface{}) (string, string, string) {
 	return hostPort, port, ipProtoName
 }
 
+func mustHandleReservePort(d *Driver, opMsg DovesnapOp) {
+	defer func() {
+		if rerr := recover(); rerr != nil {
+			log.Errorf("mustHandleReservePort failed: %v", rerr)
+		}
+	}()
+	ns := d.networks[opMsg.NetworkID]
+	localVethPair := vethPair(truncateID(opMsg.EndpointID))
+	vethName := localVethPair.Name
+	ofPort, _ := d.mustAddInternalPort(ns.BridgeName, vethName, 0)
+	opMsg.Reply <- DovesnapOpReply{
+		NewNetworkState: ns,
+		NewOFPortContainer: OFPortContainer{
+			OFPort: ofPort,
+		},
+	}
+}
+
 func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OFPortContainer) {
 	defer func() {
 		if rerr := recover(); rerr != nil {
@@ -648,13 +681,11 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 	if err != nil {
 		panic(err)
 	}
+	ofPort := opMsg.OFPort
 	ns := d.networks[opMsg.NetworkID]
 	pid := containerInspect.State.Pid
 	containerNetSettings := containerInspect.NetworkSettings.Networks[ns.NetworkName]
-	localVethPair := vethPair(truncateID(opMsg.EndpointID))
-	vethName := localVethPair.Name
 	macAddress := containerNetSettings.MacAddress
-	ofPort, _ := d.mustAddInternalPort(ns.BridgeName, vethName, 0)
 
 	createNsLink(pid, containerInspect.ID)
 	defaultInterface := "eth0"
@@ -670,9 +701,16 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 			panic(err)
 		}
 	}
+	if ns.Userspace {
+		output, err := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/ethtool", "-K", defaultInterface, "tx", "off").CombinedOutput()
+		log.Debugf("%s", output)
+		if err != nil {
+			panic(err)
+		}
+	}
 
-	log.Infof("Adding %s (pid %d) veth %s MAC %s on %s DPID %d OFPort %d to Faucet",
-		containerInspect.Name, pid, vethName, macAddress, ns.BridgeName, ns.BridgeDpidUint, ofPort)
+	log.Infof("Adding %s (pid %d) MAC %s on %s DPID %d OFPort %d to Faucet",
+		containerInspect.Name, pid, macAddress, ns.BridgeName, ns.BridgeDpidUint, ofPort)
 	log.Debugf("container network settings: %+v", containerNetSettings)
 
 	log.Debugf("%+v", opMsg.Options[portMapOption])
@@ -727,13 +765,6 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 		log.Infof("started udhcpc for %s", containerInspect.ID)
 	} else {
 		udhcpcCmd = nil
-	}
-	if ns.Userspace {
-		output, err := exec.Command("ip", "netns", "exec", containerInspect.ID, "/sbin/ethtool", "-K", defaultInterface, "tx", "off").CombinedOutput()
-		log.Debugf("%s", output)
-		if err != nil {
-			panic(err)
-		}
 	}
 	containerMap := OFPortContainer{
 		OFPort:           ofPort,
@@ -966,6 +997,8 @@ func (d *Driver) resourceManager() {
 				mustHandleJoinContainer(d, opMsg, &OFPorts)
 			case "leave":
 				mustHandleLeaveContainer(d, opMsg, &OFPorts)
+			case "reserveport":
+				mustHandleReservePort(d, opMsg)
 			case "networks":
 				mustHandleNetworks(d)
 			case "quit":
