@@ -1,3 +1,8 @@
+# v0.22.4 (2021-08-11)
+
+- immediately allocate OVS port at container Join (faster networking setup)
+- upgrade faucet, gauge, pytype, docker, grafana, grpc
+
 # v0.22.3 (2021-07-28)
 
 - reduce size of OVS and dovesnap containers (builders)
