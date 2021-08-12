@@ -211,6 +211,11 @@ func createNsLink(pid int, id string) {
 	}
 }
 
+func deleteNsLink(id string) {
+	procNetNsPath := fmt.Sprintf("%s/%s", netNsPath, id)
+	os.Remove(procNetNsPath)
+}
+
 // Create veth pair. Peername is renamed to eth0 in the container
 func vethPair(suffix string) *netlink.Veth {
 	return &netlink.Veth{
