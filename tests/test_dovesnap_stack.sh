@@ -72,7 +72,7 @@ wait_faucet
 
 docker ps -a
 echo creating testnet
-docker network create testnet -d ovs --internal -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.lbport=99 || exit 1
+docker network create testnet -d ovs --internal -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.lbport=99 -o ovs.bridge.preallocate_ports=10 || exit 1
 docker network ls
 restart_wait_dovesnap
 echo creating testcon
