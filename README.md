@@ -90,6 +90,13 @@ If NAT is in use, you can specify `-p <outside port>:<inside port>` when startin
 
 You can also specify an input ACL for the gateway's port with `-o ovs.bridge.nat_acl=<acl>`, and a default ACL for container ports with `-o ovs.bridge.default_acl=<acl>`.
 
+##### Preallocated ports
+
+`-o ovs.bridge.preallocate_ports=10`
+
+This requests that N ports be pre-allocated with the default ACL (if any) when the network is created. This makes container startup faster, because FAUCET network has already
+been configured.
+
 ##### Userspace mode
 
 `-o ovs.bridge.userspace=true`

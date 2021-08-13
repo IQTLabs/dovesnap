@@ -17,23 +17,24 @@ const (
 	internalOption = "com.docker.network.internal"
 	portMapOption  = "com.docker.network.portmap"
 
-	bindInterfaceOption = "ovs.bridge.bind_interface"
-	bridgeAddPorts      = "ovs.bridge.add_ports"
-	bridgeAddCoproPorts = "ovs.bridge.add_copro_ports"
-	bridgeController    = "ovs.bridge.controller"
-	bridgeDpid          = "ovs.bridge.dpid"
-	bridgeLbPort        = "ovs.bridge.lbport"
-	bridgeNameOption    = "ovs.bridge.name"
-	dhcpOption          = "ovs.bridge.dhcp"
-	mirrorTunnelVid     = "ovs.bridge.mirror_tunnel_vid"
-	modeOption          = "ovs.bridge.mode"
-	NATAclOption        = "ovs.bridge.nat_acl"
-	mtuOption           = "ovs.bridge.mtu"
-	vlanOption          = "ovs.bridge.vlan"
-	userspaceOption     = "ovs.bridge.userspace"
-	ovsLocalMacOption   = "ovs.bridge.ovs_local_mac"
-	vlanOutAclOption    = "ovs.bridge.vlan_out_acl"
-	defaultAclOption    = "ovs.bridge.default_acl"
+	bindInterfaceOption    = "ovs.bridge.bind_interface"
+	bridgeAddPorts         = "ovs.bridge.add_ports"
+	bridgeAddCoproPorts    = "ovs.bridge.add_copro_ports"
+	bridgeController       = "ovs.bridge.controller"
+	bridgeDpid             = "ovs.bridge.dpid"
+	bridgeLbPort           = "ovs.bridge.lbport"
+	bridgeNameOption       = "ovs.bridge.name"
+	dhcpOption             = "ovs.bridge.dhcp"
+	mirrorTunnelVid        = "ovs.bridge.mirror_tunnel_vid"
+	modeOption             = "ovs.bridge.mode"
+	NATAclOption           = "ovs.bridge.nat_acl"
+	mtuOption              = "ovs.bridge.mtu"
+	vlanOption             = "ovs.bridge.vlan"
+	userspaceOption        = "ovs.bridge.userspace"
+	ovsLocalMacOption      = "ovs.bridge.ovs_local_mac"
+	vlanOutAclOption       = "ovs.bridge.vlan_out_acl"
+	defaultAclOption       = "ovs.bridge.default_acl"
+	preAllocatePortsOption = "ovs.bridge.preallocate_ports"
 
 	defaultLbPort           = 99
 	defaultMTU              = 1500
@@ -116,6 +117,10 @@ func mustGetTunnelVid(r *networkplugin.CreateNetworkRequest) uint {
 
 func mustGetBridgeMTU(r *networkplugin.CreateNetworkRequest) uint {
 	return getGenericUintOption(r, mtuOption, defaultMTU)
+}
+
+func mustGetPreAllocatePorts(r *networkplugin.CreateNetworkRequest) uint {
+	return getGenericUintOption(r, preAllocatePortsOption, 0)
 }
 
 func mustGetLbPort(r *networkplugin.CreateNetworkRequest) uint {
@@ -367,6 +372,7 @@ func getNetworkStateFromResource(r *types.NetworkResource, shortEngineId string)
 		BridgeDpidUint:       uintDpid,
 		BridgeVLAN:           getUintOptionFromResource(r, vlanOption, defaultVLAN),
 		MTU:                  getUintOptionFromResource(r, mtuOption, defaultMTU),
+		PreAllocatePorts:     getUintOptionFromResource(r, preAllocatePortsOption, 0),
 		Mode:                 getStrOptionFromResource(r, modeOption, defaultMode),
 		FlatBindInterface:    getStrOptionFromResource(r, bindInterfaceOption, ""),
 		AddPorts:             getStrOptionFromResource(r, bridgeAddPorts, ""),

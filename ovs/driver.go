@@ -59,6 +59,7 @@ type NetworkState struct {
 	BridgeDpidUint       uint64
 	BridgeVLAN           uint
 	MTU                  uint
+	PreAllocatePorts     uint
 	Mode                 string
 	AddPorts             string
 	AddCoproPorts        string
@@ -272,6 +273,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 
 	bridgeName := mustGetBridgeName(r)
 	mtu := mustGetBridgeMTU(r)
+	preAllocatePorts := mustGetPreAllocatePorts(r)
 	mode := mustGetBridgeMode(r)
 	bindInterface := mustGetBindInterface(r)
 	controller := mustGetBridgeController(r)
@@ -312,6 +314,7 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 		BridgeDpidUint:       mustGetUintFromHexStr(dpid),
 		BridgeVLAN:           vlan,
 		MTU:                  mtu,
+		PreAllocatePorts:     preAllocatePorts,
 		Mode:                 mode,
 		AddPorts:             add_ports,
 		AddCoproPorts:        add_copro_ports,
@@ -590,6 +593,16 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 			add_interfaces += d.faucetconfrpcer.coproInterfaceYaml(ofPort, "Physical interface "+add_port, "vlan_vid")
 			ns.DynamicNetworkStates.ExternalPorts[add_port] = getExternalPortState(add_port, ofPort)
 		}
+	}
+	nextPrePort := d.ovsdber.mustLowestFreePortOnBridge(ns.BridgeName)
+	defaultAcl := ""
+	if len(ns.DefaultAcl) > 0 {
+		defaultAcl = getStrForNetwork(ns.DefaultAcl, ns.NetworkName)
+	}
+	for prePort := uint(0); prePort < ns.PreAllocatePorts; prePort++ {
+		log.Debugf("preallocating port %u on %s", nextPrePort, ns.NetworkName)
+		add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(nextPrePort, "preallocated port", ns.BridgeVLAN, defaultAcl)
+		nextPrePort += 1
 	}
 	mode := opMsg.Mode
 	if mode == "nat" || mode == "routed" {

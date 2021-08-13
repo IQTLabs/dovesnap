@@ -111,10 +111,6 @@ dps:
         0xfffffffe:
             native_vlan: 100
             opstatus_reconf: false
-    interface_ranges:
-        1-10:
-            native_vlan: 100
-            acls_in: [denyall]
 EOFC
 }
 
