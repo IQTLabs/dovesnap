@@ -365,7 +365,7 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 	deleteMsg := DovesnapOp{
 		NetworkID: r.NetworkID,
 		Operation: "delete",
-		Reply:     make(chan DovesnapOpReply),
+		Reply:     make(chan DovesnapOpReply, 2),
 	}
 
 	d.createDeleteNetworkWG.Add(1)
@@ -393,7 +393,7 @@ func (d *Driver) CreateEndpoint(r *networkplugin.CreateEndpointRequest) (*networ
 		NetworkID:  r.NetworkID,
 		EndpointID: r.EndpointID,
 		Operation:  "reserveport",
-		Reply:      make(chan DovesnapOpReply),
+		Reply:      make(chan DovesnapOpReply, 2),
 	}
 	d.dovesnapOpChan <- reservePortMsg
 	<-reservePortMsg.Reply
@@ -460,7 +460,7 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 	getNetworkMsg := DovesnapOp{
 		NetworkID: r.NetworkID,
 		Operation: "getnetwork",
-		Reply:     make(chan DovesnapOpReply),
+		Reply:     make(chan DovesnapOpReply, 2),
 	}
 	d.dovesnapOpChan <- getNetworkMsg
 	getNetworkReply := <-getNetworkMsg.Reply
@@ -490,7 +490,7 @@ func (d *Driver) Leave(r *networkplugin.LeaveRequest) error {
 		NetworkID:  r.NetworkID,
 		EndpointID: r.EndpointID,
 		Operation:  "leave",
-		Reply:      make(chan DovesnapOpReply),
+		Reply:      make(chan DovesnapOpReply, 2),
 	}
 	d.dovesnapOpChan <- leaveMsg
 	<-leaveMsg.Reply
