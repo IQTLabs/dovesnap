@@ -362,7 +362,7 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 	deleteMsg := DovesnapOp{
 		NetworkID: r.NetworkID,
 		Operation: "delete",
-		Reply:      make(chan DovesnapOpReply),
+		Reply:     make(chan DovesnapOpReply),
 	}
 
 	d.createDeleteNetworkWG.Add(1)
