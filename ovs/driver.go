@@ -362,16 +362,19 @@ func (d *Driver) DeleteNetwork(r *networkplugin.DeleteNetworkRequest) error {
 	deleteMsg := DovesnapOp{
 		NetworkID: r.NetworkID,
 		Operation: "delete",
+		Reply:     make(chan DovesnapOpReply),
 	}
 
 	d.createDeleteNetworkWG.Add(1)
 	d.dovesnapOpChan <- deleteMsg
+	<-deleteMsg.Reply
 	return nil
 }
 
 func (d *Driver) CreateEndpoint(r *networkplugin.CreateEndpointRequest) (*networkplugin.CreateEndpointResponse, error) {
-	log.Debugf("Create endpoint request: %+v", r)
 	macAddress := r.Interface.MacAddress
+	ipAddress := r.Interface.Address
+	log.Debugf("Create endpoint request: %+v %+v %+v", r, macAddress, ipAddress)
 	localVethPair := vethPair(truncateID(r.EndpointID))
 	addVethPair(localVethPair)
 	vethName := localVethPair.PeerName
@@ -383,6 +386,14 @@ func (d *Driver) CreateEndpoint(r *networkplugin.CreateEndpointRequest) (*networ
 		// We accept Docker's request.
 		macAddress = ""
 	}
+	reservePortMsg := DovesnapOp{
+		NetworkID:  r.NetworkID,
+		EndpointID: r.EndpointID,
+		Operation:  "reserveport",
+		Reply:      make(chan DovesnapOpReply),
+	}
+	d.dovesnapOpChan <- reservePortMsg
+	<-reservePortMsg.Reply
 	res := &networkplugin.CreateEndpointResponse{Interface: &networkplugin.EndpointInterface{MacAddress: macAddress}}
 	log.Debugf("Create endpoint response: %+v", res.Interface)
 	return res, nil
@@ -442,18 +453,15 @@ func (d *Driver) EndpointInfo(r *networkplugin.InfoRequest) (*networkplugin.Info
 }
 
 func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse, error) {
-	log.Debugf("Join request: %+v", r)
-	reservePortMsg := DovesnapOp{
-		NetworkID:  r.NetworkID,
-		EndpointID: r.EndpointID,
-		Operation:  "reserveport",
-		Reply:      make(chan DovesnapOpReply, 2),
-	}
-	d.dovesnapOpChan <- reservePortMsg
-	reservePortReply := <-reservePortMsg.Reply
-	ns := reservePortReply.NewNetworkState
-	ofPort := reservePortReply.NewOFPortContainer.OFPort
 	log.Debugf("Join endpoint %s:%s to %s", r.NetworkID, r.EndpointID, r.SandboxKey)
+	getNetworkMsg := DovesnapOp{
+		NetworkID: r.NetworkID,
+		Operation: "getnetwork",
+		Reply:     make(chan DovesnapOpReply),
+	}
+	d.dovesnapOpChan <- getNetworkMsg
+	getNetworkReply := <-getNetworkMsg.Reply
+	ns := getNetworkReply.NewNetworkState
 	localVethPair := vethPair(truncateID(r.EndpointID))
 	res := &networkplugin.JoinResponse{
 		InterfaceName: networkplugin.InterfaceName{
@@ -468,7 +476,6 @@ func (d *Driver) Join(r *networkplugin.JoinRequest) (*networkplugin.JoinResponse
 		EndpointID: r.EndpointID,
 		Options:    r.Options,
 		Operation:  "join",
-		OFPort:     ofPort,
 	}
 	d.dovesnapOpChan <- joinMsg
 	return res, nil
@@ -480,8 +487,10 @@ func (d *Driver) Leave(r *networkplugin.LeaveRequest) error {
 		NetworkID:  r.NetworkID,
 		EndpointID: r.EndpointID,
 		Operation:  "leave",
+		Reply:      make(chan DovesnapOpReply),
 	}
 	d.dovesnapOpChan <- leaveMsg
+	<-leaveMsg.Reply
 	return nil
 }
 
@@ -522,6 +531,8 @@ func mustHandleDeleteNetwork(d *Driver, opMsg DovesnapOp) {
 
 	delete(d.networks, opMsg.NetworkID)
 	delete(d.stackMirrorConfigs, opMsg.NetworkID)
+
+	opMsg.Reply <- DovesnapOpReply{}
 
 	d.notifyMsgChan <- NotifyMsg{
 		Type:         "NETWORK",
@@ -653,7 +664,19 @@ func mustGetPortMap(portMapRaw interface{}) (string, string, string) {
 	return hostPort, port, ipProtoName
 }
 
-func mustHandleReservePort(d *Driver, opMsg DovesnapOp) {
+func mustHandleGetNetwork(d *Driver, opMsg DovesnapOp) {
+	defer func() {
+		if rerr := recover(); rerr != nil {
+			log.Errorf("mustHandleReservePort failed: %v", rerr)
+		}
+	}()
+	ns := d.networks[opMsg.NetworkID]
+	opMsg.Reply <- DovesnapOpReply{
+		NewNetworkState: ns,
+	}
+}
+
+func mustHandleReservePort(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OFPortContainer) {
 	defer func() {
 		if rerr := recover(); rerr != nil {
 			log.Errorf("mustHandleReservePort failed: %v", rerr)
@@ -663,6 +686,7 @@ func mustHandleReservePort(d *Driver, opMsg DovesnapOp) {
 	localVethPair := vethPair(truncateID(opMsg.EndpointID))
 	vethName := localVethPair.Name
 	ofPort, _ := d.mustAddInternalPort(ns.BridgeName, vethName, 0)
+	(*OFPorts)[opMsg.EndpointID] = OFPortContainer{OFPort: ofPort}
 	opMsg.Reply <- DovesnapOpReply{
 		NewNetworkState: ns,
 		NewOFPortContainer: OFPortContainer{
@@ -681,7 +705,7 @@ func mustHandleJoinContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]OF
 	if err != nil {
 		panic(err)
 	}
-	ofPort := opMsg.OFPort
+	ofPort := (*OFPorts)[opMsg.EndpointID].OFPort
 	ns := d.networks[opMsg.NetworkID]
 	pid := containerInspect.State.Pid
 	containerNetSettings := containerInspect.NetworkSettings.Networks[ns.NetworkName]
@@ -810,6 +834,7 @@ func mustHandleLeaveContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]O
 		udhcpcCmd.Process.Kill()
 		udhcpcCmd.Wait()
 	}
+
 	portID := fmt.Sprintf(ovsPortPrefix + truncateID(opMsg.EndpointID))
 	ofPort := d.ovsdber.mustGetOfPort(portID)
 	// Must delete veth for the endpoint here - DeleteEndpoint happens before leave container,
@@ -831,6 +856,9 @@ func mustHandleLeaveContainer(d *Driver, opMsg DovesnapOp, OFPorts *map[string]O
 
 	delete(*OFPorts, opMsg.EndpointID)
 	delete(ns.DynamicNetworkStates.Containers, opMsg.EndpointID)
+	deleteNsLink(containerMap.containerInspect.ID)
+
+	opMsg.Reply <- DovesnapOpReply{}
 
 	d.notifyMsgChan <- NotifyMsg{
 		Type:         "CONTAINER",
@@ -998,7 +1026,9 @@ func (d *Driver) resourceManager() {
 			case "leave":
 				mustHandleLeaveContainer(d, opMsg, &OFPorts)
 			case "reserveport":
-				mustHandleReservePort(d, opMsg)
+				mustHandleReservePort(d, opMsg, &OFPorts)
+			case "getnetwork":
+				mustHandleGetNetwork(d, opMsg)
 			case "networks":
 				mustHandleNetworks(d)
 			case "quit":
