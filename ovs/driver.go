@@ -79,6 +79,7 @@ type NetworkState struct {
 type DovesnapOpReply struct {
 	NewNetworkState    NetworkState
 	NewOFPortContainer OFPortContainer
+	NetworkStateString string
 }
 
 type DovesnapOp struct {
@@ -142,7 +143,6 @@ type Driver struct {
 	stackMirrorConfigs      map[string]StackMirrorConfig
 	dovesnapOpChan          chan DovesnapOp
 	notifyMsgChan           chan NotifyMsg
-	webResponseChan         chan string
 	authIPs                 []net.IPNet
 }
 
@@ -1006,12 +1006,12 @@ func isAuthIP(requestIP net.IP, authIPs []net.IPNet) bool {
 	return false
 }
 
-func mustHandleNetworks(d *Driver) {
+func mustHandleNetworks(d *Driver, opMsg DovesnapOp) {
 	encodedMsg, err := json.Marshal(d.networks)
 	if err != nil {
 		panic(err)
 	}
-	d.webResponseChan <- fmt.Sprintf("%s", encodedMsg)
+	opMsg.Reply <- DovesnapOpReply{NetworkStateString: fmt.Sprintf("%s", encodedMsg)}
 }
 
 func (d *Driver) resourceManager() {
@@ -1043,7 +1043,9 @@ func (d *Driver) resourceManager() {
 			case "getnetwork":
 				mustHandleGetNetwork(d, opMsg)
 			case "networks":
-				mustHandleNetworks(d)
+				reconcileOvs(d, &AllPortDesc)
+				reconcileDhcpIp(d)
+				mustHandleNetworks(d, opMsg)
 			case "quit":
 				log.Infof("processed quit")
 				return
@@ -1123,9 +1125,13 @@ func (d *Driver) restoreNetworks() {
 }
 
 func (d *Driver) getWebResponse(w http.ResponseWriter, operation string) {
-	d.dovesnapOpChan <- DovesnapOp{Operation: operation}
-	response := <-d.webResponseChan
-	fmt.Fprintf(w, response)
+	requestMsg := DovesnapOp{
+		Operation: operation,
+		Reply:     make(chan DovesnapOpReply, 2),
+	}
+	d.dovesnapOpChan <- requestMsg
+	reply := <-requestMsg.Reply
+	fmt.Fprintf(w, reply.NetworkStateString)
 }
 
 func (d *Driver) handleNetworksWeb(w http.ResponseWriter, r *http.Request) {
@@ -1181,7 +1187,6 @@ func NewDriver(flagFaucetconfrpcClientName string, flagFaucetconfrpcServerName s
 		stackMirrorConfigs:      make(map[string]StackMirrorConfig),
 		dovesnapOpChan:          make(chan DovesnapOp, chanSize),
 		notifyMsgChan:           make(chan NotifyMsg, chanSize),
-		webResponseChan:         make(chan string, chanSize),
 	}
 
 	for _, authIP := range strings.Split(flagStatusAuthIPs, ",") {
