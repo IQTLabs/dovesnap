@@ -257,6 +257,8 @@ wait_for_container_ip ()
         done
         if [ "$OUT" == "" ] ; then
                 echo No IP
+                DOVESNAPID="$(docker ps -q --filter name=dovesnap_plugin)"
+                docker logs $DOVESNAPID
                 exit 1
         fi
         echo $OUT

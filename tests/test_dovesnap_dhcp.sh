@@ -22,10 +22,10 @@ touch $ULF
 
 cat << EOF > $UCF
 start           100.64.0.2
-end             100.64.0.5
+end             100.64.0.12
 lease_file      $ULF
 interface       addport2
-max_leases	2
+max_leases	10
 pidfile		$UCP
 EOF
 
