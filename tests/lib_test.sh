@@ -257,6 +257,8 @@ wait_for_container_ip ()
         done
         if [ "$OUT" == "" ] ; then
                 echo No IP
+                DOVESNAPID="$(docker ps -q --filter name=dovesnap_plugin)"
+                docker logs $DOVESNAPID
                 exit 1
         fi
         echo $OUT
@@ -267,14 +269,17 @@ wait_for_status_container_ip ()
         i=0
         IP=$1
         OUT=""
+        STATUS=""
         while [ "$OUT" == "" ] && [ "$i" != 30 ] ; do
                 echo waiting for status container IP: $i
-                OUT=$(wget -q -O- localhost:9401/networks|jq|grep HostIP|grep $IP|cat)
+                STATUS=$(wget -q -O- localhost:9401/networks|jq -c)
+                OUT=$(echo $STATUS|grep HostIP|grep $IP|cat)
                 ((i=i+1))
                 sleep 1
         done
         if [ "$OUT" == "" ] ; then
                 echo No IP
+                echo $STATUS
                 exit 1
         fi
         echo $OUT
