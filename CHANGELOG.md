@@ -1,3 +1,10 @@
+# v0.22.5 (2021-08-16)
+
+- allocate OVS ports when endpoint is created, before container Join.
+- allow preallocation of N FAUCET ports.
+- trigger state reconcilation on webserver request for status
+- upgrade pytype, prometheus, grpc
+
 # v0.22.4 (2021-08-11)
 
 - immediately allocate OVS port at container Join (faster networking setup)
