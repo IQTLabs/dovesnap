@@ -64,22 +64,24 @@ func (c *dockerer) mustGetNetworkList() map[string]string {
 	return netlist
 }
 
-func (c *dockerer) getContainerFromEndpoint(EndpointID string) (types.ContainerJSON, error) {
-	netlist := c.mustGetNetworkList()
+func (c *dockerer) getContainerFromEndpoint(NetworkID string, EndpointID string) (types.ContainerJSON, error) {
 	for i := 0; i < dockerRetries; i++ {
-		for id := range netlist {
-			netInspect := c.mustGetNetworkInspectFromID(id)
-			for containerID, containerInfo := range netInspect.Containers {
-				if containerInfo.EndpointID == EndpointID {
-					containerInspect, err := c.client.ContainerInspect(context.Background(), containerID)
-					if err != nil {
-						continue
-					}
-					return containerInspect, nil
+		log.Debugf("about to inspect network %+v", NetworkID)
+		netInspect := c.mustGetNetworkInspectFromID(NetworkID)
+		for containerID, containerInfo := range netInspect.Containers {
+			if containerInfo.EndpointID == EndpointID {
+				log.Debugf("about to inspect container %+v", EndpointID)
+				ctx, cancel := context.WithTimeout(context.Background(), dockerRetries*time.Second)
+				defer cancel()
+				containerInspect, err := c.client.ContainerInspect(ctx, containerID)
+				if err != nil {
+					continue
 				}
+				log.Debugf("returned %+v", containerInspect)
+				return containerInspect, nil
 			}
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(2 * time.Second)
 	}
 	return types.ContainerJSON{}, fmt.Errorf("endpoint %s not found", EndpointID)
 }

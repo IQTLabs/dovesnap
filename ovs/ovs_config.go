@@ -57,7 +57,7 @@ const (
 	peerOvsPortPrefix            = "ethc"
 	stackDpidPrefix              = "0x0E0F00"
 	ovsStartupRetries            = 5
-	dockerRetries                = 3
+	dockerRetries                = 5
 )
 
 var (
