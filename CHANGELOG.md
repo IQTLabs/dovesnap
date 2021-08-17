@@ -1,3 +1,8 @@
+# v0.22.6
+
+- Make Join() and CreateEndpoint() non blocking again, but retain the head start on OFPort provisioning in CreateEn
+dpoint.
+
 # v0.22.5 (2021-08-16)
 
 - allocate OVS ports when endpoint is created, before container Join.
