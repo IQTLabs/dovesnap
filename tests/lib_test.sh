@@ -10,7 +10,7 @@ reset_bridgename ()
         BRIDGE=""
         while [ "$BRIDGE" == "" ] ; do
                 echo refreshing bridge name
-                BRIDGE=$(docker exec -t $OVSID ovs-vsctl list-br|grep -Eo 'ovsbr\S+')
+                BRIDGE=$(wget -q -O- http://0.0.0.0:9401/networks|jq -r '.[] | select(."NetworkName" == "testnet").BridgeName')
                 sleep 1
         done
 }
