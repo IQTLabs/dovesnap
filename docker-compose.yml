@@ -36,7 +36,7 @@ services:
       context: .
   ovs:
     restart: always
-    image: iqtlabs/openvswitch:v2.15.1
+    image: iqtlabs/openvswitch:v2.16.0
     healthcheck:
       test: 'ovs-vsctl show'
     volumes:
