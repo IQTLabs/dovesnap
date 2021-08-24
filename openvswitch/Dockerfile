@@ -14,7 +14,7 @@ RUN git clone https://github.com/coderanger/supervisor-stdout && \
 WORKDIR /
 RUN mkdir -p /etc/openvswitch /usr/local/var/run/openvswitch
 RUN pip3 install six
-ENV OVS_VERSION 2.15.1
+ENV OVS_VERSION 2.16.0
 RUN wget https://www.openvswitch.org/releases/openvswitch-$OVS_VERSION.tar.gz --no-check-certificate && \
  tar -xzvf openvswitch-$OVS_VERSION.tar.gz &&\
  mv openvswitch-$OVS_VERSION openvswitch &&\
