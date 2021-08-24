@@ -26,7 +26,7 @@ NON_DEV_SERVICE_DELETE = {
 
 # Broadly preserves formatting.
 yaml = ruamel.yaml.YAML()
-yaml.indent(mapping=4, sequence=2, offset=4)
+yaml.indent(mapping=2, sequence=2, offset=2)
 dc = ruamel.yaml.round_trip_load(
     open(DOCKER_COMPOSE).read(), preserve_quotes=True)
 for service, service_config in dc['services'].items():
@@ -42,7 +42,8 @@ for service, service_config in dc['services'].items():
             for del_key in del_keys:
                 if del_key in service_config:
                     del service_config[del_key]
-    service_config['image'] = ':'.join((image, version))
+    if service == 'plugin':
+        service_config['image'] = ':'.join((image, version))
 
 
 yaml.dump(dc, open(DOCKER_COMPOSE, 'w'))
