@@ -9,5 +9,5 @@ setup(
     license='Apache License 2.0',
     description='graphviz generator of dovesnap networks',
     url='https://github.com/IQTLabs/dovesnap',
-    scripts=['graph_dovesnap/graph_dovesnap'],
+    scripts=['bin/graph_dovesnap', 'bin/cleanup_dovesnap'],
 )

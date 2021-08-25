@@ -29,7 +29,7 @@ acls:
       actions:
         allow: 0
 dps:
-  rootsw:
+  odsrootsw:
     dp_id: 0x77
     hardware: Open vSwitch
     interfaces:
@@ -55,24 +55,24 @@ EOFC
 docker-compose build || exit 1
 init_ovs
 
-sudo ip link add rootswintp1 type veth peer name rootswextp1
-sudo ip link set dev rootswintp1 up || exit 1
-sudo ip link set dev rootswextp1 up || exit 1
+sudo ip link add odsrootswintp1 type veth peer name odsrootswextp1
+sudo ip link set dev odsrootswintp1 up || exit 1
+sudo ip link set dev odsrootswextp1 up || exit 1
 
-docker exec -t $OVSID ovs-vsctl add-br rootsw || exit 1
-docker exec -t $OVSID ovs-vsctl set-fail-mode rootsw secure
-docker exec -t $OVSID ovs-vsctl set bridge rootsw other-config:datapath-id=0x77
-docker exec -t $OVSID ovs-vsctl set-controller rootsw tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
-docker exec -t $OVSID ovs-vsctl add-port rootsw rootswintp1 -- set interface rootswintp1 ofport_request=7
+docker exec -t $OVSID ovs-vsctl add-br odsrootsw || exit 1
+docker exec -t $OVSID ovs-vsctl set-fail-mode odsrootsw secure
+docker exec -t $OVSID ovs-vsctl set bridge odsrootsw other-config:datapath-id=0x77
+docker exec -t $OVSID ovs-vsctl set-controller odsrootsw tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
+docker exec -t $OVSID ovs-vsctl add-port odsrootsw odsrootswintp1 -- set interface odsrootswintp1 ofport_request=7
 docker exec -t $OVSID ovs-vsctl show
 
 echo starting dovesnap infrastructure
-FAUCET_PREFIX=$TMPDIR STACK_PRIORITY1=rootsw STACKING_INTERFACES=rootsw:7:rootswextp1 STACK_MIRROR_INTERFACE=rootsw:88 STACK_OFCONTROLLERS=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
+FAUCET_PREFIX=$TMPDIR STACK_PRIORITY1=odsrootsw STACKING_INTERFACES=odsrootsw:7:odsrootswextp1 STACK_MIRROR_INTERFACE=odsrootsw:88 STACK_OFCONTROLLERS=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
 wait_faucet
 
 docker ps -a
 echo creating testnet
-docker network create testnet -d ovs --internal -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.lbport=99 -o ovs.bridge.preallocate_ports=10 || exit 1
+docker network create testnet -d dovesnap --internal -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.lbport=99 -o ovs.bridge.preallocate_ports=10 || exit 1
 docker network ls
 restart_wait_dovesnap
 echo creating testcon
@@ -96,11 +96,11 @@ echo verifying networking
 docker exec -t testcon wget -q -O- bing.com || exit 1
 OVSID="$(docker ps -q --filter name=ovs)"
 echo showing packets tunnelled: tunnel 356 is vlan 100 plus default offset 256
-PACKETS=$(docker exec -t $OVSID ovs-ofctl dump-flows rootsw table=0,dl_vlan=356|grep -v n_packets=0)
+PACKETS=$(docker exec -t $OVSID ovs-ofctl dump-flows odsrootsw table=0,dl_vlan=356|grep -v n_packets=0)
 echo $PACKETS
 if [ "$PACKETS" == "" ] ; then
         echo no packets were tunnelled
-        docker exec -t $OVSID ovs-ofctl dump-flows rootsw
+        docker exec -t $OVSID ovs-ofctl dump-flows odsrootsw
         docker exec -t $OVSID ovs-ofctl dump-flows $BRIDGE
         exit 1
 fi

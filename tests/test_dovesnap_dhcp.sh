@@ -2,12 +2,12 @@
 
 source ./tests/lib_test.sh
 
-sudo ip link add mirrori type veth peer name mirroro
-sudo ip link set dev mirrori up || exit 1
-sudo ip link set dev mirroro up || exit 1
-sudo ip link add addport1 type veth peer name addport2 && true
-sudo ip link set dev addport1 up
-sudo ip link set dev addport2 up
+sudo ip link add odsmirrori type veth peer name odsmirroro
+sudo ip link set dev odsmirrori up || exit 1
+sudo ip link set dev odsmirroro up || exit 1
+sudo ip link add odsaddport1 type veth peer name odsaddport2 && true
+sudo ip link set dev odsaddport1 up
+sudo ip link set dev odsaddport2 up
 
 init_dirs
 conf_faucet
@@ -24,7 +24,7 @@ cat << EOF > $UCF
 start           100.64.0.2
 end             100.64.0.12
 lease_file      $ULF
-interface       addport2
+interface       odsaddport2
 max_leases	10
 pidfile		$UCP
 EOF
@@ -35,12 +35,12 @@ echo starting dovesnap infrastructure
 docker-compose build || exit 1
 init_ovs
 
-FAUCET_PREFIX=$TMPDIR MIRROR_BRIDGE_OUT=mirrori docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
+FAUCET_PREFIX=$TMPDIR MIRROR_BRIDGE_OUT=odsmirrori docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
 wait_faucet
 
 docker ps -a
 echo creating testnet
-docker network create testnet -d ovs --internal --ipam-driver null -o ovs.bridge.add_ports=addport1/101 -o ovs.bridge.dhcp=true -o ovs.bridge.mode=flat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 -o ovs.bridge.preallocate_ports=10 || exit 1
+docker network create testnet -d dovesnap --internal --ipam-driver null -o ovs.bridge.add_ports=odsaddport1/101 -o ovs.bridge.dhcp=true -o ovs.bridge.mode=flat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 -o ovs.bridge.preallocate_ports=10 || exit 1
 docker network ls
 restart_wait_dovesnap
 echo creating testcon
