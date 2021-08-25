@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	DriverName = "ovs"
+	DriverName = "dovesnap"
 
 	genericOption  = "com.docker.network.generic"
 	internalOption = "com.docker.network.internal"
@@ -43,17 +43,18 @@ const (
 	defaultTunnelVLANOffset = 256
 	defaultVLAN             = 100
 
-	modeFlat   = "flat"
-	modeNAT    = "nat"
-	modeRouted = "routed"
+	modeFlat          = "flat"
+	modeNAT           = "nat"
+	modeRouted        = "routed"
+	ovsDovesnapPrefix = "ods"
 
-	bridgePrefix                 = "ovsbr-"
+	bridgePrefix                 = ovsDovesnapPrefix + "br"
 	containerEthName             = "eth"
 	netNsPath                    = "/var/run/netns"
 	dhcpStatePath                = "/var/run"
 	ofPortLocal       OFPortType = 4294967294
-	ovsPortPrefix                = "ovs-veth0-"
-	patchPrefix                  = "ovp"
+	ovsPortPrefix                = ovsDovesnapPrefix + "ve"
+	patchPrefix                  = ovsDovesnapPrefix
 	peerOvsPortPrefix            = "ethc"
 	stackDpidPrefix              = "0x0E0F00"
 	ovsStartupRetries            = 5
@@ -270,11 +271,11 @@ func (d *Driver) mustGetStackDP() (string, string) {
 }
 
 func (d *Driver) mustGetLoopbackBrName() string {
-	return "lb" + d.shortEngineId
+	return ovsDovesnapPrefix + "lb" + d.shortEngineId
 }
 
 func (d *Driver) mustGetMirrorBrName() string {
-	return "mirror" + d.shortEngineId
+	return ovsDovesnapPrefix + "mir" + d.shortEngineId
 }
 
 func (d *Driver) mustGetStackingInterface(stackingInterface string) (string, OFPortType, string) {

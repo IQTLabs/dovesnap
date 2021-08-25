@@ -42,10 +42,10 @@ $ sudo mkdir /etc/faucet
 **5.** Now you are ready to create a new network
 
 ```
-$ docker network create mynet -d ovs --internal -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654
+$ docker network create mynet -d dovesnap --internal -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654
 ```
 
-`-d ovs` tells docker to use dovesnap as a network provider.
+`-d dovesnap` tells docker to use dovesnap as a network provider.
 
 `--internal` tells docker not to supply an additional network connection to containers on the new network for internet access. This is essential for dovesnap to complete control over connectivity.
 
@@ -160,11 +160,11 @@ To use physical interface `eno99` for mirroring, for example:
 If you want to mirror to a virtual interface on your host, use a veth pair. For example:
 
 ```
-$ sudo ip link add mirrori type veth peer name mirroro
-$ sudo ip link set dev mirrori up
-$ sudo ip link set dev mirroro up
-$ FAUCET_PREFIX=/etc/faucet MIRROR_BRIDGE_OUT=mirrori docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d
-$ sudo tcpdump -n -e -v -i mirroro
+$ sudo ip link add odsmirrori type veth peer name odsmirroro
+$ sudo ip link set dev odsmirrori up
+$ sudo ip link set dev odsmirroro up
+$ FAUCET_PREFIX=/etc/faucet MIRROR_BRIDGE_OUT=odsmirrori docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d
+$ sudo tcpdump -n -e -v -i odsmirroro
 ```
 
 From this point, any container selected for mirroring (see below) will have traffic mirrored to tcpdump running on `mirroro`
@@ -213,9 +213,9 @@ NOTE: where this option is used, the MAC address reported by `docker inspect` wi
 Dovesnap can generate a diagram of how containers and interfaces are connected together, with some information about running containers (e.g. MAC and IP addresses). This can be useful for troubleshooting or verifying configuration.
 
 ```
-$ cd graph_dovesnap
 $ sudo pip3 install -r requirements.txt
-$ ./graph_dovesnap.py
+$ cd bin
+$ ./graph_dovesnap
 ```
 
 A PNG file will be created that describes the networks dovesnap controls.

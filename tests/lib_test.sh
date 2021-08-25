@@ -61,10 +61,8 @@ init_dirs()
 clean_dirs()
 {
         wget -q -O- localhost:9401/networks || exit 1
-        sudo ./graph_dovesnap/graph_dovesnap -o /tmp/dovesnapviz || exit 1
-        docker rm -f testcon || exit 1
-        docker network rm testnet || exit 1
-        FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml stop
+        sudo ./bin/graph_dovesnap -o /tmp/dovesnapviz || exit 1
+        bin/cleanup_dovesnap
         rm -rf $TMPDIR
         VETHS="$(ip link | grep -E ':( ovs-veth|ovp)')"
         if [ "$VETHS" != "" ] ; then
