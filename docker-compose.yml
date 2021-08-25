@@ -34,6 +34,8 @@ services:
       - '--default_ofcontrollers=${STACK_OFCONTROLLERS}'
     build:
       context: .
+    labels:
+      - "dovesnap.namespace=primary"
   ovs:
     restart: always
     image: iqtlabs/openvswitch:v2.16.0
@@ -47,5 +49,7 @@ services:
       - "/dev/net/tun:/dev/net/tun"
     cap_add:
       - NET_ADMIN
+    labels:
+      - "dovesnap.namespace=primary"
 volumes:
   ovs-data:

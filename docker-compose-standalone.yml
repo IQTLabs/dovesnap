@@ -14,6 +14,8 @@ services:
     environment:
       FAUCET_CONFIG_STAT_RELOAD: '1'
       FAUCET_CONFIG_AUTO_REVERT: '1'
+    labels:
+      - "dovesnap.namespace=standalone"
   gauge:
     restart: always
     image: 'c65sdn/gauge:1.0.10'
@@ -29,6 +31,8 @@ services:
       GAUGE_CONFIG: '/etc/faucet/gauge.yaml'
       GAUGE_CONFIG_STAT_RELOAD: '1'
       GAUGE_CONFIG_AUTO_REVERT: '1'
+    labels:
+      - "dovesnap.namespace=standalone"
   faucet_certstrap:
     restart: on-failure
     image: 'iqtlabs/faucet-certstrap:v0.22.22'
@@ -38,9 +42,11 @@ services:
     command:
       - /opt/faucetconfrpc
       - faucetconfrpc
+    labels:
+      - "dovesnap.namespace=standalone"
   faucetconfrpc:
     restart: always
-    image: 'iqtlabs/faucetconfrpc:v0.22.21'
+    image: 'iqtlabs/faucetconfrpc:v0.22.22'
     environment:
       PYTHONUNBUFFERED: '1'
     networks:
@@ -59,5 +65,7 @@ services:
     depends_on:
       - faucet
       - gauge
+    labels:
+      - "dovesnap.namespace=standalone"
 networks:
   dovesnap:

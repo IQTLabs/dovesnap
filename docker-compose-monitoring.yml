@@ -13,6 +13,8 @@ services:
             - './configs/faucet.rules.yml:/etc/prometheus/faucet.rules.yml'
         networks:
             - dovesnap
+        labels:
+            - "dovesnap.namespace=monitoring"
     grafana:
         restart: always
         image: 'grafana/grafana:8.1.2'
@@ -25,5 +27,7 @@ services:
             - './configs/dashboards:/var/lib/grafana/dashboards'
         networks:
             - dovesnap
+        labels:
+            - "dovesnap.namespace=monitoring"
 networks:
     dovesnap:
