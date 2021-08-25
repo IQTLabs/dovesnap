@@ -31,7 +31,7 @@ services:
       GAUGE_CONFIG_AUTO_REVERT: '1'
   faucet_certstrap:
     restart: on-failure
-    image: 'iqtlabs/faucet-certstrap:v0.22.21'
+    image: 'iqtlabs/faucet-certstrap:v0.22.22'
     network_mode: none
     volumes:
       - /opt/faucetconfrpc:/opt/faucetconfrpc
