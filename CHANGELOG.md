@@ -1,3 +1,9 @@
+# v1.0.0
+
+- Driver name has changed from ovs to dovesnap
+- Add cleanup_dovesnap script
+- Update faucet, gauge, grafana, pytype, pylint, faucetconfrpc, ovs
+
 # v0.22.6
 
 - Make Join() and CreateEndpoint() non blocking again, but retain the head start on OFPort provisioning in CreateEn
