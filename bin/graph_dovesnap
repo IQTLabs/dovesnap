@@ -21,7 +21,7 @@ class GraphDovesnap:
     OFP_LOCAL = 4294967294
     DOCKER_URL = 'unix://var/run/docker.sock'
     VM_PREFIX = 'vnet'
-    MIRROR_PREFIX = 'mirror'
+    MIRROR_PREFIX = 'odsmir'
     DOVESNAP_MIRROR = '99'
 
     def __init__(self, args):

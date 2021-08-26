@@ -18,40 +18,29 @@ else
 	echo No Dovesnap networks found.
 fi
 
-# find Dovesnap control network, if any.
+# find Dovesnap control network/FAUCET config directory, if any.
 dsnet=""
 faucetconf=""
-
-for dsrepo in iqtlabs/faucetconfrpc c65sdn/faucet c65sdn/gauge ; do
-	dsimages=$(docker images -q "${dsrepo}")
-	for dsimage in $dsimages ; do
-		dscons=$(docker ps -q -f ancestor="${dsimage}")
-		for dscon in $dscons ; do
-			if [[ "${dsnet}" == "" ]] ; then
-				dsnet=$(docker inspect "${dscon}" -f "{{range .NetworkSettings.Networks}}{{.NetworkID}}{{end}}")
-			fi
-			if [[ "${faucetconf}" == "" ]] ; then
-				faucetconf=$(docker inspect "${dscon}" -f '{{range .Mounts}}{{ if eq .Destination "/etc/faucet" }}{{ .Source }}{{end}}{{end}}')
-			fi
-		done
-	done
+dscons=$(docker ps -q --filter "label=dovesnap.namespace")
+for dscon in $dscons ; do
+	if [[ "${dsnet}" == "" ]] ; then
+		dsnet=$(docker inspect "${dscon}" -f '{{range $k, $v := .NetworkSettings.Networks}}{{ if ne $k "host" }}{{.NetworkID}}{{end}}{{end}}')
+	fi
+	if [[ "${faucetconf}" == "" ]] ; then
+		faucetconf=$(docker inspect "${dscon}" -f '{{range .Mounts}}{{ if eq .Destination "/etc/faucet" }}{{ .Source }}{{end}}{{end}}')
+	fi
 done
 
-# stop any Dovesnap component containers.
+# remove any Dovesnap component containers.
 alldscons=0
-for dsrepo in iqtlabs/dovesnap iqtlabs/faucetconfrpc c65sdn/faucet c65sdn/gauge iqtlabs/openvswitch ; do
-	dsimages=$(docker images -q "${dsrepo}")
-	for dsimage in $dsimages ; do
-		dscons=$(docker ps -q -f ancestor="${dsimage}")
-		if [[ "${dscons}" != "" ]] ; then
-			echo Found Dovesnap component "${dscons}" "${dsrepo}", stopping.
-			for dscon in $dscons ; do
-				docker stop "${dscon}"
-				alldscons=$((alldscons+1))
-			done
-		fi
+if [[ "${dscons}" != "" ]] ; then
+	echo Found Dovesnap component "${dscons}", removing.
+	for dscon in $dscons ; do
+		docker stop "${dscon}"
+		docker rm -f "${dscon}"
+		alldscons=$((alldscons+1))
 	done
-done
+fi
 if [[ "${alldscons}" -eq 0 ]] ; then
 	echo No Dovesnap component containers found.
 fi
