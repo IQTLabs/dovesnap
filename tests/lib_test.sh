@@ -56,6 +56,8 @@ init_dirs()
         fi
         mkdir -p $TMPDIR/etc/faucet
         MIRROR_PCAP=$TMPDIR/mirror.cap
+        sed -i -E 's/version = "([0-9\.]+)"/version = "\1.dev"/g' main.go || exit 1
+        cd release && ./update_docker_compose.py && cd .. || exit 1
 }
 
 clean_dirs()
