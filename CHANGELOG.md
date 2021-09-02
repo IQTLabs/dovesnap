@@ -1,3 +1,11 @@
+# v1.0.2
+
+- Upgrade docker, ruamel.yaml, prometheus
+
+# v1.0.1
+
+- Fix packaging.
+
 # v1.0.0
 
 - Driver name has changed from ovs to dovesnap

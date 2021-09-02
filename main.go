@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	version = "1.0.2.dev"
+	version = "1.0.2"
 )
 
 func main() {
