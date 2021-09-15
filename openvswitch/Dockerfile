@@ -1,4 +1,4 @@
-FROM debian:buster-slim
+FROM debian:bullseye-slim
 RUN apt-get update && apt-get install -y --no-install-recommends python3-pip python3 python python-setuptools make autoconf wget gcc git libc6-dev supervisor \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
