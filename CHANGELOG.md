@@ -1,3 +1,8 @@
+# v1.0.3
+
+- Update to debian bullseye
+- Update pytype, prometheus, grafana, faucet, gauge, faucetconfrpc
+
 # v1.0.2
 
 - Upgrade docker, ruamel.yaml, prometheus
