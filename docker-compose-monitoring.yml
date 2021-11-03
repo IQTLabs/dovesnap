@@ -3,7 +3,7 @@ version: '3.7'
 services:
     prometheus:
         restart: always
-        image: 'prom/prometheus:v2.30.3'
+        image: 'prom/prometheus:v2.31.0'
         user: 'root'
         ports:
             - '9090:9090'
@@ -17,7 +17,7 @@ services:
             - "dovesnap.namespace=monitoring"
     grafana:
         restart: always
-        image: 'grafana/grafana:8.2.2'
+        image: 'grafana/grafana:8.2.3'
         user: 'root'
         ports:
             - '3000:3000'
