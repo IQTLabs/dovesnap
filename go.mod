@@ -12,7 +12,7 @@ require (
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20200219012139-4f65d685bdf9
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
-	github.com/iqtlabs/faucetconfrpc v0.22.27
+	github.com/iqtlabs/faucetconfrpc v0.22.28
 	github.com/kenshaw/baseconv v0.1.1
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
