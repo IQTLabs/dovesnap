@@ -8,7 +8,7 @@ require (
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/docker/docker v20.10.10+incompatible
 	github.com/docker/go-connections v0.4.0 // indirect
-	github.com/docker/go-plugins-helpers v0.0.0-20210623094020-7ef169fb8b8e
+	github.com/docker/go-plugins-helpers v0.0.0-20211224144127-6eecb7beb651
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20200219012139-4f65d685bdf9
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
