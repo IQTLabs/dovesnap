@@ -1,2 +1,2 @@
-pytype==2021.12.15
+pytype==2022.1.5
 ruamel.yaml==0.17.20
