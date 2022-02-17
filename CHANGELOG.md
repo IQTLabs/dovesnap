@@ -1,3 +1,10 @@
+# v1.0.6
+
+- Update c65faucet to 1.0.27
+- Update faucetconfrpc to 0.22.32
+- Update ruamel.yaml to v0.17.21
+- Update prometheus, pytype, grafana
+
 # v1.0.5
 
 - Update c65faucet to 1.0.23
