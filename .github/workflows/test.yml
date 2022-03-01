@@ -7,14 +7,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: go format
         run: ./tests/codecheck.sh
   pip-build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: go format
         run: |
           ./pipbuild.sh && pip3 install dist/dovesnap*tar.gz
@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: standalone_noconfig_int_test
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_standalone_noconfig.sh
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: standalone_int_test
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_standalone.sh
@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: standalone_int_test2
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_standalone_2.sh
@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: standalone_routed_int_test
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_standalone_routed.sh
@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: stack_int_test
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_stack.sh
@@ -62,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: mirrorbridge_int_test
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_mirrorbridge.sh
@@ -70,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: dhcp_int_test
         run: |
           ./tests/install_test.sh && ./tests/test_dovesnap_dhcp.sh
