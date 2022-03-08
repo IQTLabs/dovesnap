@@ -1,3 +1,9 @@
+# v1.0.7
+
+- Update c65faucet to 1.0.28
+- Update containerd, image-spec (https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-23648)
+- Update prometheus, pytype, grafana
+
 # v1.0.6
 
 - Update c65faucet to 1.0.27
