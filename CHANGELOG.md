@@ -1,3 +1,26 @@
+# v1.0.7
+
+- Update c65faucet to 1.0.28
+- Update containerd, image-spec (https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-23648)
+- Update prometheus, pytype, grafana
+
+# v1.0.6
+
+- Update c65faucet to 1.0.27
+- Update faucetconfrpc to 0.22.32
+- Update ruamel.yaml to v0.17.21
+- Update prometheus, pytype, grafana
+
+# v1.0.5
+
+- Update c65faucet to 1.0.23
+- Update faucetconfrpc to 0.22.30
+- Update containerd to 1.5.9
+- Update OVS to 2.16.2
+- Update grpc to 1.43.0
+- Update docker to 2.3.2
+- Update pylint, pytype, grafana
+
 # v1.0.3
 
 - Update to debian bullseye

@@ -3,7 +3,7 @@ version: '3.7'
 services:
   faucet:
     restart: always
-    image: 'c65sdn/faucet:1.0.22'
+    image: 'c65sdn/faucet:1.0.29'
     networks:
       - dovesnap
     volumes:
@@ -18,7 +18,7 @@ services:
       - "dovesnap.namespace=standalone"
   gauge:
     restart: always
-    image: 'c65sdn/gauge:1.0.22'
+    image: 'c65sdn/gauge:1.0.29'
     networks:
       - dovesnap
     volumes:
@@ -35,7 +35,7 @@ services:
       - "dovesnap.namespace=standalone"
   faucet_certstrap:
     restart: on-failure
-    image: 'iqtlabs/faucet-certstrap:v0.22.29'
+    image: 'iqtlabs/faucet-certstrap:v0.22.32'
     network_mode: none
     volumes:
       - /opt/faucetconfrpc:/opt/faucetconfrpc
@@ -46,7 +46,7 @@ services:
       - "dovesnap.namespace=standalone"
   faucetconfrpc:
     restart: always
-    image: 'iqtlabs/faucetconfrpc:v0.22.29'
+    image: 'iqtlabs/faucetconfrpc:v0.22.32'
     environment:
       PYTHONUNBUFFERED: '1'
     networks:
