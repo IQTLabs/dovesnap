@@ -1,3 +1,11 @@
+# v1.0.8
+
+- Update c65faucet to 1.0.29
+- Update grpc to v1.45.0
+- Update OVS to 2.17.0
+- Update faucetconfrpc to 0.22.33
+- Update prometheus, pytype, grafana
+
 # v1.0.7
 
 - Update c65faucet to 1.0.28
