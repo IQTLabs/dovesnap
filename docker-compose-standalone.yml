@@ -46,7 +46,7 @@ services:
       - "dovesnap.namespace=standalone"
   faucetconfrpc:
     restart: always
-    image: 'iqtlabs/faucetconfrpc:v0.22.33'
+    image: 'iqtlabs/faucetconfrpc:v0.22.34'
     environment:
       PYTHONUNBUFFERED: '1'
     networks:
