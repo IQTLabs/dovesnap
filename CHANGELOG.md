@@ -1,3 +1,17 @@
+# v1.0.10
+
+- faucetconfrpc 0.22.35
+
+# v1.0.9
+
+- OVS 2.17.1
+- c65sdn/faucet to 1.0.35
+- golang 1.18
+- libyaml 3.0
+- grpc 1.46.2
+- faucetconfrpc 0.22.34
+- pylint, pytype, grafana, prometheus
+
 # v1.0.8
 
 - Update c65faucet to 1.0.29
