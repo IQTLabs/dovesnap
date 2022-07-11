@@ -28,6 +28,6 @@ _testmain.go
 .idea
 plugin
 dist
-
+build
 
 .DS_Store
