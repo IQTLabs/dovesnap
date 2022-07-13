@@ -1,0 +1,36 @@
+[project]
+name = "dovesnap"
+version = "1.0.10"
+description = "graphviz generator of dovesnap networks"
+license = { file = "LICENSE" }
+readme = "README.md"
+
+dependencies = [
+    "docker==5.0.3",
+    "faucetconfrpc==0.22.38",
+    "graphviz==0.20"
+]
+[project.optional-dependencies]
+codecheck = [
+    "pytype==2022.6.30",
+    "ruamel.yaml==0.17.21"
+]
+
+[project.urls]
+homepage = "https://github.com/IQTLabs/dovesnap"
+
+[build-system]
+requires = [
+    "setuptools >= 49.0.0",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[tools.setuptools]
+packages = [ { include = "dovesnap", from = "bin" } ]
+package-dir = {"" = "bin" }
+script-files = ["bin/graph_dovesnap", "bin/cleanup_dovesnap"]
+
+[tool.setuptools.packages.find]
+where = [ "bin" ]
+include = [ "*" ]
