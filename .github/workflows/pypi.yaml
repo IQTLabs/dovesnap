@@ -15,7 +15,7 @@ jobs:
     - name: Build package
       id: build_package
       run: |
-        ./pipbuild.sh
+        ./pipbuild.sh && python3 setup.py sdist
       if: github.repository == 'iqtlabs/dovesnap' && github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
     - name: Publish package
       if: github.repository == 'iqtlabs/dovesnap' && github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
