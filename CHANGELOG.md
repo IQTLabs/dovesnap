@@ -1,3 +1,8 @@
+# v1.1.0
+
+- Updated faucetconfrpc, prometheus, grafana, faucet, gauge, openvswitch, and grpc
+- Moved package to use pyproject.toml
+
 # v1.0.10
 
 - faucetconfrpc 0.22.35
