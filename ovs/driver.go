@@ -494,17 +494,17 @@ func (d *Driver) Leave(r *networkplugin.LeaveRequest) error {
 
 func (d *Driver) mustDeleteBridgeAndPorts(bridgeName string) {
 	if usingMirrorBridge(d) {
-                d.mustDeletePatchPort(bridgeName, d.mirrorBridgeName)
-        }
+		d.mustDeletePatchPort(bridgeName, d.mirrorBridgeName)
+	}
 
-        if usingStacking(d) {
-                d.mustDeletePatchPort(bridgeName, d.stackDpName)
-                if usingStackMirroring(d) {
-                        d.mustDeletePatchPort(bridgeName, d.loopbackBridgeName)
-                }
-        }
+	if usingStacking(d) {
+		d.mustDeletePatchPort(bridgeName, d.stackDpName)
+		if usingStackMirroring(d) {
+			d.mustDeletePatchPort(bridgeName, d.loopbackBridgeName)
+		}
+	}
 
-        d.mustDeleteBridge(bridgeName)
+	d.mustDeleteBridge(bridgeName)
 }
 
 func mustHandleDeleteNetwork(d *Driver, opMsg DovesnapOp) {
@@ -522,12 +522,12 @@ func mustHandleDeleteNetwork(d *Driver, opMsg DovesnapOp) {
 	d.faucetconfrpcer.mustDeleteDp(ns.NetworkName)
 
 	if ns.Mode == modeNAT {
-                gatewayIP := ns.Gateway + "/" + ns.GatewayMask
-                if err := natOut(gatewayIP, "-D"); err != nil {
-                        log.Fatalf("Could not delete NAT rules for bridge %s because %v", ns.BridgeName, err)
-                        panic(err)
-                }
-        }
+		gatewayIP := ns.Gateway + "/" + ns.GatewayMask
+		if err := natOut(gatewayIP, "-D"); err != nil {
+			log.Fatalf("Could not delete NAT rules for bridge %s because %v", ns.BridgeName, err)
+			panic(err)
+		}
+	}
 
 	d.mustDeleteBridgeAndPorts(ns.BridgeName)
 
@@ -1129,7 +1129,7 @@ func (d *Driver) restoreNetworks() {
 		if d.ovsdber.ifUp(ns.BridgeName) {
 			_, err := getIfaceAddr(ns.BridgeName)
 			/// OVS config seems to be in place, bridge is up, but it is missing its IP config.
-			if (err != nil) {
+			if err != nil {
 				log.Errorf("Bridge interface %s exists but IP address is missing, recreating network", ns.BridgeName)
 				createMsg.Operation = "recreatebadbridge"
 			}
