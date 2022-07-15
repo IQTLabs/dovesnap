@@ -606,7 +606,8 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 	mode := opMsg.Mode
 	if mode == "nat" || mode == "routed" {
 		netAcl := getStrForNetwork(ns.NATAcl, ns.NetworkName)
-		add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofPortLocal, "OVS Port default gateway", ns.BridgeVLAN, netAcl)
+		// TODO: consider the bridge port to be always up - determine why OVS doesn't always update us with port status.
+		add_interfaces += d.faucetconfrpcer.localVlanInterfaceYaml(ofPortLocal, "OVS Port default gateway", ns.BridgeVLAN, netAcl)
 		ns.DynamicNetworkStates.ExternalPorts[inspectNs.BridgeName] = getExternalPortState(inspectNs.BridgeName, ofPortLocal)
 	}
 	if usingMirrorBridge(d) {

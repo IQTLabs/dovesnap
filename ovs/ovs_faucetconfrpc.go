@@ -188,6 +188,10 @@ func (c *faucetconfrpcer) vlanInterfaceYaml(ofport OFPortType, description strin
 	return fmt.Sprintf("%d: {description: %s, native_vlan: %d, acls_in: [%s]},", ofport, description, vlan, acls_in)
 }
 
+func (c *faucetconfrpcer) localVlanInterfaceYaml(ofport OFPortType, description string, vlan uint, acls_in string) string {
+	return fmt.Sprintf("%d: {opstatus_reconf: False, description: %s, native_vlan: %d, acls_in: [%s]},", ofport, description, vlan, acls_in)
+}
+
 func (c *faucetconfrpcer) stackInterfaceYaml(ofport OFPortType, remoteDpName string, remoteOfport OFPortType) string {
 	return fmt.Sprintf("%d: {description: stack link to %s, stack: {dp: %s, port: %d}},", ofport, remoteDpName, remoteDpName, remoteOfport)
 }
