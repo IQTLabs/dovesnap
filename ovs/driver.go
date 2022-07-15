@@ -492,6 +492,21 @@ func (d *Driver) Leave(r *networkplugin.LeaveRequest) error {
 	return nil
 }
 
+func (d *Driver) mustDeleteBridgeAndPorts(bridgeName string) {
+	if usingMirrorBridge(d) {
+		d.mustDeletePatchPort(bridgeName, d.mirrorBridgeName)
+	}
+
+	if usingStacking(d) {
+		d.mustDeletePatchPort(bridgeName, d.stackDpName)
+		if usingStackMirroring(d) {
+			d.mustDeletePatchPort(bridgeName, d.loopbackBridgeName)
+		}
+	}
+
+	d.mustDeleteBridge(bridgeName)
+}
+
 func mustHandleDeleteNetwork(d *Driver, opMsg DovesnapOp) {
 	defer func() {
 		if rerr := recover(); rerr != nil {
@@ -506,17 +521,6 @@ func mustHandleDeleteNetwork(d *Driver, opMsg DovesnapOp) {
 
 	d.faucetconfrpcer.mustDeleteDp(ns.NetworkName)
 
-	if usingMirrorBridge(d) {
-		d.mustDeletePatchPort(ns.BridgeName, d.mirrorBridgeName)
-	}
-
-	if usingStacking(d) {
-		d.mustDeletePatchPort(ns.BridgeName, d.stackDpName)
-		if usingStackMirroring(d) {
-			d.mustDeletePatchPort(ns.BridgeName, d.loopbackBridgeName)
-		}
-	}
-
 	if ns.Mode == modeNAT {
 		gatewayIP := ns.Gateway + "/" + ns.GatewayMask
 		if err := natOut(gatewayIP, "-D"); err != nil {
@@ -525,7 +529,7 @@ func mustHandleDeleteNetwork(d *Driver, opMsg DovesnapOp) {
 		}
 	}
 
-	d.mustDeleteBridge(ns.BridgeName)
+	d.mustDeleteBridgeAndPorts(ns.BridgeName)
 
 	delete(d.networks, opMsg.NetworkID)
 	delete(d.stackMirrorConfigs, opMsg.NetworkID)
@@ -1028,7 +1032,11 @@ func (d *Driver) resourceManager() {
 			serial += 1
 			log.Debugf("resourceManager() pending %d, received serial %d, %+v", len(d.dovesnapOpChan), serial, opMsg)
 			switch opMsg.Operation {
-			case "recreate":
+			case "recreatebadbridge":
+				d.mustDeleteBridgeAndPorts(opMsg.EndpointID)
+				d.InitBridge(opMsg.NewNetworkState, opMsg.NewStackMirrorConfig)
+				mustHandleCreateNetwork(d, opMsg)
+			case "recreatedownbridge":
 				mustHandleDeleteNetwork(d, opMsg)
 				d.InitBridge(opMsg.NewNetworkState, opMsg.NewStackMirrorConfig)
 				mustHandleCreateNetwork(d, opMsg)
@@ -1117,9 +1125,18 @@ func (d *Driver) restoreNetworks() {
 			EndpointID:           ns.BridgeName,
 			Operation:            "create",
 		}
-
-		if !d.ovsdber.ifUp(ns.BridgeName) {
-			createMsg.Operation = "recreate"
+		// We need to recover from two different scenarios where OVS may be in a bad state.
+		if d.ovsdber.ifUp(ns.BridgeName) {
+			_, err := getIfaceAddr(ns.BridgeName)
+			/// OVS config seems to be in place, bridge is up, but it is missing its IP config.
+			if err != nil {
+				log.Errorf("Bridge interface %s exists but IP address is missing, recreating network", ns.BridgeName)
+				createMsg.Operation = "recreatebadbridge"
+			}
+		} else {
+			// OVS config seems to be in place, but the bridge interface is down.
+			log.Errorf("Bridge interface %s exists but is down, recreating network", ns.BridgeName)
+			createMsg.Operation = "recreatedownbridge"
 		}
 		d.createDeleteNetworkWG.Add(1)
 		d.dovesnapOpChan <- createMsg
