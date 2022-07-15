@@ -1,3 +1,7 @@
+# v1.1.1
+
+- workarounds for missing OVS config/local port status.
+
 # v1.1.0
 
 - Updated faucetconfrpc, prometheus, grafana, faucet, gauge, openvswitch, and grpc
