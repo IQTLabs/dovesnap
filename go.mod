@@ -8,7 +8,7 @@ require (
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20200219012139-4f65d685bdf9
 	github.com/iqtlabs/faucetconfrpc v0.22.38
 	github.com/kenshaw/baseconv v0.1.1
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.9.0
 	github.com/vishvananda/netlink v1.2.0-beta
 	google.golang.org/grpc v1.48.0
 )
@@ -29,7 +29,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74 // indirect
 	golang.org/x/net v0.0.0-20220526153639-5463443f8c37 // indirect
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
+	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	google.golang.org/genproto v0.0.0-20220531173845-685668d2de03 // indirect
