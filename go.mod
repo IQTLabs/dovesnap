@@ -1,6 +1,6 @@
 module dovesnap
 
-go 1.18
+go 1.19
 
 require (
 	github.com/docker/docker v20.10.16+incompatible
