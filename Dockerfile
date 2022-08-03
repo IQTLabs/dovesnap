@@ -1,4 +1,4 @@
-FROM golang:1.18 AS build
+FROM golang:1.19 AS build
 LABEL maintainer="Charlie Lewis <clewis@iqt.org>"
 COPY . /go/src/dovesnap
 WORKDIR /go/src/dovesnap
