@@ -1,3 +1,11 @@
+# v1.1.2
+
+- OVS 3.0.0
+- golang 1.19
+- grpc 1.4.9
+- c65sdn 1.0.37
+- logrus, grafana
+
 # v1.1.1
 
 - workarounds for missing OVS config/local port status.
