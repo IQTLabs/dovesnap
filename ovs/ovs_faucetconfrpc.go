@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/iqtlabs/faucetconfrpc/faucetconfserver"
+	"github.com/iqtlabs/faucetconfrpc/faucetconfrpc"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
