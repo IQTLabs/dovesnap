@@ -1,3 +1,10 @@
+# v1.1.3
+
+- Prometheus 2.29.0
+- Grafana 9.1.7
+- c65sdn 1.0.39
+- frpc 0.22.42
+ 
 # v1.1.2
 
 - OVS 3.0.0
