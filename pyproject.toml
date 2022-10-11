@@ -6,13 +6,13 @@ license = { file = "LICENSE" }
 readme = "README.md"
 
 dependencies = [
-    "docker==5.0.3",
-    "faucetconfrpc==0.22.38",
-    "graphviz==0.20"
+    "docker==6.0.0",
+    "faucetconfrpc==0.22.42",
+    "graphviz==0.20.1"
 ]
 [project.optional-dependencies]
 codecheck = [
-    "pytype==2022.6.30",
+    "pytype==2022.9.27",
     "ruamel.yaml==0.17.21"
 ]
 
