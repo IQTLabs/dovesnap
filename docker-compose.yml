@@ -36,7 +36,7 @@ services:
       - "dovesnap.namespace=primary"
   ovs:
     restart: always
-    image: iqtlabs/openvswitch:v3.0.0
+    image: iqtlabs/openvswitch:v3.0.1
     healthcheck:
       test: 'ovs-vsctl show'
     volumes:
