@@ -2,5 +2,6 @@
 
 sudo apt-get update && \
   sudo apt-get install -yq --no-install-recommends python3 python3-dev && \
-  python3 -m pip install -U pip setuptools && \
-  python3 -m pip install .
+  sudo pip3 install poetry==1.1.15 && \
+  poetry config virtualenvs.create false && \
+  sudo poetry install

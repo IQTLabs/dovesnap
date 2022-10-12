@@ -8,9 +8,14 @@ if [ "$GOFMTOUT" != "" ] ; then
 	exit 1
 fi
 
-python3 -m pip install ".[codecheck]"
 # pytype needs .py
-cp graph_dovesnap/graph_dovesnap /tmp/graph_dovesnap.py && pytype /tmp/graph_dovesnap.py && rm -f /tmp/graph_dovesnap.py
+for i in bin/graph_dovesnap ; do
+	b=$(basename $i)
+	t=/tmp/${b}.py
+	cp $i $t
+	pytype $t
+	rm -f $t
+done
 
 echo ok
 exit 0
