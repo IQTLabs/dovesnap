@@ -7,19 +7,11 @@ on:
 
 jobs:
   release:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v3
     - name: Build package
-      id: build_package
+      id: build_and_publish_packages
       run: |
-        ./pipbuild.sh && python3 setup.py sdist
+        ./poetryinstall.sh && poetry build && poetry publish -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_TOKEN }}
       if: github.repository == 'iqtlabs/dovesnap' && github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
-    - name: Publish package
-      if: github.repository == 'iqtlabs/dovesnap' && github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
-      uses: pypa/gh-action-pypi-publish@master
-      with:
-        user: ${{ secrets.PYPI_USERNAME }}
-        password: ${{ secrets.PYPI_TOKEN }}

@@ -8,16 +8,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
-      - name: go format
-        run: ./tests/codecheck.sh
-  pip-build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-      - name: go format
-        run: |
-          ./pipbuild.sh
+      - name: go format and pytype
+        run: ./poetrybuild.sh && ./tests/codecheck.sh
   standalone_noconfig_int_test:
     runs-on: ubuntu-latest
     steps:
