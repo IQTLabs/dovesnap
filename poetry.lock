@@ -39,7 +39,7 @@ transitions = "*"
 
 [[package]]
 name = "c65faucet"
-version = "1.0.39"
+version = "1.0.40"
 description = "Faucet is an OpenFlow controller that implements a layer 2 and layer 3 switch."
 category = "main"
 optional = false
@@ -50,9 +50,8 @@ c65beka = "1.0.0"
 c65chewie = "1.0.2"
 influxdb = ">=2.12.0"
 networkx = ">=1.9"
-os_ken = "2.4.0"
 pbr = ">=1.9"
-prometheus_client = "0.14.1"
+prometheus_client = "0.15.0"
 pytricia = ">=1.0.0"
 "ruamel.yaml" = "0.17.21"
 
@@ -135,21 +134,20 @@ six = ">=1.10.0"
 
 [[package]]
 name = "faucetconfrpc"
-version = "0.22.42"
+version = "0.22.43"
 description = "utility to manage FAUCET config files via RPC"
 category = "main"
 optional = false
-python-versions = "*"
+python-versions = ">=3.8,<3.11"
 
 [package.dependencies]
-c65faucet = "1.0.39"
+c65faucet = "1.0.40"
 grpcio = "1.49.1"
 grpcio-tools = "1.49.1"
-prometheus_client = "0.14.1"
-protobuf = "4.21.6"
-
-[package.extras]
-test = ["attrs (==22.1.0)", "pylint (==2.15.3)", "pytest (==7.1.3)", "pytype (==2022.9.19)"]
+os-ken = "2.4.0"
+prometheus_client = "0.15.0"
+protobuf = "4.21.7"
+pybind11 = "2.10.0"
 
 [[package]]
 name = "graphviz"
@@ -389,7 +387,7 @@ python-versions = ">=2.6"
 
 [[package]]
 name = "prometheus-client"
-version = "0.14.1"
+version = "0.15.0"
 description = "Python client for the Prometheus monitoring system."
 category = "main"
 optional = false
@@ -400,11 +398,22 @@ twisted = ["twisted"]
 
 [[package]]
 name = "protobuf"
-version = "4.21.6"
+version = "4.21.7"
 description = ""
 category = "main"
 optional = false
 python-versions = ">=3.7"
+
+[[package]]
+name = "pybind11"
+version = "2.10.0"
+description = "Seamless operability between C++11 and Python"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.extras]
+global = ["pybind11-global (==2.10.0)"]
 
 [[package]]
 name = "pydot"
@@ -700,7 +709,7 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8 <3.11"
-content-hash = "1acf3c643ce7e8533a0924ae6a4315c9aee233d867fd8b7d3aebf26af867d241"
+content-hash = "84cc282b95b43bd46076253a1bb1a6a804f1b408dd00e3448d40cc25bf9a9d86"
 
 [metadata.files]
 attrs = [
@@ -714,7 +723,7 @@ c65chewie = [
     {file = "c65chewie-1.0.2.tar.gz", hash = "sha256:63c50531f46ff12379b646547a7eac9bd40b63e8776d40646e2ece03fabcca0c"},
 ]
 c65faucet = [
-    {file = "c65faucet-1.0.39.tar.gz", hash = "sha256:7bf53815b591e1d7d7e6017c027b432827952ae1857776864d44b7c48cb4e402"},
+    {file = "c65faucet-1.0.40.tar.gz", hash = "sha256:84e44390bb26405e0dc8fd8232c54eeb5a00767ea59be7f9abc9c426cdf4ba4d"},
 ]
 certifi = [
     {file = "certifi-2022.9.24-py3-none-any.whl", hash = "sha256:90c1a32f1d68f940488354e36370f6cca89f0f106db09518524c88d6ed83f382"},
@@ -741,7 +750,8 @@ eventlet = [
     {file = "eventlet-0.33.1.tar.gz", hash = "sha256:afbe17f06a58491e9aebd7a4a03e70b0b63fd4cf76d8307bae07f280479b1515"},
 ]
 faucetconfrpc = [
-    {file = "faucetconfrpc-0.22.42.tar.gz", hash = "sha256:2b0ddacd3ead265f823a6984fe616f591c50e41fb7f2aa451476b58eefc28383"},
+    {file = "faucetconfrpc-0.22.43-py3-none-any.whl", hash = "sha256:0964f0443c7bf2830b15403e00b38ff5d68f74a002a50cf3513fabedb4903575"},
+    {file = "faucetconfrpc-0.22.43.tar.gz", hash = "sha256:a1cc38d93cf66dddc563ef50727df307084eaf8b789a8ec7f11935364c09d59c"},
 ]
 graphviz = [
     {file = "graphviz-0.20.1-py3-none-any.whl", hash = "sha256:587c58a223b51611c0cf461132da386edd896a029524ca61a1462b880bf97977"},
@@ -1055,24 +1065,28 @@ pbr = [
     {file = "pbr-5.10.0.tar.gz", hash = "sha256:cfcc4ff8e698256fc17ea3ff796478b050852585aa5bae79ecd05b2ab7b39b9a"},
 ]
 prometheus-client = [
-    {file = "prometheus_client-0.14.1-py3-none-any.whl", hash = "sha256:522fded625282822a89e2773452f42df14b5a8e84a86433e3f8a189c1d54dc01"},
-    {file = "prometheus_client-0.14.1.tar.gz", hash = "sha256:5459c427624961076277fdc6dc50540e2bacb98eebde99886e59ec55ed92093a"},
+    {file = "prometheus_client-0.15.0-py3-none-any.whl", hash = "sha256:db7c05cbd13a0f79975592d112320f2605a325969b270a94b71dcabc47b931d2"},
+    {file = "prometheus_client-0.15.0.tar.gz", hash = "sha256:be26aa452490cfcf6da953f9436e95a9f2b4d578ca80094b4458930e5f584ab1"},
 ]
 protobuf = [
-    {file = "protobuf-4.21.6-cp310-abi3-win32.whl", hash = "sha256:49f88d56a9180dbb7f6199c920f5bb5c1dd0172f672983bb281298d57c2ac8eb"},
-    {file = "protobuf-4.21.6-cp310-abi3-win_amd64.whl", hash = "sha256:7a6cc8842257265bdfd6b74d088b829e44bcac3cca234c5fdd6052730017b9ea"},
-    {file = "protobuf-4.21.6-cp37-abi3-macosx_10_9_universal2.whl", hash = "sha256:ba596b9ffb85c909fcfe1b1a23136224ed678af3faf9912d3fa483d5f9813c4e"},
-    {file = "protobuf-4.21.6-cp37-abi3-manylinux2014_aarch64.whl", hash = "sha256:4143513c766db85b9d7c18dbf8339673c8a290131b2a0fe73855ab20770f72b0"},
-    {file = "protobuf-4.21.6-cp37-abi3-manylinux2014_x86_64.whl", hash = "sha256:b6cea204865595a92a7b240e4b65bcaaca3ad5d2ce25d9db3756eba06041138e"},
-    {file = "protobuf-4.21.6-cp37-cp37m-win32.whl", hash = "sha256:9666da97129138585b26afcb63ad4887f602e169cafe754a8258541c553b8b5d"},
-    {file = "protobuf-4.21.6-cp37-cp37m-win_amd64.whl", hash = "sha256:308173d3e5a3528787bb8c93abea81d5a950bdce62840d9760effc84127fb39c"},
-    {file = "protobuf-4.21.6-cp38-cp38-win32.whl", hash = "sha256:aa29113ec901281f29d9d27b01193407a98aa9658b8a777b0325e6d97149f5ce"},
-    {file = "protobuf-4.21.6-cp38-cp38-win_amd64.whl", hash = "sha256:8f9e60f7d44592c66e7b332b6a7b4b6e8d8b889393c79dbc3a91f815118f8eac"},
-    {file = "protobuf-4.21.6-cp39-cp39-win32.whl", hash = "sha256:80e6540381080715fddac12690ee42d087d0d17395f8d0078dfd6f1181e7be4c"},
-    {file = "protobuf-4.21.6-cp39-cp39-win_amd64.whl", hash = "sha256:77b355c8604fe285536155286b28b0c4cbc57cf81b08d8357bf34829ea982860"},
-    {file = "protobuf-4.21.6-py2.py3-none-any.whl", hash = "sha256:07a0bb9cc6114f16a39c866dc28b6e3d96fa4ffb9cc1033057412547e6e75cb9"},
-    {file = "protobuf-4.21.6-py3-none-any.whl", hash = "sha256:c7c864148a237f058c739ae7a05a2b403c0dfa4ce7d1f3e5213f352ad52d57c6"},
-    {file = "protobuf-4.21.6.tar.gz", hash = "sha256:6b1040a5661cd5f6e610cbca9cfaa2a17d60e2bb545309bc1b278bb05be44bdd"},
+    {file = "protobuf-4.21.7-cp310-abi3-win32.whl", hash = "sha256:c7cb105d69a87416bd9023e64324e1c089593e6dae64d2536f06bcbe49cd97d8"},
+    {file = "protobuf-4.21.7-cp310-abi3-win_amd64.whl", hash = "sha256:3ec85328a35a16463c6f419dbce3c0fc42b3e904d966f17f48bae39597c7a543"},
+    {file = "protobuf-4.21.7-cp37-abi3-macosx_10_9_universal2.whl", hash = "sha256:db9056b6a11cb5131036d734bcbf91ef3ef9235d6b681b2fc431cbfe5a7f2e56"},
+    {file = "protobuf-4.21.7-cp37-abi3-manylinux2014_aarch64.whl", hash = "sha256:ca200645d6235ce0df3ccfdff1567acbab35c4db222a97357806e015f85b5744"},
+    {file = "protobuf-4.21.7-cp37-abi3-manylinux2014_x86_64.whl", hash = "sha256:b019c79e23a80735cc8a71b95f76a49a262f579d6b84fd20a0b82279f40e2cc1"},
+    {file = "protobuf-4.21.7-cp37-cp37m-win32.whl", hash = "sha256:d3f89ccf7182293feba2de2739c8bf34fed1ed7c65a5cf987be00311acac57c1"},
+    {file = "protobuf-4.21.7-cp37-cp37m-win_amd64.whl", hash = "sha256:a74d96cd960b87b4b712797c741bb3ea3a913f5c2dc4b6cbe9c0f8360b75297d"},
+    {file = "protobuf-4.21.7-cp38-cp38-win32.whl", hash = "sha256:8e09d1916386eca1ef1353767b6efcebc0a6859ed7f73cb7fb974feba3184830"},
+    {file = "protobuf-4.21.7-cp38-cp38-win_amd64.whl", hash = "sha256:9e355f2a839d9930d83971b9f562395e13493f0e9211520f8913bd11efa53c02"},
+    {file = "protobuf-4.21.7-cp39-cp39-win32.whl", hash = "sha256:f370c0a71712f8965023dd5b13277444d3cdfecc96b2c778b0e19acbfd60df6e"},
+    {file = "protobuf-4.21.7-cp39-cp39-win_amd64.whl", hash = "sha256:9643684232b6b340b5e63bb69c9b4904cdd39e4303d498d1a92abddc7e895b7f"},
+    {file = "protobuf-4.21.7-py2.py3-none-any.whl", hash = "sha256:8066322588d4b499869bf9f665ebe448e793036b552f68c585a9b28f1e393f66"},
+    {file = "protobuf-4.21.7-py3-none-any.whl", hash = "sha256:58b81358ec6c0b5d50df761460ae2db58405c063fd415e1101209221a0a810e1"},
+    {file = "protobuf-4.21.7.tar.gz", hash = "sha256:71d9dba03ed3432c878a801e2ea51e034b0ea01cf3a4344fb60166cb5f6c8757"},
+]
+pybind11 = [
+    {file = "pybind11-2.10.0-py3-none-any.whl", hash = "sha256:6bbc7a2f79689307f0d8d240172851955fc214b33e4cbd7fdbc9cd7176a09260"},
+    {file = "pybind11-2.10.0.tar.gz", hash = "sha256:18977589c10f595f65ec1be90b0a0763b43e458d25d97be9db75b958eb1f43fe"},
 ]
 pydot = [
     {file = "pydot-1.4.2-py2.py3-none-any.whl", hash = "sha256:66c98190c65b8d2e2382a441b4c0edfdb4f4c025ef9cb9874de478fb0793a451"},
