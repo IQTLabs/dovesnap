@@ -35,7 +35,7 @@ services:
       - "dovesnap.namespace=standalone"
   faucet_certstrap:
     restart: on-failure
-    image: 'iqtlabs/faucet-certstrap:v0.22.43'
+    image: 'iqtlabs/faucet-certstrap:v0.22.44'
     network_mode: none
     volumes:
       - /opt/faucetconfrpc:/opt/faucetconfrpc
