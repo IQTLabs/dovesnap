@@ -1,3 +1,12 @@
+# v1.1.4
+
+- c65sdn 1.0.43
+- grpc 1.5.1
+- OVS 3.0.1
+- frpc 0.22.44
+- docker 6.0.1
+- grafana, prometheus, pytype
+
 # v1.1.3
 
 - Prometheus 2.29.0
