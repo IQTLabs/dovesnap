@@ -8,14 +8,7 @@ if [ "$GOFMTOUT" != "" ] ; then
 	exit 1
 fi
 
-# pytype needs .py
-for i in bin/graph_dovesnap ; do
-	b=$(basename $i)
-	t=/tmp/${b}.py
-	cp $i $t
-	pytype $t
-	rm -f $t
-done
+pytype src/dovesnap/*py
 
 echo ok
 exit 0
