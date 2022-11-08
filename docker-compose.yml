@@ -2,7 +2,7 @@ version: '3.7'
 services:
   plugin:
     restart: always
-    image: iqtlabs/dovesnap:v1.1.3
+    image: iqtlabs/dovesnap:v1.1.4
     volumes:
       - /run/docker/plugins:/run/docker/plugins
       - /var/run/docker.sock:/var/run/docker.sock
