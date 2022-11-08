@@ -9,7 +9,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
       - name: go format and pytype
-        run: ./poetrybuild.sh && ./tests/codecheck.sh
+        run: ./poetrybuild.sh && poetry build && sudo poetry install && ./tests/codecheck.sh
   standalone_noconfig_int_test:
     runs-on: ubuntu-latest
     steps:

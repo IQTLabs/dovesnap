@@ -16,8 +16,7 @@ pytype = "2022.10.26"
 "ruamel.yaml" = "0.17.21"
 
 [tool.poetry.scripts]
-graph_dovesnap = "bin/graph_dovesnap"
-cleanup_dovesnap = "bin/cleanup_dovesnap"
+graph_dovesnap = "dovesnap.graph_dovesnap:main"
 
 [tool.poetry.urls]
 homepage = "https://github.com/IQTLabs/dovesnap"
