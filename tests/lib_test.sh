@@ -88,7 +88,7 @@ meters:
     meter_id: 1
     entry:
         flags: "KBPS"
-        bands: [{type: "DROP", rate: 1000}]
+        bands: [{type: "DROP", rate: 10000}]
 acls:
   ratelimitit:
   - rule:
@@ -205,8 +205,6 @@ wait_verify_internet ()
 	docker network inspect testnet
 	sudo iptables -t nat -L
 	testurl=http://azure.archive.ubuntu.com/ubuntu
-	docker run -t busybox wget -O/dev/null $testurl
-	wget -O/dev/null $testurl || exit 1
 	docker exec -t testcon wget -O/dev/null $testurl || exit 1
 }
 
