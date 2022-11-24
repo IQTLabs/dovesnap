@@ -88,7 +88,7 @@ meters:
     meter_id: 1
     entry:
         flags: "KBPS"
-        bands: [{type: "DROP", rate: 100}]
+        bands: [{type: "DROP", rate: 1000}]
 acls:
   ratelimitit:
   - rule:
