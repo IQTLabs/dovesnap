@@ -32,9 +32,8 @@ fi
 # test OVS and dovesnap recover state after OVS restart.
 restart_ovs
 wait_acl
-sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
-echo verifying networking
-docker exec -t testcon wget -q -O- bing.com || exit 1
+wait_testcon
+wait_verify_internet
 docker exec -t testcon ifconfig eth0 |grep -iq 0e:99 || exit 1
 ip link | grep -iq 0e:01:00:00:00:23 || exit 1
 

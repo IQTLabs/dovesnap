@@ -180,6 +180,37 @@ wait_acl ()
         done
 }
 
+
+wait_testcon ()
+{
+	DOVESNAPID="$(docker ps -q --filter name=dovesnap_plugin)"
+	OUTPUT=""
+	while [ "$OUTPUT" == "" ] ; do
+		OUTPUT=$(sudo grep "description: /testcon" $FAUCET_CONFIG)
+		echo waiting for /testcon in $FAUCET_CONFIG
+		sleep 1
+		docker logs $DOVESNAPID
+	done
+}
+
+
+wait_verify_internet ()
+{
+	gwip=$(docker exec -t testcon ip route |grep default|grep -Eo "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+")
+	echo testcon gateway: $gwip
+	dockerip=$(ip address show docker0 |grep -Eo "inet [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"|sed "s/inet //g")
+	echo docker0 gateway: $dockerip
+	docker exec -t testcon ping -c3 $gwip
+	docker exec -t testcon ping -c3 $dockerip
+	docker network inspect testnet
+	sudo iptables -t nat -L
+	testurl=http://azure.archive.ubuntu.com/ubuntu
+	docker run -t busybox wget -O/dev/null $testurl
+	wget -O/dev/null $testurl || exit 1
+	docker exec -t testcon wget -O/dev/null $testurl || exit 1
+}
+
+
 wait_stack_state ()
 {
         state=$1

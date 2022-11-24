@@ -34,11 +34,10 @@ if [ "$RET" != "0" ] ; then
 fi
 wait_acl
 wait_mirror 1
-sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
-echo verifying networking
+wait_testcon
 timeout 30s sudo tcpdump -n -c 1 -U -i odsmirroro -w $MIRROR_PCAP tcp &
 sleep 3
-docker exec -t testcon wget -q -O- bing.com || exit 1
+wait_verify_internet
 docker exec -t testcon ifconfig eth0 |grep -iq 0e:99:00:00:00:07 || exit 1
 PCAPMATCH=TCP
 wait_for_pcap_match

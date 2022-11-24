@@ -29,8 +29,7 @@ if [ "$RET" != "0" ] ; then
 	exit 1
 fi
 wait_acl
-sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
-echo verifying networking
+wait_testcon
 GW=$(docker inspect testnet|jq -r '.[0]["IPAM"]["Config"][0]["Gateway"]')
 docker exec -t testcon ping -c 3 $GW || exit 1
 docker exec -t testcon ifconfig eth0 |grep -iq 0e:99 || exit 1
