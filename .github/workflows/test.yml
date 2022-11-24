@@ -4,14 +4,14 @@ on: [push, pull_request]
 
 jobs:
   gofmt:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
       - name: go format and pytype
         run: ./poetrybuild.sh && poetry build && sudo poetry install && ./tests/codecheck.sh
   standalone_noconfig_int_test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -19,7 +19,7 @@ jobs:
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_standalone_noconfig.sh
   standalone_int_test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -27,7 +27,7 @@ jobs:
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_standalone.sh
   standalone2_int_test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -35,7 +35,7 @@ jobs:
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_standalone_2.sh
   standalone_routed_int_test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -43,7 +43,7 @@ jobs:
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_standalone_routed.sh
   stack_int_test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -51,7 +51,7 @@ jobs:
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_stack.sh
   mirrorbridge_int_test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -59,7 +59,7 @@ jobs:
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_mirrorbridge.sh
   dhcp_int_test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
