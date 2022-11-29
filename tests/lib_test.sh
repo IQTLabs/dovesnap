@@ -28,6 +28,7 @@ restart_container ()
 restart_dovesnap ()
 {
         restart_container dovesnap_plugin
+        sleep 20
 }
 
 restart_ovs ()
