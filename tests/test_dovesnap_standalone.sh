@@ -30,7 +30,7 @@ if [ "$RET" != "0" ] ; then
         exit 1
 fi
 # test OVS and dovesnap recover state after OVS restart.
-restart_ovs
+# restart_ovs
 wait_acl
 wait_testcon
 wait_verify_internet
