@@ -17,8 +17,8 @@ echo creating testnet
 
 sudo ip link add odsaddport1 type veth peer name odsaddport2 && true
 
-docker network create testnet -d dovesnap --internal -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 -o ovs.bridge.ovs_local_mac=0e:01:00:00:00:23 -o ovs.bridge.vlan_out_acl=allowall -o ovs.bridge.add_ports=odsaddport1/888/denyall -o ovs.bridge.mtu=1400 -o ovs.bridge.default_acl=denyall -o ovs.bridge.preallocate_ports=10 || exit 1
-docker network create test2net -d dovesnap --internal -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x2 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 -o ovs.bridge.ovs_local_mac=0e:02:00:00:00:23 -o ovs.bridge.vlan_out_acl=allowall -o ovs.bridge.mtu=1400 -o ovs.bridge.default_acl=denyall -o ovs.bridge.preallocate_ports=10 || exit 1
+docker network create testnet -d dovesnap --internal -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 -o ovs.bridge.ovs_local_mac=0e:01:00:00:00:23 -o ovs.bridge.vlan_out_acl=allowall -o ovs.bridge.add_ports=odsaddport1/888/denyall -o ovs.bridge.default_acl=denyall -o ovs.bridge.preallocate_ports=10 || exit 1
+docker network create test2net -d dovesnap --internal -o ovs.bridge.mode=nat -o ovs.bridge.dpid=0x2 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 -o ovs.bridge.ovs_local_mac=0e:02:00:00:00:23 -o ovs.bridge.vlan_out_acl=allowall -o ovs.bridge.default_acl=denyall -o ovs.bridge.preallocate_ports=10 || exit 1
 docker network ls
 restart_dovesnap
 echo creating testcon
@@ -34,8 +34,7 @@ fi
 # test OVS and dovesnap recover state after OVS restart.
 restart_ovs
 wait_acl
-sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
-echo verifying networking
-docker exec -t testcon wget -q -O- bing.com || exit 1
+wait_testcon
+wait_verify_internet
 
 clean_dirs

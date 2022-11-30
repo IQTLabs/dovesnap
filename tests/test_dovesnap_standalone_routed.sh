@@ -16,7 +16,7 @@ wait_faucet
 
 docker ps -a
 echo creating testnet
-docker network create testnet -d dovesnap --internal -o ovs.bridge.mode=routed -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 -o ovs.bridge.ovs_local_mac=0e:01:00:00:00:23 -o ovs.bridge.vlan_out_acl=allowall -o ovs.bridge.add_ports=odsaddport1/888/denyall -o ovs.bridge.mtu=1400 -o ovs.bridge.default_acl=denyall -o ovs.bridge.preallocate_ports=10 || exit 1
+docker network create testnet -d dovesnap --internal -o ovs.bridge.mode=routed -o ovs.bridge.dpid=0x1 -o ovs.bridge.controller=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 -o ovs.bridge.ovs_local_mac=0e:01:00:00:00:23 -o ovs.bridge.vlan_out_acl=allowall -o ovs.bridge.add_ports=odsaddport1/888/denyall -o ovs.bridge.default_acl=denyall -o ovs.bridge.preallocate_ports=10 || exit 1
 docker network ls
 restart_dovesnap
 echo creating testcon
@@ -29,8 +29,7 @@ if [ "$RET" != "0" ] ; then
 	exit 1
 fi
 wait_acl
-sudo grep -q "description: /testcon" $FAUCET_CONFIG || exit 1
-echo verifying networking
+wait_testcon
 GW=$(docker inspect testnet|jq -r '.[0]["IPAM"]["Config"][0]["Gateway"]')
 docker exec -t testcon ping -c 3 $GW || exit 1
 docker exec -t testcon ifconfig eth0 |grep -iq 0e:99 || exit 1
