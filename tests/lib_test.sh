@@ -28,7 +28,6 @@ restart_container ()
 restart_dovesnap ()
 {
         restart_container dovesnap_plugin
-        sleep 20
 }
 
 restart_ovs ()
@@ -89,7 +88,7 @@ meters:
     meter_id: 1
     entry:
         flags: "KBPS"
-        bands: [{type: "DROP", rate: 10000}]
+        bands: [{type: "DROP", rate: 100}]
 acls:
   ratelimitit:
   - rule:
