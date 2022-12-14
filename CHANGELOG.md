@@ -1,3 +1,11 @@
+# v1.1.5
+
+- c65sdn 1.0.44
+- frpc 0.22.55
+- OVS 3.0.2
+- pip/certifi
+- grafana, prometheus, pytype
+
 # v1.1.4
 
 - c65sdn 1.0.43
