@@ -204,6 +204,9 @@ wait_verify_internet ()
 	docker exec -t testcon ping -c3 $dockerip
 	docker network inspect testnet
 	sudo iptables -t nat -L
+	defgw=$(ip route get $(ip route show 0.0.0.0/0 | grep -oP 'via \K\S+') | grep -oP 'src \K\S+')
+	echo $defgw
+	docker exec -t testcon ping -c3 $defgw
 	testurl=http://azure.archive.ubuntu.com/ubuntu
 	docker exec -t testcon wget -O/dev/null $testurl || exit 1
 }

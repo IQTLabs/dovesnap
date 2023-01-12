@@ -18,6 +18,9 @@ jobs:
       - name: standalone_noconfig_int_test
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_standalone_noconfig.sh
+      #- name: Setup tmate session
+      #  if: success() || failure()
+      #  uses: mxschmitt/action-tmate@v3
   standalone_int_test:
     runs-on: ubuntu-latest
     steps:
