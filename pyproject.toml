@@ -12,7 +12,7 @@ faucetconfrpc = "0.22.45"
 graphviz = "0.20.1"
 
 [tool.poetry.dev-dependencies]
-pytype = "2023.1.10"
+pytype = "2023.1.17"
 "ruamel.yaml" = "0.17.21"
 
 [tool.poetry.scripts]
