@@ -3,14 +3,14 @@ module dovesnap
 go 1.19
 
 require (
-	github.com/docker/docker v20.10.22+incompatible
+	github.com/docker/docker v20.10.23+incompatible
 	github.com/docker/go-plugins-helpers v0.0.0-20211224144127-6eecb7beb651
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20200219012139-4f65d685bdf9
-	github.com/iqtlabs/faucetconfrpc v0.22.45
+	github.com/iqtlabs/faucetconfrpc v0.22.47
 	github.com/kenshaw/baseconv v0.1.1
 	github.com/sirupsen/logrus v1.9.0
 	github.com/vishvananda/netlink v1.2.1-beta.2
-	google.golang.org/grpc v1.52.0
+	google.golang.org/grpc v1.52.3
 )
 
 require (
