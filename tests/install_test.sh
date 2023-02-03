@@ -11,5 +11,5 @@ sudo modprobe openvswitch && \
   sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" && \
   sudo apt-get update && sudo apt-get install docker-ce docker-ce-cli containerd.io && \
   ./poetrybuild.sh &&
-  cd openvswitch && docker build -f Dockerfile . -t iqtlabs/openvswitch:v3.0.2 && cd .. && \
+  cd openvswitch && docker build -f Dockerfile . -t iqtlabs/openvswitch:v3.0.3 && cd .. && \
   sudo ip link && sudo ip addr
