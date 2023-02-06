@@ -3,7 +3,7 @@ LABEL maintainer="Charlie Lewis <clewis@iqt.org>"
 COPY . /go/src/dovesnap
 WORKDIR /go/src/dovesnap
 RUN go build -o /out/dovesnap .
-FROM debian:bullseye
+FROM ubuntu:22.04
 COPY --from=build /out/dovesnap /
 RUN apt-get update && apt-get install -y --no-install-recommends \
     iptables dbus && \
@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 RUN update-alternatives --set iptables /usr/sbin/iptables-legacy
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ethtool \
+    ethtool iproute2 \
     openvswitch-common \
     openvswitch-switch \
     udhcpc && \
