@@ -40,13 +40,13 @@ jobs:
       run: |
         cd openvswitch && \
         docker buildx build \
-          --platform linux/amd64,linux/arm/v7,linux/arm64 \
+          --platform linux/amd64,linux/arm64 \
           --push \
           --file Dockerfile \
           -t iqtlabs/openvswitch:v$(grep 'ENV OVS_VERSION' Dockerfile|grep -oE '[0-9\.]+') . && \
         cd .. && \
         docker buildx build \
-          --platform linux/amd64,linux/arm/v7,linux/arm64 \
+          --platform linux/amd64,linux/arm64 \
           --push \
           --file Dockerfile \
           -t iqtlabs/dovesnap:${{ steps.change_version.outputs.VERSION }} .
