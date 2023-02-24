@@ -2,7 +2,7 @@ version: '3.7'
 services:
   plugin:
     restart: always
-    image: iqtlabs/dovesnap:latest
+    image: iqtlabs/dovesnap:v1.1.7
     volumes:
       - /run/docker/plugins:/run/docker/plugins
       - /var/run/docker.sock:/var/run/docker.sock
@@ -34,8 +34,6 @@ services:
       - '--default_ofcontrollers=${STACK_OFCONTROLLERS}'
     labels:
       - "dovesnap.namespace=primary"
-    build:
-      context: .
   ovs:
     restart: always
     image: iqtlabs/openvswitch:v3.1.0
