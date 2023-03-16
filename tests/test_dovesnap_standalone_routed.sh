@@ -11,7 +11,7 @@ init_ovs
 sudo ip link add odsaddport1 type veth peer name odsaddport2 && true
 
 echo starting dovesnap infrastructure
-docker-compose build && FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
+docker compose build && FAUCET_PREFIX=$TMPDIR docker compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
 wait_faucet
 
 docker ps -a

@@ -9,7 +9,7 @@ conf_keys
 init_ovs
 
 echo starting dovesnap infrastructure
-docker-compose build && FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
+docker compose build && FAUCET_PREFIX=$TMPDIR docker compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
 wait_faucet
 
 docker ps -a

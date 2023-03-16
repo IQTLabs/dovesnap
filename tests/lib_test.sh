@@ -142,7 +142,7 @@ conf_keys ()
 {
         echo creating keys
         mkdir -p /opt/faucetconfrpc || exit 1
-        FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up faucet_certstrap || exit 1
+        FAUCET_PREFIX=$TMPDIR docker compose -f docker-compose.yml -f docker-compose-standalone.yml up faucet_certstrap || exit 1
         ls -al /opt/faucetconfrpc/faucetconfrpc.key || exit 1
 }
 
@@ -264,7 +264,7 @@ wait_mirror ()
 
 init_ovs ()
 {
-        docker-compose -f docker-compose.yml up -d ovs || exit 1
+        docker compose -f docker-compose.yml up -d ovs || exit 1
         reset_ovsid
         while ! docker exec -t $OVSID ovs-vsctl show ; do
                 echo waiting for OVS
