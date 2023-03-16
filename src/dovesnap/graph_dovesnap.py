@@ -17,7 +17,7 @@ class GraphDovesnapException(Exception):
 
 class GraphDovesnap:
 
-    DOVESNAP_NAME = 'dovesnap_plugin'
+    DOVESNAP_NAME = 'dovesnap-plugin'
     OFP_LOCAL = 4294967294
     DOCKER_URL = 'unix://var/run/docker.sock'
     VM_PREFIX = 'vnet'
