@@ -11,12 +11,12 @@ User=dovesnap
 Group=docker
 WorkingDirectory=/home/dovesnap/dovesnap
 EnvironmentFile=/home/dovesnap/service.env
-ExecStartPre=/usr/local/bin/docker-compose build
+ExecStartPre=/usr/bin/docker compose build
 ExecStartPre=-mkdir -p ${FAUCET_PREFIX}
 # DOCKERFILES without {} as contains spaces.
-ExecStartPre=-/usr/local/bin/docker-compose $DOCKERFILES down
-ExecStart=/usr/local/bin/docker-compose $DOCKERFILES up
-ExecStop=/usr/local/bin/docker-compose $DOCKERFILES down
+ExecStartPre=-/usr/bin/docker compose $DOCKERFILES down
+ExecStart=/usr/bin/docker compose $DOCKERFILES up
+ExecStop=/usr/bin/docker compose $DOCKERFILES down
 
 [Install]
 WantedBy=multi-user.target

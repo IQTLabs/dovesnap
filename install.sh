@@ -4,7 +4,7 @@ echo installing dovesnap
 
 giturl=$1
 
-for dep in docker docker-compose git ; do
+for dep in docker git ; do
 	depv=$($dep --version 2>/dev/null)
 	if [ "$depv" = "" ] ; then
 		echo $dep not installed.

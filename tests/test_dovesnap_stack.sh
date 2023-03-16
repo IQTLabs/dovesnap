@@ -52,7 +52,7 @@ dps:
             acls_in: [denyall]
 EOFC
 
-docker-compose build || exit 1
+docker compose build || exit 1
 init_ovs
 
 sudo ip link add odsrootswintp1 type veth peer name odsrootswextp1
@@ -67,7 +67,7 @@ docker exec -t $OVSID ovs-vsctl add-port odsrootsw odsrootswintp1 -- set interfa
 docker exec -t $OVSID ovs-vsctl show
 
 echo starting dovesnap infrastructure
-FAUCET_PREFIX=$TMPDIR STACK_PRIORITY1=odsrootsw STACKING_INTERFACES=odsrootsw:7:odsrootswextp1 STACK_MIRROR_INTERFACE=odsrootsw:88 STACK_OFCONTROLLERS=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
+FAUCET_PREFIX=$TMPDIR STACK_PRIORITY1=odsrootsw STACKING_INTERFACES=odsrootsw:7:odsrootswextp1 STACK_MIRROR_INTERFACE=odsrootsw:88 STACK_OFCONTROLLERS=tcp:127.0.0.1:6653,tcp:127.0.0.1:6654 docker compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
 wait_faucet
 
 docker ps -a

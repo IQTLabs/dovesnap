@@ -37,7 +37,7 @@ $ sudo mkdir /etc/faucet
 
 **4.** Start dovesnap.
 
-`$ docker-compose build && docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d`
+`$ docker compose build && docker compose -f docker-compose.yml -f docker-compose-standalone.yml up -d`
 
 **5.** Now you are ready to create a new network
 
@@ -155,7 +155,7 @@ Dovesnap provides infrastructure to do centralized mirroring - you can have dove
 
 To use physical interface `eno99` for mirroring, for example:
 
-`$ FAUCET_PREFIX=/etc/faucet MIRROR_BRIDGE_OUT=eno99 docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d`
+`$ FAUCET_PREFIX=/etc/faucet MIRROR_BRIDGE_OUT=eno99 docker compose -f docker-compose.yml -f docker-compose-standalone.yml up -d`
 
 If you want to mirror to a virtual interface on your host, use a veth pair. For example:
 
@@ -163,7 +163,7 @@ If you want to mirror to a virtual interface on your host, use a veth pair. For 
 $ sudo ip link add odsmirrori type veth peer name odsmirroro
 $ sudo ip link set dev odsmirrori up
 $ sudo ip link set dev odsmirroro up
-$ FAUCET_PREFIX=/etc/faucet MIRROR_BRIDGE_OUT=odsmirrori docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d
+$ FAUCET_PREFIX=/etc/faucet MIRROR_BRIDGE_OUT=odsmirrori docker compose -f docker-compose.yml -f docker-compose-standalone.yml up -d
 $ sudo tcpdump -n -e -v -i odsmirroro
 ```
 

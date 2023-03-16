@@ -27,7 +27,7 @@ restart_container ()
 
 restart_dovesnap ()
 {
-        restart_container dovesnap_plugin
+        restart_container dovesnap-plugin
 }
 
 restart_ovs ()
@@ -71,7 +71,7 @@ clean_dirs()
                 echo veths leaked: $VETHS
                 exit 1
         fi
-        DIEC=$(docker system events --since=15m --until=0m --filter="container=dovesnap_plugin_1" --filter="event=die" | grep -v exitCode=0)
+        DIEC=$(docker system events --since=15m --until=0m --filter="container=dovesnap-plugin-1" --filter="event=die" | grep -v exitCode=0)
         if [ "$DIEC" != "" ] ; then
                echo dovesnap exited unexpectedly: $DIEC
                exit 1
@@ -142,7 +142,7 @@ conf_keys ()
 {
         echo creating keys
         mkdir -p /opt/faucetconfrpc || exit 1
-        FAUCET_PREFIX=$TMPDIR docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up faucet_certstrap || exit 1
+        FAUCET_PREFIX=$TMPDIR docker compose -f docker-compose.yml -f docker-compose-standalone.yml up faucet_certstrap || exit 1
         ls -al /opt/faucetconfrpc/faucetconfrpc.key || exit 1
 }
 
@@ -161,7 +161,7 @@ wait_faucet ()
 wait_acl ()
 {
         echo waiting for ACL to be applied
-        DOVESNAPID="$(docker ps -q --filter name=dovesnap_plugin)"
+        DOVESNAPID="$(docker ps -q --filter name=dovesnap-plugin)"
         ACLCOUNT=0
         while [ "$ACLCOUNT" != "2" ] ; do
                 docker logs $DOVESNAPID
@@ -183,7 +183,7 @@ wait_acl ()
 
 wait_testcon ()
 {
-	DOVESNAPID="$(docker ps -q --filter name=dovesnap_plugin)"
+	DOVESNAPID="$(docker ps -q --filter name=dovesnap-plugin)"
 	OUTPUT=""
 	while [ "$OUTPUT" == "" ] ; do
 		OUTPUT=$(sudo grep "description: /testcon" $FAUCET_CONFIG)
@@ -213,7 +213,7 @@ wait_stack_state ()
 {
         state=$1
         count=$2
-        FIP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' dovesnap_faucet_1)
+        FIP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' dovesnap-faucet-1)
         STACKUPCOUNT=0
         echo waiting for $count stack ports to be state $state
         while [ "$STACKUPCOUNT" != "$count" ] ; do
@@ -245,7 +245,7 @@ wait_mirror ()
                 table=0
         fi
         echo waiting for mirror to be applied to config
-        DOVESNAPID="$(docker ps -q --filter name=dovesnap_plugin)"
+        DOVESNAPID="$(docker ps -q --filter name=dovesnap-plugin)"
         MIRRORCOUNT=0
         while [ "$MIRRORCOUNT" != "1" ] ; do
                 docker logs $DOVESNAPID
@@ -264,7 +264,7 @@ wait_mirror ()
 
 init_ovs ()
 {
-        docker-compose -f docker-compose.yml up -d ovs || exit 1
+        docker compose -f docker-compose.yml up -d ovs || exit 1
         reset_ovsid
         while ! docker exec -t $OVSID ovs-vsctl show ; do
                 echo waiting for OVS
@@ -286,7 +286,7 @@ wait_for_container_ip ()
         done
         if [ "$OUT" == "" ] ; then
                 echo No IP
-                DOVESNAPID="$(docker ps -q --filter name=dovesnap_plugin)"
+                DOVESNAPID="$(docker ps -q --filter name=dovesnap-plugin)"
                 docker logs $DOVESNAPID
                 exit 1
         fi

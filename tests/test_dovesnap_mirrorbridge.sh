@@ -12,10 +12,10 @@ conf_gauge
 conf_keys
 
 echo starting dovesnap infrastructure
-docker-compose build || exit 1
+docker compose build || exit 1
 init_ovs
 
-FAUCET_PREFIX=$TMPDIR MIRROR_BRIDGE_OUT=odsmirrori docker-compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
+FAUCET_PREFIX=$TMPDIR MIRROR_BRIDGE_OUT=odsmirrori docker compose -f docker-compose.yml -f docker-compose-standalone.yml up -d || exit 1
 wait_faucet
 
 docker ps -a
