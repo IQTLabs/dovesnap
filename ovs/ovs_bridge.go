@@ -179,7 +179,7 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 	return err
 }
 
-//  setup bridge, if bridge does not exist create it.
+// setup bridge, if bridge does not exist create it.
 func (d *Driver) initBridge(ns NetworkState, controller string, dpid string, add_ports string, userspace bool, ovsLocalMac string) error {
 	bridgeName := ns.BridgeName
 	err := d.ovsdber.createBridge(bridgeName, controller, dpid, add_ports, false, userspace, ovsLocalMac)
