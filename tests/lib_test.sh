@@ -63,7 +63,9 @@ init_dirs()
 clean_dirs()
 {
         wget -q -O- localhost:9401/networks || exit 1
-        sudo ./src/dovesnap/graph_dovesnap.py -o /tmp/dovesnapviz || exit 1
+        py=$(which python3)
+        echo using: $py
+        sudo "${py}" ./src/dovesnap/graph_dovesnap.py -o /tmp/dovesnapviz || exit 1
         ./src/dovesnap/cleanup_dovesnap
         rm -rf $TMPDIR
         VETHS="$(ip link | grep -E ':( ovs-veth|ovp)')"
