@@ -52,7 +52,7 @@ transitions = "*"
 
 [[package]]
 name = "c65faucet"
-version = "1.0.51"
+version = "1.0.52"
 description = "Faucet is an OpenFlow controller that implements a layer 2 and layer 3 switch."
 category = "main"
 optional = false
@@ -67,7 +67,7 @@ os_ken = "2.6.0"
 pbr = ">=1.9"
 prometheus_client = "0.16.0"
 pytricia = ">=1.0.0"
-"ruamel.yaml" = "0.17.23"
+"ruamel.yaml" = "0.17.24"
 
 [[package]]
 name = "certifi"
@@ -178,14 +178,14 @@ six = ">=1.10.0"
 
 [[package]]
 name = "faucetconfrpc"
-version = "0.22.54"
+version = "0.22.55"
 description = "utility to manage FAUCET config files via RPC"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
 
 [package.dependencies]
-c65faucet = "1.0.51"
+c65faucet = "1.0.52"
 dnspython = "<2.3.1"
 grpcio = "1.54.0"
 grpcio-tools = "1.54.0"
@@ -705,7 +705,7 @@ middleware = ["webob"]
 
 [[package]]
 name = "ruamel.yaml"
-version = "0.17.23"
+version = "0.17.24"
 description = "ruamel.yaml is a YAML parser/emitter that supports roundtrip preservation of comments, seq/map flow style, and map key order"
 category = "main"
 optional = false
@@ -857,7 +857,7 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8 <3.11"
-content-hash = "82621a2ccbf1eeb97f533f75c6efc29b4b1a71ab1ef4ca0fbb20bccffd7cf355"
+content-hash = "66d41dab3a2e4b04e76ad6b0c61f6be76e2cd5984eccc70bd32a53fe74a73a57"
 
 [metadata.files]
 attrs = []
@@ -887,7 +887,7 @@ bcrypt = [
 c65beka = []
 c65chewie = []
 c65faucet = [
-    {file = "c65faucet-1.0.51.tar.gz", hash = "sha256:3db527e4ca7b87d8686ca7149d57719e3ce56d9fa91449ad7362b7521c059203"},
+    {file = "c65faucet-1.0.52.tar.gz", hash = "sha256:ca10f050ee9d2bc23e9df09e3cff3c715c6abc416f736b55f599c026aadcb72e"},
 ]
 certifi = [
     {file = "certifi-2022.12.7-py3-none-any.whl", hash = "sha256:4ad3232f5e926d6718ec31cfc1fcadfde020920e278684144551c91769c7bc18"},
@@ -978,8 +978,8 @@ eventlet = [
     {file = "eventlet-0.33.3.tar.gz", hash = "sha256:722803e7eadff295347539da363d68ae155b8b26ae6a634474d0a920be73cfda"},
 ]
 faucetconfrpc = [
-    {file = "faucetconfrpc-0.22.54-py3-none-any.whl", hash = "sha256:454bb291f3ca138e710b10fb83685c47602b94c042cbc9c9ed1557d89e3a5004"},
-    {file = "faucetconfrpc-0.22.54.tar.gz", hash = "sha256:c1c55b0def65b6fe83fb053c716bba376a6ada064f73e4874c09dc86549ffcfe"},
+    {file = "faucetconfrpc-0.22.55-py3-none-any.whl", hash = "sha256:27d75eb9d4dc76f42c2f183f432a412c73b2b5588c732ef44b8a6a01057fdc91"},
+    {file = "faucetconfrpc-0.22.55.tar.gz", hash = "sha256:a8a08e760e3e548cebc66ea1e4006e01a0e3898e44ec9687a69fb9aa7f86bee3"},
 ]
 graphviz = [
     {file = "graphviz-0.20.1-py3-none-any.whl", hash = "sha256:587c58a223b51611c0cf461132da386edd896a029524ca61a1462b880bf97977"},
@@ -1378,8 +1378,8 @@ routes = [
     {file = "Routes-2.5.1.tar.gz", hash = "sha256:b6346459a15f0cbab01a45a90c3d25caf980d4733d628b4cc1952b865125d053"},
 ]
 "ruamel.yaml" = [
-    {file = "ruamel.yaml-0.17.23-py3-none-any.whl", hash = "sha256:605510839d5af3ae730f3ed6408b7004c83f97aa2b732f6f366da7c2fc2f0d9c"},
-    {file = "ruamel.yaml-0.17.23.tar.gz", hash = "sha256:40e549c264e799d8e4cd9e54e869ffa60c9436e1ef497500b08fbda3b92a1517"},
+    {file = "ruamel.yaml-0.17.24-py3-none-any.whl", hash = "sha256:f251bd9096207af604af69d6495c3c650a3338d0493d27b04bc55477d7a884ed"},
+    {file = "ruamel.yaml-0.17.24.tar.gz", hash = "sha256:90e398ee24524ebe20fc48cd1861cedd25520457b9a36cfb548613e57fde30a0"},
 ]
 "ruamel.yaml.clib" = [
     {file = "ruamel.yaml.clib-0.2.7-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:d5859983f26d8cd7bb5c287ef452e8aacc86501487634573d260968f753e1d71"},
