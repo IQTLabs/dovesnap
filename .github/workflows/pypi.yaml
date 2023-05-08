@@ -20,8 +20,11 @@ jobs:
         virtualenvs-create: false
         virtualenvs-in-project: false
         version: 1.4.2
+   - name: poetry install
+      run: |
+        poetry build && poetry install
     - name: Build package
       id: build_and_publish_packages
       run: |
-        ./poetrybuild.sh && poetry build && poetry publish -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_TOKEN }}
+        poetry publish -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_TOKEN }}
       if: github.repository == 'iqtlabs/dovesnap' && github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
