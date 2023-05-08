@@ -20,9 +20,9 @@ jobs:
         virtualenvs-create: false
         virtualenvs-in-project: false
         version: 1.4.2
-   - name: poetry install
+    - name: poetry install
       run: |
-        poetry build && poetry install
+       poetry build && poetry install
     - name: Build package
       id: build_and_publish_packages
       run: |
