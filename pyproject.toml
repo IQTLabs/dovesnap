@@ -7,7 +7,7 @@ license = "Apache-2.0"
 
 [tool.poetry.dependencies]
 python = ">=3.8 <3.11"
-docker = "6.1.0"
+docker = "6.1.1"
 faucetconfrpc = "0.22.55"
 graphviz = "0.20.1"
 
