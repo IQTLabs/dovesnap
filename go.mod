@@ -8,7 +8,7 @@ require (
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20200219012139-4f65d685bdf9
 	github.com/iqtlabs/faucetconfrpc v0.55.57
 	github.com/kenshaw/baseconv v0.1.1
-	github.com/sirupsen/logrus v1.9.2
+	github.com/sirupsen/logrus v1.9.3
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	google.golang.org/grpc v1.55.0
 )
