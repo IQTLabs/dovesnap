@@ -18,7 +18,7 @@ services:
       - "dovesnap.namespace=standalone"
   gauge:
     restart: always
-    image: 'c65sdn/gauge:1.0.56'
+    image: 'c65sdn/gauge:1.0.57'
     networks:
       - dovesnap
     volumes:
