@@ -12,5 +12,5 @@ sudo modprobe openvswitch && \
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add - && \
   sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" && \
   sudo apt-get update && sudo apt-get install docker-ce docker-ce-cli containerd.io && \
-  cd openvswitch && docker build -f Dockerfile . -t iqtlabs/openvswitch:v3.1.1 && cd .. && \
+  cd openvswitch && docker build -f Dockerfile . -t iqtlabs/openvswitch:v3.1.2 && cd .. && \
   sudo ip link && sudo ip addr
