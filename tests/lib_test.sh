@@ -158,6 +158,12 @@ wait_faucet ()
                         sleep 1
                 done
         done
+        echo waiting for frpc
+        OUTPUT=""
+        while [ "$OUTPUT" == "" ] ; do
+                OUTPUT=$(docker ps -q --filter health=healthy --filter name=faucetconfrpc)
+                sleep 1
+        done
 }
 
 wait_acl ()
