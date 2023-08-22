@@ -1377,22 +1377,13 @@ files = [
 
 [[package]]
 name = "pytype"
-version = "2023.8.14"
+version = "2023.8.22"
 description = "Python type inferencer"
 category = "dev"
 optional = false
 python-versions = "<3.11,>=3.8"
 files = [
-    {file = "pytype-2023.8.14-cp310-cp310-macosx_11_0_x86_64.whl", hash = "sha256:a1acf8aa995d42def83374807048b41665de8cb2af6b3d641510ec29f0d81a3e"},
-    {file = "pytype-2023.8.14-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d151bc3b389bbb2324297ea5ecb86761cbe0f0d78e1907f92d708bfd03fbeec8"},
-    {file = "pytype-2023.8.14-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4e2a7f0fcf5f39d0b9eda6b6726247af6ce0b81ce684c24361d445f11b3037b1"},
-    {file = "pytype-2023.8.14-cp38-cp38-macosx_11_0_x86_64.whl", hash = "sha256:dfbccf7971b3ecdcd6370c4d6ac5fcbe6b863e8462d49b60e181c6f704357818"},
-    {file = "pytype-2023.8.14-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:727be69145c48c53a5002d767513df7f4d6c5b22f56dc57a1000c9b7492aaacd"},
-    {file = "pytype-2023.8.14-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:09e819185540814a80e19138af22662e8da79a83b9b7e8289af6dfc517a94513"},
-    {file = "pytype-2023.8.14-cp39-cp39-macosx_11_0_x86_64.whl", hash = "sha256:3ff55d4976b3a8f86a9e8cac4cf3ed8ccf93f48680eaa2d74614e2ff306d43af"},
-    {file = "pytype-2023.8.14-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:1c747fb9fe0350f259ad2f43fa58b0f7bf83731c353cde8b1dd966186a9699c2"},
-    {file = "pytype-2023.8.14-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:694ba02c8731432303b8fc79e23b5f80c9ef6dec9b0799050a2e57aa1b7bd788"},
-    {file = "pytype-2023.8.14.tar.gz", hash = "sha256:cbc3f73f037a414dcef3591f69d6c15546e71877f63ccf86aa0a0239462843e9"},
+    {file = "pytype-2023.8.22.tar.gz", hash = "sha256:061edb0e7f09e77fa58f00c474ba80c13683eede2d992397b435d12735286043"},
 ]
 
 [package.dependencies]
@@ -1901,4 +1892,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8 <3.11"
-content-hash = "3e591adeaaac49bd01f184e026b8f98d824a27d1d290e7da3915d1eec1cd9449"
+content-hash = "9fb88e33353ab9b9dcee86f4e9680c708811a5812f6ece621a0070529c13a6eb"
