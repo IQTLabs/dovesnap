@@ -4,7 +4,6 @@ sudo modprobe openvswitch && \
   sudo modprobe 8021q && \
   export DEBIAN_FRONTEND=noninteractive && \
   echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections && \
-  sudo update-alternatives --set iptables /usr/sbin/iptables-legacy && \
   sudo apt-get update && \
   sudo apt-get purge docker docker-engine docker.io containerd runc python3-yaml && \
   sudo apt-get install apt-transport-https ca-certificates curl gnupg-agent software-properties-common && \
