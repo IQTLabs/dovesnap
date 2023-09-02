@@ -11,7 +11,12 @@ See also https://docs.faucet.nz for FAUCET documentation, including monitoring d
 
 * Linux host running a supported version docker (x86 and Pi are supported)
 * Optionally: additional physical interfaces to connect other hosts also running dovesnap
-* non-netfilter iptables. For Debian/Ubuntu, follow the legacy option at https://wiki.debian.org/iptables (`update-alternatives --set iptables /usr/sbin/iptables-legacy` then `nft flush ruleset`). This requirement will be addressed in a future version.
+* non-netfilter iptables. For Debian/Ubuntu, follow the legacy option at https://wiki.debian.org/iptables (this will be addressed in a future version):
+
+```
+$ sudo apt-get install nftables && sudo nft flush ruleset && sudo apt-get purge nftables
+$ sudo apt-get --reinstall install iptables && sudo update-alternatives --set iptables /usr/sbin/iptables-legacy && sudo /etc/init.d/docker restart
+```
 
 ### Installing as a systemd service
 
