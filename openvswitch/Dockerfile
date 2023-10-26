@@ -2,7 +2,7 @@ FROM debian:bookworm-slim as builder
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates make autoconf wget gcc git libc6-dev python3-dev openssl
 WORKDIR /
-ENV OVS_VERSION 3.2.0
+ENV OVS_VERSION 3.2.1
 RUN wget https://www.openvswitch.org/releases/openvswitch-$OVS_VERSION.tar.gz && \
  tar -xzvf openvswitch-$OVS_VERSION.tar.gz && \
  mv openvswitch-$OVS_VERSION openvswitch
