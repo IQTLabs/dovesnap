@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dovesnap"
-version = "1.1.17.dev"
+version = "1.1.17"
 description = "graphviz generator of dovesnap networks"
 authors = ["Charlie Lewis <clewis@iqt.org>"]
 license = "Apache-2.0"
