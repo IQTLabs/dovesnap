@@ -26,9 +26,11 @@ NON_DEV_SERVICE_DELETE = {
 
 # Broadly preserves formatting.
 yaml = ruamel.yaml.YAML()
+assert not yaml.preserve_quotes
+yaml.preserve_quotes = True
 yaml.indent(mapping=2, sequence=2, offset=2)
-dc = ruamel.yaml.round_trip_load(
-    open(DOCKER_COMPOSE).read(), preserve_quotes=True)
+dc = yaml.load(
+    open(DOCKER_COMPOSE).read())
 for service, service_config in dc['services'].items():
     image, _ = service_config['image'].split(':')
     if DEV:
