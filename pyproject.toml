@@ -13,7 +13,7 @@ graphviz = "0.20.1"
 "ruamel.yaml" = "^0.18.2"
 
 [tool.poetry.dev-dependencies]
-pytype = "2023.11.29"
+pytype = "2023.12.7"
 
 [tool.poetry.scripts]
 graph_dovesnap = "dovesnap.graph_dovesnap:main"
