@@ -450,14 +450,14 @@ pyopenssl = ">22.1.0"
 
 [[package]]
 name = "graphviz"
-version = "0.20.2"
+version = "0.20.3"
 description = "Simple Python interface for Graphviz"
 category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "graphviz-0.20.2-py3-none-any.whl", hash = "sha256:63d1ae75f1ca60f980e1cd3a61a678eef8de645ef8427736b2bb9bdd035ca44b"},
-    {file = "graphviz-0.20.2.zip", hash = "sha256:d29ca3aadbe5d6e6c584045b7ec4fc1c15af2448dc1c0211b5e94344833243da"},
+    {file = "graphviz-0.20.3-py3-none-any.whl", hash = "sha256:81f848f2904515d8cd359cc611faba817598d2feaac4027b266aa3eda7b3dde5"},
+    {file = "graphviz-0.20.3.zip", hash = "sha256:09d6bc81e6a9fa392e7ba52135a9d49f1ed62526f96499325930e87ca1b5925d"},
 ]
 
 [package.extras]
@@ -2014,4 +2014,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "51a2cf336801408fe53316b2e690b6becd1326752bb8cb25793c43fb8495fb68"
+content-hash = "a14eedc2f982810c25871497fc6d4ba0905091a37115c87ee680bcd897289f32"
