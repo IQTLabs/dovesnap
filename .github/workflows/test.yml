@@ -2,6 +2,9 @@ name: test
 
 on: [push, pull_request]
 
+env:
+  POETRY_VERSION: 1.7.1
+
 jobs:
   gofmt:
     runs-on: ubuntu-22.04
@@ -17,7 +20,7 @@ jobs:
         with:
           virtualenvs-create: false
           virtualenvs-in-project: false
-          version: 1.4.2
+          version: ${{ env.POETRY_VERSION }}
       - name: poetry install
         run: |
           poetry build && poetry install
@@ -37,7 +40,7 @@ jobs:
         with:
           virtualenvs-create: false
           virtualenvs-in-project: false
-          version: 1.4.2
+          version: ${{ env.POETRY_VERSION }}
       - name: poetry install
         run: |
           poetry build && poetry install
@@ -58,7 +61,7 @@ jobs:
         with:
           virtualenvs-create: false
           virtualenvs-in-project: false
-          version: 1.4.2
+          version: ${{ env.POETRY_VERSION }}
       - name: poetry install
         run: |
           poetry build && poetry install
@@ -79,7 +82,7 @@ jobs:
         with:
           virtualenvs-create: false
           virtualenvs-in-project: false
-          version: 1.4.2
+          version: ${{ env.POETRY_VERSION }}
       - name: poetry install
         run: |
           poetry build && poetry install
@@ -100,7 +103,7 @@ jobs:
         with:
           virtualenvs-create: false
           virtualenvs-in-project: false
-          version: 1.4.2
+          version: ${{ env.POETRY_VERSION }}
       - name: poetry install
         run: |
           poetry build && poetry install
@@ -121,7 +124,7 @@ jobs:
         with:
           virtualenvs-create: false
           virtualenvs-in-project: false
-          version: 1.4.2
+          version: ${{ env.POETRY_VERSION }}
       - name: poetry install
         run: |
           poetry build && poetry install
@@ -142,7 +145,7 @@ jobs:
         with:
           virtualenvs-create: false
           virtualenvs-in-project: false
-          version: 1.4.2
+          version: ${{ env.POETRY_VERSION }}
       - name: poetry install
         run: |
           poetry build && poetry install
@@ -163,7 +166,7 @@ jobs:
         with:
           virtualenvs-create: false
           virtualenvs-in-project: false
-          version: 1.4.2
+          version: ${{ env.POETRY_VERSION }}
       - name: poetry install
         run: |
           poetry build && poetry install
