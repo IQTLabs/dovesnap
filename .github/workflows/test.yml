@@ -24,7 +24,7 @@ jobs:
       - name: go format and pytype
         run: ./tests/codecheck.sh
   standalone_noconfig_int_test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -45,7 +45,7 @@ jobs:
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_standalone_noconfig.sh
   standalone_int_test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -66,7 +66,7 @@ jobs:
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_standalone.sh
   standalone2_int_test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -108,7 +108,7 @@ jobs:
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_standalone_routed.sh
   stack_int_test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -129,7 +129,7 @@ jobs:
         run: |
           ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_stack.sh
   mirrorbridge_int_test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
