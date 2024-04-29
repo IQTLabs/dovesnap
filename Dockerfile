@@ -3,7 +3,7 @@ LABEL maintainer="Charlie Lewis <clewis@iqt.org>"
 COPY . /go/src/dovesnap
 WORKDIR /go/src/dovesnap
 RUN go build -o /out/dovesnap .
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 COPY --from=build /out/dovesnap /
 RUN apt-get update && apt-get install -y --no-install-recommends \
     iptables dbus && \
