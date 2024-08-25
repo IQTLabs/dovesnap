@@ -11,7 +11,7 @@ require (
 	github.com/iqtlabs/faucetconfrpc v0.55.71
 	github.com/kenshaw/baseconv v0.1.1
 	github.com/sirupsen/logrus v1.9.3
-	github.com/vishvananda/netlink v1.2.1-beta.2
+	github.com/vishvananda/netlink v1.3.0
 	google.golang.org/grpc v1.65.0
 )
 
