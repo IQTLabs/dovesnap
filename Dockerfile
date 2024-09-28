@@ -1,10 +1,5 @@
-FROM golang:1.23 AS build
-LABEL maintainer="Charlie Lewis <clewis@iqt.org>"
-COPY . /go/src/dovesnap
-WORKDIR /go/src/dovesnap
-RUN go build -o /out/dovesnap .
 FROM ubuntu:24.04
-COPY --from=build /out/dovesnap /
+LABEL maintainer="Charlie Lewis <clewis@iqt.org>"
 RUN apt-get update && apt-get install -y --no-install-recommends \
     iptables dbus && \
     apt-get clean && \
@@ -14,8 +9,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ethtool iproute2 \
     openvswitch-common \
     openvswitch-switch \
-    udhcpc && \
+    udhcpc \
+    ca-certificates \
+    golang && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+COPY . /go/src/dovesnap
+WORKDIR /go/src/dovesnap
+RUN go build -o / .
 COPY udhcpclog.sh /udhcpclog.sh
 ENTRYPOINT ["/dovesnap"]
