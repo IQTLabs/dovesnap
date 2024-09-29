@@ -164,7 +164,6 @@ wait_faucet ()
                 OUTPUT=$(docker ps -q --filter health=healthy --filter name=faucetconfrpc)
                 sleep 1
         done
-        docker logs dovesnap-plugin-1
 }
 
 wait_acl ()
