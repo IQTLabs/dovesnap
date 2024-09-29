@@ -68,6 +68,7 @@ github.com/godbus/dbus
 ## explicit; go 1.18
 github.com/gogo/protobuf/proto
 # github.com/iqtlabs/faucetconfrpc v0.55.72
+## explicit; go 1.18
 github.com/iqtlabs/faucetconfrpc/faucetconfserver
 # github.com/kenshaw/baseconv v0.1.1
 ## explicit; go 1.15
