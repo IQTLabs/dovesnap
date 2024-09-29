@@ -65,10 +65,10 @@ github.com/go-logr/stdr
 ## explicit
 github.com/godbus/dbus
 # github.com/gogo/protobuf v1.3.2
-## explicit; go 1.18
+## explicit; go 1.15
 github.com/gogo/protobuf/proto
 # github.com/iqtlabs/faucetconfrpc v0.55.72
-## explicit; go 1.18
+## explicit
 github.com/iqtlabs/faucetconfrpc/faucetconfserver
 # github.com/kenshaw/baseconv v0.1.1
 ## explicit; go 1.15
@@ -133,7 +133,7 @@ go.opentelemetry.io/otel/metric/noop
 go.opentelemetry.io/otel/trace
 go.opentelemetry.io/otel/trace/embedded
 # golang.org/x/mod v0.21.0
-## explicit; go 1.22.0
+## explicit; go 1.22
 # golang.org/x/net v0.29.0
 ## explicit; go 1.18
 golang.org/x/net/http/httpguts
@@ -157,7 +157,7 @@ golang.org/x/text/unicode/norm
 # golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 ## explicit
 # golang.org/x/tools v0.25.0
-## explicit; go 1.22.0
+## explicit; go 1.22
 # google.golang.org/genproto/googleapis/rpc v0.0.0-20240924160255-9d4c2d233b61
 ## explicit; go 1.21
 google.golang.org/genproto/googleapis/rpc/status
