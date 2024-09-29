@@ -6,12 +6,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 RUN update-alternatives --set iptables /usr/sbin/iptables-legacy
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ethtool iproute2 \
-    openvswitch-common \
-    openvswitch-switch \
-    udhcpc \
-    ca-certificates \
-    golang && \
+    ethtool iproute2 openvswitch-common openvswitch-switch \
+    udhcpc ca-certificates golang && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 COPY . /go/src/dovesnap
