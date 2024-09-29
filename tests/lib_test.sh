@@ -169,7 +169,7 @@ wait_faucet ()
 wait_acl ()
 {
         echo waiting for ACL to be applied
-        DOVESNAPID="$(docker ps -q --filter name=dovesnap-plugin)"
+        DOVESNAPID="$(docker ps -q --filter name=dovesnap-plugin-1)"
         ACLCOUNT=0
         while [ "$ACLCOUNT" != "2" ] ; do
                 docker logs $DOVESNAPID
