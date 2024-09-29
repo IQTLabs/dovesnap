@@ -1,6 +1,6 @@
 module dovesnap
 
-go 1.22.0
+go 1.18
 
 require (
 	github.com/docker/docker v27.3.1+incompatible
