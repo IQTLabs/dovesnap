@@ -2,7 +2,7 @@ module dovesnap
 
 go 1.22.0
 
-toolchain go1.23.6
+toolchain go1.24.0
 
 require (
 	github.com/docker/docker v27.5.1+incompatible
