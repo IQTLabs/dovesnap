@@ -7,23 +7,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.24'
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8
-        with:
-          install-mode: "goinstall"
-          # Required: the version of golangci-lint is required and must be specified without patch version: we always use the latest patch version.
-          version: v2.1.6
-
-          # Optional: working directory, useful for monorepos
-          # working-directory: somedir
-
-          # Optional: golangci-lint command line arguments.
-          # args: --disable-all -E whitespace -E asciicheck -E prealloc -E goconst -E scopelint -E dupl -E dogsled -E goconst -E goprintffuncname -E nakedret -E goprintffuncname -E gochecknoinits
-
-          # Optional: show only new issues if it's a pull request. The default value is `false`.
-          # only-new-issues: true
-          args: --disable errcheck,govet,ineffassign,staticcheck,unused
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - name: Run golangci-lint
+        run: golangci-lint run ./... --disable errcheck,govet,ineffassign,staticcheck,unused
