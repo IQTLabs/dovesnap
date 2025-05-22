@@ -7,8 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -16,4 +14,4 @@ jobs:
       - name: Install golangci-lint
         run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
       - name: Run golangci-lint
-        run: golangci-lint run ./...
+        run: golangci-lint run ./... --verbose
