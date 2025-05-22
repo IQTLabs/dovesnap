@@ -10,6 +10,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
+          install-mode: "goinstall"
           # Required: the version of golangci-lint is required and must be specified without patch version: we always use the latest patch version.
           version: v2.1.6
 
