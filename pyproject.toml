@@ -9,7 +9,7 @@ license = "Apache-2.0"
 python = ">=3.11,<3.14"
 docker = "7.1.0"
 faucetconfrpc = "0.55.74"
-graphviz = "0.20.3"
+graphviz = "0.21"
 "ruamel.yaml" = "^0.18.2"
 
 [tool.poetry.dev-dependencies]
