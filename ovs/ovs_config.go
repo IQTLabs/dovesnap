@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/network"
 	networkplugin "github.com/docker/go-plugins-helpers/network"
 )
 
@@ -302,11 +302,11 @@ func (d *Driver) mustGetStackBridgeConfig() (string, string, uint64, string) {
 	return hostname, dpid, uintDpid, dpName
 }
 
-func mustGetBridgeNameFromResource(r *types.NetworkResource) string {
+func mustGetBridgeNameFromResource(r *network.Inspect) string {
 	return bridgePrefix + truncateID(r.ID)
 }
 
-func getStrOptionFromResource(r *types.NetworkResource, optionName string, defaultOptionValue string) string {
+func getStrOptionFromResource(r *network.Inspect, optionName string, defaultOptionValue string) string {
 	if r.Options == nil {
 		return defaultOptionValue
 	}
@@ -317,18 +317,18 @@ func getStrOptionFromResource(r *types.NetworkResource, optionName string, defau
 	return optionValue
 }
 
-func getUintOptionFromResource(r *types.NetworkResource, optionName string, defaultOptionValue uint) uint {
+func getUintOptionFromResource(r *network.Inspect, optionName string, defaultOptionValue uint) uint {
 	optionStrValue := getStrOptionFromResource(r, optionName, "")
 	return uint(defaultUint(optionStrValue, uint64(defaultOptionValue)))
 }
 
-func mustGetBridgeDpidFromResource(r *types.NetworkResource) (string, uint64) {
+func mustGetBridgeDpidFromResource(r *network.Inspect) (string, uint64) {
 	dpid := getStrOptionFromResource(r, bridgeDpid, "")
 	uintDpid := mustGetUintFromHexStr(dpid)
 	return dpid, uintDpid
 }
 
-func getGatewayFromResource(r *types.NetworkResource) (string, string) {
+func getGatewayFromResource(r *network.Inspect) (string, string) {
 	if len(r.IPAM.Config) > 0 {
 		config := r.IPAM.Config[0]
 		subnetIP := config.Subnet
@@ -356,7 +356,7 @@ func getStrForNetwork(networkStr string, networkName string) string {
 	return networkStrs
 }
 
-func getNetworkStateFromResource(r *types.NetworkResource, shortEngineId string) (NetworkState, error) {
+func getNetworkStateFromResource(r *network.Inspect, shortEngineId string) (NetworkState, error) {
 	var err error = nil
 	ns := NetworkState{}
 	defer func() {
@@ -392,7 +392,7 @@ func getNetworkStateFromResource(r *types.NetworkResource, shortEngineId string)
 	return ns, err
 }
 
-func (d *Driver) getStackMirrorConfigFromResource(r *types.NetworkResource) StackMirrorConfig {
+func (d *Driver) getStackMirrorConfigFromResource(r *network.Inspect) StackMirrorConfig {
 	lbPort := getUintOptionFromResource(r, bridgeLbPort, defaultLbPort)
 	var tunnelVid uint = 0
 	remoteDpName := ""
