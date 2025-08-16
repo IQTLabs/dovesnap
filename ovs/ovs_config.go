@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/network"
 	networkplugin "github.com/docker/go-plugins-helpers/network"
 )
