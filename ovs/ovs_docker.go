@@ -36,7 +36,7 @@ func (c *dockerer) mustGetShortEngineID() string {
 	return engineId
 }
 
-func (c *dockerer) mustGetNetworkInspectFromID(NetworkID string) types.NetworkResource {
+func (c *dockerer) mustGetNetworkInspectFromID(NetworkID string) network.Inspect {
 	for i := 0; i < dockerRetries; i++ {
 		netInspect, err := c.client.NetworkInspect(context.Background(), NetworkID, types.NetworkInspectOptions{})
 		if err == nil {
