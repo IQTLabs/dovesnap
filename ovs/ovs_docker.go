@@ -38,7 +38,7 @@ func (c *dockerer) mustGetShortEngineID() string {
 
 func (c *dockerer) mustGetNetworkInspectFromID(NetworkID string) network.Inspect {
 	for i := 0; i < dockerRetries; i++ {
-		netInspect, err := c.client.NetworkInspect(context.Background(), NetworkID, types.NetworkInspectOptions{})
+		netInspect, err := c.client.NetworkInspect(context.Background(), NetworkID, network.InspectOptions{})
 		if err == nil {
 			return netInspect
 		}
@@ -52,7 +52,7 @@ func (c *dockerer) mustGetNetworkNameFromID(NetworkID string) string {
 }
 
 func (c *dockerer) mustGetNetworkList() map[string]string {
-	networkList, err := c.client.NetworkList(context.Background(), types.NetworkListOptions{})
+	networkList, err := c.client.NetworkList(context.Background(), network.ListOptions{})
 	if err != nil {
 		panic(fmt.Errorf("could not get docker networks: %s", err))
 	}
