@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	networkplugin "github.com/docker/go-plugins-helpers/network"
 	log "github.com/sirupsen/logrus"
 )
@@ -117,7 +117,7 @@ type StackingPort struct {
 
 type OFPortContainer struct {
 	OFPort           OFPortType
-	containerInspect types.ContainerJSON
+	containerInspect container.InspectResponse
 	udhcpcCmd        *exec.Cmd
 	Options          map[string]interface{}
 }

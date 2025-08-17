@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	log "github.com/sirupsen/logrus"
@@ -65,7 +65,7 @@ func (c *dockerer) mustGetNetworkList() map[string]string {
 	return netlist
 }
 
-func (c *dockerer) getContainerFromEndpoint(NetworkID string, EndpointID string) (types.ContainerJSON, error) {
+func (c *dockerer) getContainerFromEndpoint(NetworkID string, EndpointID string) (container.InspectResponse, error) {
 	for i := 0; i < dockerRetries; i++ {
 		log.Debugf("about to inspect network %+v", NetworkID)
 		netInspect := c.mustGetNetworkInspectFromID(NetworkID)
@@ -84,5 +84,5 @@ func (c *dockerer) getContainerFromEndpoint(NetworkID string, EndpointID string)
 		}
 		time.Sleep(2 * time.Second)
 	}
-	return types.ContainerJSON{}, fmt.Errorf("endpoint %s not found", EndpointID)
+	return container.InspectResponse{}, fmt.Errorf("endpoint %s not found", EndpointID)
 }
