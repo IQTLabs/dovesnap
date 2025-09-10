@@ -3,7 +3,7 @@ version: '3.7'
 services:
   faucet:
     restart: always
-    image: 'c65sdn/faucet:1.0.88'
+    image: 'c65sdn/faucet:1.0.89'
     networks:
       - dovesnap
     volumes:
@@ -18,7 +18,7 @@ services:
       - "dovesnap.namespace=standalone"
   gauge:
     restart: always
-    image: 'c65sdn/gauge:1.0.88'
+    image: 'c65sdn/gauge:1.0.89'
     networks:
       - dovesnap
     volumes:
