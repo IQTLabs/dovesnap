@@ -122,6 +122,25 @@ You can set the MAC address on a container, with `docker run --mac-address <mac>
 
 Dovesnap will connect `eno123` to the Docker network, and attempt to use OVS OFPort 8 (OVS will select another port number, if for some reason port 8 is already in use). You can specify more ports with commas. The OFPort specification is optional - if not present dovesnap will select the next free port number. If specifying a port, you can also specify a third parameter - the ACL name to be applied to the port.
 
+##### Adding a physical port/real VLAN with custom VLAN
+
+`-o ovs.bridge.add_ports=eno123/8//20`
+
+Dovesnap will connect `eno123` to the Docker network, use OVS OFPort 8, and configure it with native_vlan 20.
+
+Format: `portname[/ofport][/acl_name][/native_vlan]`
+
+Examples:
+- `eth0` - Port only, auto-assign OFPort, use bridge default VLAN
+- `eth0/8` - Port with OFPort 8, use bridge default VLAN
+- `eth0/8/myacl` - Port with OFPort 8 and ACL, use bridge default VLAN
+- `eth0/8//20` - Port with OFPort 8, no ACL, VLAN 20
+- `eth0/8/myacl/20` - Port with OFPort 8, ACL 'myacl', and VLAN 20
+- `eth0///20` - Port with auto-assigned OFPort, no ACL, VLAN 20
+
+You can specify multiple ports with different VLANs:
+`-o ovs.bridge.add_ports=eth0/8//20,eth1/9//30,eth2/10/myacl/40`
+
 ##### Adding a physical port for coprocessing
 
 `-o ovs.bridge.add_copro_ports=eno123/8`

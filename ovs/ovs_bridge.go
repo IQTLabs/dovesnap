@@ -80,7 +80,7 @@ func (ovsdber *ovsdber) makeLoopbackBridge(bridgeName string) (err error) {
 	return err
 }
 
-func (ovsdber *ovsdber) parseAddPorts(add_ports string, addPorts *map[string]OFPortType, addPortsAcls *map[OFPortType]string) {
+func (ovsdber *ovsdber) parseAddPorts(add_ports string, addPorts *map[string]OFPortType, addPortsAcls *map[OFPortType]string, addPortsVlans *map[string]uint) {
 	if add_ports == "" {
 		return
 	}
@@ -89,14 +89,41 @@ func (ovsdber *ovsdber) parseAddPorts(add_ports string, addPorts *map[string]OFP
 		add_port := add_port_params[0]
 		(*addPorts)[add_port] = 0
 
-		if len(add_port_params) >= 2 {
+		// Parse OFPort (parameter 2)
+		if len(add_port_params) >= 2 && add_port_params[1] != "" {
 			port_no, err := ParseUint32(add_port_params[1])
 			if err != nil {
 				panic(err)
 			}
 			(*addPorts)[add_port] = OFPortType(port_no)
-			if len(add_port_params) == 3 && addPortsAcls != nil {
+
+			// Parse ACL name (parameter 3)
+			if len(add_port_params) >= 3 && add_port_params[2] != "" && addPortsAcls != nil {
 				(*addPortsAcls)[OFPortType(port_no)] = add_port_params[2]
+			}
+
+			// Parse native VLAN (parameter 4)
+			if len(add_port_params) >= 4 && add_port_params[3] != "" && addPortsVlans != nil {
+				vlan, err := ParseUint32(add_port_params[3])
+				if err != nil {
+					panic(fmt.Errorf("invalid VLAN for port %s: %v", add_port, err))
+				}
+				if vlan < 1 || vlan > 4094 {
+					panic(fmt.Errorf("VLAN %d for port %s out of range (1-4094)", vlan, add_port))
+				}
+				(*addPortsVlans)[add_port] = uint(vlan)
+			}
+		} else {
+			// Handle case where OFPort is omitted: eth0///20
+			if len(add_port_params) >= 4 && add_port_params[3] != "" && addPortsVlans != nil {
+				vlan, err := ParseUint32(add_port_params[3])
+				if err != nil {
+					panic(fmt.Errorf("invalid VLAN for port %s: %v", add_port, err))
+				}
+				if vlan < 1 || vlan > 4094 {
+					panic(fmt.Errorf("VLAN %d for port %s out of range (1-4094)", vlan, add_port))
+				}
+				(*addPortsVlans)[add_port] = uint(vlan)
 			}
 		}
 	}
@@ -135,7 +162,7 @@ func (ovsdber *ovsdber) createBridge(bridgeName string, controller string, dpid 
 	}
 
 	addPorts := make(map[string]OFPortType)
-	ovsdber.parseAddPorts(add_ports, &addPorts, nil)
+	ovsdber.parseAddPorts(add_ports, &addPorts, nil, nil)
 
 	for add_port, number := range addPorts {
 		if number > 0 {
