@@ -12,6 +12,7 @@ sudo modprobe openvswitch && \
   sudo apt-get update && sudo apt-get install docker-ce docker-ce-cli containerd.io && \
   sudo apt-get install graphviz wget udhcpd jq nftables && sudo nft flush ruleset && sudo apt-get purge nftables && sudo apt-get --reinstall install iptables && \
   sudo update-alternatives --set iptables /usr/sbin/iptables-legacy && \
+  sudo apt-get update && sudo apt-get install docker-ce docker-ce-cli containerd.io && \
   sudo service docker restart && \
   cd openvswitch && docker build -f Dockerfile . -t iqtlabs/openvswitch:v3.2.1 && cd .. && \
   sudo ip link && sudo ip addr
