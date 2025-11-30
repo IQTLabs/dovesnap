@@ -21,7 +21,7 @@ fi
 # find Dovesnap control network/FAUCET config directory, if any.
 dsnet=""
 faucetconf=""
-dscons=$(docker ps -q --filter "label=dovesnap.namespace")
+dscons=$(docker ps -a -q --filter "label=dovesnap.namespace")
 for dscon in $dscons ; do
 	if [[ "${dsnet}" == "" ]] ; then
 		dsnet=$(docker inspect "${dscon}" -f '{{range $k, $v := .NetworkSettings.Networks}}{{ if ne $k "host" }}{{.NetworkID}}{{end}}{{end}}')

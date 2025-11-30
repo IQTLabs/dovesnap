@@ -334,8 +334,8 @@ func (d *Driver) ReOrCreateNetwork(r *networkplugin.CreateNetworkRequest, operat
 	// Validate add_ports/add_copro_ports if present.
 	addPorts := make(map[string]OFPortType)
 	addPortsAcls := make(map[OFPortType]string)
-	d.ovsdber.parseAddPorts(ns.AddPorts, &addPorts, &addPortsAcls)
-	d.ovsdber.parseAddPorts(ns.AddCoproPorts, &addPorts, &addPortsAcls)
+	d.ovsdber.parseAddPorts(ns.AddPorts, &addPorts, &addPortsAcls, nil)
+	d.ovsdber.parseAddPorts(ns.AddCoproPorts, &addPorts, &addPortsAcls, nil)
 	stackMirrorConfig := d.getStackMirrorConfig(r)
 
 	if operation == "create" {
@@ -574,19 +574,29 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 	add_ports := opMsg.AddPorts
 	add_interfaces := ""
 	addPortsAcls := make(map[OFPortType]string)
+	addPortsVlans := make(map[string]uint)
+
 	if add_ports != "" {
 		addPorts := make(map[string]OFPortType)
-		d.ovsdber.parseAddPorts(add_ports, &addPorts, &addPortsAcls)
+		d.ovsdber.parseAddPorts(add_ports, &addPorts, &addPortsAcls, &addPortsVlans)
+
 		for add_port := range addPorts {
 			ofPort := d.ovsdber.mustGetOfPort(add_port)
-			add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofPort, "Physical interface "+add_port, ns.BridgeVLAN, "")
+
+			// Use port-specific VLAN if configured, otherwise use bridge default
+			portVlan := ns.BridgeVLAN // Default to bridge VLAN
+			if customVlan, hasCustomVlan := addPortsVlans[add_port]; hasCustomVlan {
+				portVlan = customVlan
+			}
+
+			add_interfaces += d.faucetconfrpcer.vlanInterfaceYaml(ofPort, "Physical interface "+add_port, portVlan, "")
 			ns.DynamicNetworkStates.ExternalPorts[add_port] = getExternalPortState(add_port, ofPort)
 		}
 	}
 	add_copro_ports := opMsg.AddCoproPorts
 	if add_copro_ports != "" {
 		addPorts := make(map[string]OFPortType)
-		d.ovsdber.parseAddPorts(add_copro_ports, &addPorts, &addPortsAcls)
+		d.ovsdber.parseAddPorts(add_copro_ports, &addPorts, &addPortsAcls, nil)
 		for add_port := range addPorts {
 			ofPort := d.ovsdber.mustGetOfPort(add_port)
 			add_interfaces += d.faucetconfrpcer.coproInterfaceYaml(ofPort, "Physical interface "+add_port, "vlan_vid")
@@ -926,8 +936,8 @@ func reconcileOvs(d *Driver, allPortDesc *map[string]map[OFPortType]string) {
 			continue
 		}
 		addPorts := make(map[string]OFPortType)
-		d.ovsdber.parseAddPorts(ns.AddPorts, &addPorts, nil)
-		d.ovsdber.parseAddPorts(ns.AddCoproPorts, &addPorts, nil)
+		d.ovsdber.parseAddPorts(ns.AddPorts, &addPorts, nil, nil)
+		d.ovsdber.parseAddPorts(ns.AddCoproPorts, &addPorts, nil, nil)
 
 		portDesc, have_port_desc := (*allPortDesc)[id]
 		if have_port_desc {

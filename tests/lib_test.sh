@@ -113,6 +113,15 @@ dps:
         0xfffffffe:
             native_vlan: 100
             opstatus_reconf: false
+vlans:
+  10:
+    vid: 10
+  20:
+    vid: 20
+  30:
+    vid: 30
+  40:
+    vid: 40
 EOFC
 }
 
@@ -288,7 +297,7 @@ wait_for_container_ip ()
         IP=$1
         OUT=""
         while [ "$OUT" == "" ] && [ "$i" != 30 ] ; do
-                echo waiting for container IP: $i 
+                echo waiting for container IP: $i
                 OUT=$(docker exec -t testcon ifconfig|grep "inet addr:$IP"|cat)
                 ((i=i+1))
                 sleep 1
