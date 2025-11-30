@@ -584,7 +584,7 @@ func mustHandleCreateNetwork(d *Driver, opMsg DovesnapOp) {
 			ofPort := d.ovsdber.mustGetOfPort(add_port)
 
 			// Use port-specific VLAN if configured, otherwise use bridge default
-			portVlan := ns.BridgeVLAN  // Default to bridge VLAN
+			portVlan := ns.BridgeVLAN // Default to bridge VLAN
 			if customVlan, hasCustomVlan := addPortsVlans[add_port]; hasCustomVlan {
 				portVlan = customVlan
 			}
