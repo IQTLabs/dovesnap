@@ -173,3 +173,25 @@ jobs:
       - name: dhcp_int_test
         run: |
           ./tests/install_test.sh && ./tests/test_dovesnap_dhcp.sh
+
+  vlan_config_test:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: false
+          virtualenvs-in-project: false
+          version: ${{ env.POETRY_VERSION }}
+      - name: poetry install
+        run: |
+          poetry build && poetry install
+      - name: vlan_config_test
+        run: |
+          ./tests/install_test.sh && timeout 600 ./tests/test_dovesnap_vlan_config.sh
