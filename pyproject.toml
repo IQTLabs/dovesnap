@@ -8,9 +8,9 @@ license = "Apache-2.0"
 [tool.poetry.dependencies]
 python = ">=3.11,<3.14"
 docker = "7.1.0"
-faucetconfrpc = "0.55.75"
+faucetconfrpc = "0.55.78"
 graphviz = "0.21"
-"ruamel.yaml" = "^0.18.2"
+"ruamel.yaml" = "^0.19.1"
 
 [tool.poetry.dev-dependencies]
 pytype = "2024.10.11"
