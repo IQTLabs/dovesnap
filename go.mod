@@ -10,7 +10,7 @@ require (
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20200219012139-4f65d685bdf9
 	github.com/iqtlabs/faucetconfrpc v0.55.78
 	github.com/kenshaw/baseconv v0.1.1
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
 	github.com/vishvananda/netlink v1.3.1
 	google.golang.org/grpc v1.78.0
 )
