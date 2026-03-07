@@ -12,7 +12,7 @@ require (
 	github.com/kenshaw/baseconv v0.1.1
 	github.com/sirupsen/logrus v1.9.4
 	github.com/vishvananda/netlink v1.3.1
-	google.golang.org/grpc v1.79.1
+	google.golang.org/grpc v1.79.2
 )
 
 require (
